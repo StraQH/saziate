@@ -1,14 +1,14 @@
 <svg width="63" height="22" viewBox="0 0 63 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="29" width="10" height="10" fill="white"/>
-<rect x="53" width="10" height="10" fill="white"/>
-<rect x="17" width="10" height="10" fill="white"/>
-<rect x="41" width="10" height="10" fill="white"/>
-<rect y="12" width="10" height="10" fill="white"/>
-<rect x="24" y="12" width="10" height="10" fill="white"/>
-<rect x="12" y="12" width="10" height="10" fill="white"/>
-<rect x="36" y="12" width="10" height="10" fill="white"/>
-<rect y="12" width="10" height="10" fill="white"/>
-<rect x="24" y="12" width="10" height="10" fill="white"/>
-<rect x="12" y="12" width="10" height="10" fill="white"/>
-<rect x="36" y="12" width="10" height="10" fill="white"/>
+<rect x="29" width="10" height="10" fill="#1D4ED8"/>
+<rect x="53" width="10" height="10" fill="#1D4ED8"/>
+<rect x="17" width="10" height="10" fill="#1D4ED8"/>
+<rect x="41" width="10" height="10" fill="#1D4ED8"/>
+<rect y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect x="24" y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect x="12" y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect x="36" y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect x="24" y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect x="12" y="12" width="10" height="10" fill="#1D4ED8"/>
+<rect x="36" y="12" width="10" height="10" fill="#1D4ED8"/>
 </svg>
