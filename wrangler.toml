@@ -1,0 +1,15 @@
+name = "saziate"
+main = ".open-next/worker.js"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Assets directory produced by @opennextjs/cloudflare build
+assets = { directory = ".open-next/assets", binding = "ASSETS" }
+
+[[d1_databases]]
+binding = "DB"
+database_name = "saziate-db"
+database_id = "local-placeholder"   # Replace with actual ID after `wrangler d1 create saziate-db`
+
+[vars]
+NEXT_PUBLIC_APP_NAME = "Saziate"

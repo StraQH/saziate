@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1784445705099,
+      "tag": "0000_black_wilson_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1784449717397,
+      "tag": "0001_open_marvel_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1784464418432,
+      "tag": "0002_funny_paladin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1784466630050,
+      "tag": "0003_eminent_mad_thinker",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1784489973886,
+      "tag": "0004_misty_killer_shrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1784490878832,
+      "tag": "0005_fresh_ben_grimm",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  FileText,
+  CreditCard,
+  User,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import { useSession } from "@/components/providers/SessionProvider";
+import { cn } from "@/lib/utils";
+
+const navItems = [
+  { href: "/resident",          label: "Dashboard",   icon: LayoutDashboard },
+  { href: "/resident/invoices",  label: "Invoices",    icon: FileText },
+  { href: "/resident/payments",  label: "Payments",    icon: CreditCard },
+  { href: "/resident/profile",   label: "Profile",     icon: User },
+];
+
+export function ResidentSidebar({ residentName }: { residentName: string }) {
+  const pathname = usePathname();
+  const { logout } = useSession();
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <div className="mobile-header">
+        <button onClick={() => setIsOpen(true)} className="p-2 -ml-2" aria-label="Open menu">
+          <Menu size={24} style={{ color: "var(--color-text)" }} />
+        </button>
+        <span style={{ marginLeft: "1rem" }}><img src="/logo.svg" alt="Saziate Logo" style={{ height: "24px", objectFit: "contain" }} /></span>
+      </div>
+
+      <div 
+        className={cn("sidebar-overlay", isOpen && "open")} 
+        onClick={() => setIsOpen(false)} 
+      />
+
+      <aside className={cn("sidebar", isOpen && "open")}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", padding: "0 0.5rem" }}>
+          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><img src="/logo.svg" alt="Saziate Logo" style={{ height: "32px", objectFit: "contain" }} /></div>
+          {isOpen && (
+            <button onClick={() => setIsOpen(false)} style={{ background: "none", border: "none", color: "var(--color-text-muted)" }}>
+              <X size={24} />
+            </button>
+          )}
+        </div>
+
+        <div style={{ marginBottom: "1.5rem", padding: "0 0.5rem" }}>
+          <p className="text-xs text-muted" style={{ marginBottom: "0.25rem" }}>
+            Resident Account
+          </p>
+          <p className="font-semibold" style={{ fontSize: "0.9375rem", lineHeight: 1.3 }}>
+            {residentName}
+          </p>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const isActive =
+              href === "/resident" ? pathname === "/resident" : pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setIsOpen(false)}
+                className={cn("nav-link", isActive && "active")}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <button className="nav-link" style={{ marginTop: "auto", color: "var(--color-danger)" }} onClick={logout}>
+          <LogOut size={18} />
+          Sign out
+        </button>
+      </aside>
+    </>
+  );
+}

@@ -1,0 +1,94 @@
+import { onboardSchema } from "@/lib/validators";
+import { getDb } from "@/db";
+import { users, psps } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { generateId } from "@/lib/utils";
+import { SaziateLogger } from "@/lib/logger";
+
+import { checkRateLimit } from "@/lib/rate-limit";
+
+export const runtime = "edge";
+
+export async function POST(req: Request) {
+  const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";
+  if (!checkRateLimit(ip)) {
+    return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), { status: 429, headers: { "Content-Type": "application/json" } });
+  }
+
+  const env = process.env as any;
+  const db = getDb(env.DB);
+  const logger = new SaziateLogger(env.DB);
+
+  try {
+    const rawBody = await req.json();
+    const parsed = onboardSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
+    }
+    const body = parsed.data;
+    const { userId, phone, role, pspName, rcNumber, address } = body;
+
+    if (!userId || !role) {
+      return new Response("Missing required onboarding parameters.", { status: 400 });
+    }
+
+    // Verify user exists
+    const userRecord = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .get();
+
+    if (!userRecord) {
+      return new Response("User not found.", { status: 404 });
+    }
+
+    let pspId: string | null = null;
+
+    if (role === "psp_operator") {
+      if (!pspName || !address) {
+        return new Response("Missing PSP details.", { status: 400 });
+      }
+
+      pspId = generateId();
+
+      // Create PSP operator record
+      await db.insert(psps).values({
+        id: pspId,
+        name: pspName,
+        rcNumber: rcNumber || null,
+        address,
+        contactPhone: phone || "",
+        contactEmail: userRecord.email,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
+    // Update user profile fields with role and associated pspId
+    await db
+      .update(users)
+      .set({
+        role,
+        phone: phone || null,
+        pspId,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+
+    await logger.logAudit({
+      actorId: userId,
+      action: "user.onboarded",
+      entityType: "users",
+      entityId: userId,
+      meta: JSON.stringify({ role, pspId }),
+    });
+
+    return new Response(JSON.stringify({ status: "success", userId, pspId }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+  }
+}

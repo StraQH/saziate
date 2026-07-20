@@ -1,0 +1,7 @@
+.next
+.open-next
+.wrangler
+node_modules
+dist
+.git
+migrations
