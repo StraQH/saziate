@@ -75,6 +75,12 @@
       "namedRegex": "^/agent/route(?:/)?$"
     },
     {
+      "page": "/api/v1/admin/audit-logs",
+      "regex": "^/api/v1/admin/audit\\-logs(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/admin/audit\\-logs(?:/)?$"
+    },
+    {
       "page": "/api/v1/admin/psps",
       "regex": "^/api/v1/admin/psps(?:/)?$",
       "routeKeys": {},
@@ -87,22 +93,10 @@
       "namedRegex": "^/api/v1/admin/psps/approve(?:/)?$"
     },
     {
-      "page": "/api/v1/auth/login",
-      "regex": "^/api/v1/auth/login(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/v1/auth/login(?:/)?$"
-    },
-    {
       "page": "/api/v1/auth/onboard",
       "regex": "^/api/v1/auth/onboard(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/v1/auth/onboard(?:/)?$"
-    },
-    {
-      "page": "/api/v1/auth/signup",
-      "regex": "^/api/v1/auth/signup(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/api/v1/auth/signup(?:/)?$"
     },
     {
       "page": "/api/v1/billing/cancel",
@@ -141,6 +135,24 @@
       "namedRegex": "^/api/v1/collections/verify(?:/)?$"
     },
     {
+      "page": "/api/v1/complaints",
+      "regex": "^/api/v1/complaints(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/complaints(?:/)?$"
+    },
+    {
+      "page": "/api/v1/cron/generate-invoices",
+      "regex": "^/api/v1/cron/generate\\-invoices(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/cron/generate\\-invoices(?:/)?$"
+    },
+    {
+      "page": "/api/v1/cron/process-payouts",
+      "regex": "^/api/v1/cron/process\\-payouts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/cron/process\\-payouts(?:/)?$"
+    },
+    {
       "page": "/api/v1/notifications/process-queue",
       "regex": "^/api/v1/notifications/process\\-queue(?:/)?$",
       "routeKeys": {},
@@ -153,16 +165,52 @@
       "namedRegex": "^/api/v1/payments/log\\-cash(?:/)?$"
     },
     {
+      "page": "/api/v1/payments/verify",
+      "regex": "^/api/v1/payments/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/payments/verify(?:/)?$"
+    },
+    {
       "page": "/api/v1/payments/webhook",
       "regex": "^/api/v1/payments/webhook(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/v1/payments/webhook(?:/)?$"
     },
     {
+      "page": "/api/v1/psp/advance-payment",
+      "regex": "^/api/v1/psp/advance\\-payment(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/psp/advance\\-payment(?:/)?$"
+    },
+    {
+      "page": "/api/v1/psp/agents/invite",
+      "regex": "^/api/v1/psp/agents/invite(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/psp/agents/invite(?:/)?$"
+    },
+    {
+      "page": "/api/v1/psp/cash-verify",
+      "regex": "^/api/v1/psp/cash\\-verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/psp/cash\\-verify(?:/)?$"
+    },
+    {
+      "page": "/api/v1/psp/messaging",
+      "regex": "^/api/v1/psp/messaging(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/psp/messaging(?:/)?$"
+    },
+    {
       "page": "/api/v1/psp/notification-costs",
       "regex": "^/api/v1/psp/notification\\-costs(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/v1/psp/notification\\-costs(?:/)?$"
+    },
+    {
+      "page": "/api/v1/psp/payouts",
+      "regex": "^/api/v1/psp/payouts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/psp/payouts(?:/)?$"
     },
     {
       "page": "/api/v1/psp/settings",
@@ -201,6 +249,12 @@
       "namedRegex": "^/api/v1/resident/profile(?:/)?$"
     },
     {
+      "page": "/api/v1/resident/top-up",
+      "regex": "^/api/v1/resident/top\\-up(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/v1/resident/top\\-up(?:/)?$"
+    },
+    {
       "page": "/api/v1/residents",
       "regex": "^/api/v1/residents(?:/)?$",
       "routeKeys": {},
@@ -219,10 +273,10 @@
       "namedRegex": "^/api/v1/routes(?:/)?$"
     },
     {
-      "page": "/favicon.ico",
-      "regex": "^/favicon\\.ico(?:/)?$",
+      "page": "/icon.svg",
+      "regex": "^/icon\\.svg(?:/)?$",
       "routeKeys": {},
-      "namedRegex": "^/favicon\\.ico(?:/)?$"
+      "namedRegex": "^/icon\\.svg(?:/)?$"
     },
     {
       "page": "/login",
@@ -237,16 +291,46 @@
       "namedRegex": "^/psp(?:/)?$"
     },
     {
+      "page": "/psp/agents",
+      "regex": "^/psp/agents(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/psp/agents(?:/)?$"
+    },
+    {
       "page": "/psp/billing",
       "regex": "^/psp/billing(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/psp/billing(?:/)?$"
     },
     {
+      "page": "/psp/billing/reconciliation",
+      "regex": "^/psp/billing/reconciliation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/psp/billing/reconciliation(?:/)?$"
+    },
+    {
       "page": "/psp/collections",
       "regex": "^/psp/collections(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/psp/collections(?:/)?$"
+    },
+    {
+      "page": "/psp/complaints",
+      "regex": "^/psp/complaints(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/psp/complaints(?:/)?$"
+    },
+    {
+      "page": "/psp/field-cash",
+      "regex": "^/psp/field\\-cash(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/psp/field\\-cash(?:/)?$"
+    },
+    {
+      "page": "/psp/field-route",
+      "regex": "^/psp/field\\-route(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/psp/field\\-route(?:/)?$"
     },
     {
       "page": "/psp/residents",
@@ -295,6 +379,12 @@
       "regex": "^/resident/profile(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/resident/profile(?:/)?$"
+    },
+    {
+      "page": "/resident/support",
+      "regex": "^/resident/support(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/resident/support(?:/)?$"
     },
     {
       "page": "/signup",

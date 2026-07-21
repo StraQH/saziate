@@ -68,7 +68,7 @@ async function syncPendingCollections() {
     
     request.onerror = () => reject();
     request.onsuccess = async (event) => {
-      const db = (event.target as any).result;
+      const db = event.target.result;
       const transaction = db.transaction(["pending-logs"], "readwrite");
       const store = transaction.objectStore("pending-logs");
       const getAllRequest = store.getAll();

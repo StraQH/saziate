@@ -1,8 +1,8 @@
 var R=require("../../../chunks/ssr/[turbopack]_runtime.js")("server/app/(dashboards)/agent/page.js")
-R.c("server/chunks/ssr/[root-of-the-server]__1-vw9n_._.js")
-R.c("server/chunks/ssr/node_modules_09r9c10._.js")
-R.c("server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_1j6t98k.js")
-R.c("server/chunks/ssr/[root-of-the-server]__09fvjsw._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__0xswyif._.js")
+R.c("server/chunks/ssr/node_modules_1ivn_d-._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_05t688n.js")
+R.c("server/chunks/ssr/[root-of-the-server]__05hn_d3._.js")
 R.c("server/chunks/ssr/[root-of-the-server]__0g84hko._.js")
 R.c("server/chunks/ssr/src_1idp-dw._.js")
 R.c("server/chunks/ssr/node_modules_next_dist_client_components_0wpq8j3._.js")
@@ -11,5 +11,5 @@ R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthor
 R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_0-o-goa.js")
 R.c("server/chunks/ssr/src_app_(dashboards)_agent_layout_tsx_1htc6mf._.js")
 R.c("server/chunks/ssr/_next-internal_server_app_(dashboards)_agent_page_actions_20z7odg.js")
-R.m(33878)
-module.exports=R.m(33878).exports
+R.m(39559)
+module.exports=R.m(39559).exports

@@ -170,11 +170,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/favicon.ico": {
+    "/icon.svg": {
       "initialHeaders": {
         "cache-control": "public, max-age=0, must-revalidate",
-        "content-type": "image/x-icon",
-        "x-next-cache-tags": "_N_T_/layout,_N_T_/favicon.ico/layout,_N_T_/favicon.ico/route,_N_T_/favicon.ico"
+        "content-type": "image/svg+xml",
+        "x-next-cache-tags": "_N_T_/layout,_N_T_/icon.svg/layout,_N_T_/icon.svg/route,_N_T_/icon.svg"
       },
       "experimentalBypassFor": [
         {
@@ -188,7 +188,7 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/favicon.ico",
+      "srcRoute": "/icon.svg",
       "dataRoute": null,
       "allowHeader": [
         "host",
@@ -247,6 +247,30 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/psp/agents": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/psp/agents",
+      "dataRoute": "/psp/agents.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/psp/billing": {
       "experimentalBypassFor": [
         {
@@ -271,6 +295,30 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/psp/billing/reconciliation": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/psp/billing/reconciliation",
+      "dataRoute": "/psp/billing/reconciliation.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/psp/collections": {
       "experimentalBypassFor": [
         {
@@ -286,6 +334,78 @@
       "initialRevalidateSeconds": false,
       "srcRoute": "/psp/collections",
       "dataRoute": "/psp/collections.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/psp/complaints": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/psp/complaints",
+      "dataRoute": "/psp/complaints.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/psp/field-cash": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/psp/field-cash",
+      "dataRoute": "/psp/field-cash.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/psp/field-route": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/psp/field-route",
+      "dataRoute": "/psp/field-route.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -487,6 +607,30 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/resident/support": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/resident/support",
+      "dataRoute": "/resident/support.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/signup": {
       "experimentalBypassFor": [
         {
@@ -515,8 +659,8 @@
   "dynamicRoutes": {},
   "notFoundRoutes": [],
   "preview": {
-    "previewModeId": "9b9cfb3770aa50945ba0a2bfab52a96c",
-    "previewModeSigningKey": "76f9871bde160a2e10b8b8c57491c8b8190add55677cfc484c8596a10013baea",
-    "previewModeEncryptionKey": "d8b478f16d6403d19ce0a765a266c818810e4d656952082cf72407876ed91291"
+    "previewModeId": "a02035a5e1f50de840f13d4d67308556",
+    "previewModeSigningKey": "965f3e53cb88e84399609d3400bf92e4afa37bead0125dca4fceefa703433b14",
+    "previewModeEncryptionKey": "ec61686fd0da9d1d76140452ae1681519a2c555afaf9d1cdf4865da04b57bf3a"
   }
 }

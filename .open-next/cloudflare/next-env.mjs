@@ -1,3 +1,3 @@
-export const production = {};
-export const development = {};
+export const production = {"BETTER_AUTH_SECRET":"your-better-auth-secret-key","BETTER_AUTH_URL":"http://localhost:3000","PAYSTACK_SECRET_KEY":"sk_test_...","PAYSTACK_WEBHOOK_SECRET":"whsec_...","TERMII_API_KEY":"tkey_...","TERMII_SENDER_ID":"Saziate","RESEND_API_KEY":"re_...","CRON_SECRET":"saziate_local_cron_secret","CLOUDFLARE_ACCOUNT_ID":"your-cloudflare-account-id","CLOUDFLARE_D1_DATABASE_ID":"your-d1-database-id","CLOUDFLARE_D1_TOKEN":"your-d1-api-token","NEXT_PUBLIC_MOCK_MODE":"true"};
+export const development = {"BETTER_AUTH_SECRET":"your-better-auth-secret-key","BETTER_AUTH_URL":"http://localhost:3000","PAYSTACK_SECRET_KEY":"sk_test_...","PAYSTACK_WEBHOOK_SECRET":"whsec_...","TERMII_API_KEY":"tkey_...","TERMII_SENDER_ID":"Saziate","RESEND_API_KEY":"re_...","CRON_SECRET":"saziate_local_cron_secret","CLOUDFLARE_ACCOUNT_ID":"your-cloudflare-account-id","CLOUDFLARE_D1_DATABASE_ID":"your-d1-database-id","CLOUDFLARE_D1_TOKEN":"your-d1-api-token","NEXT_PUBLIC_MOCK_MODE":"true"};
 export const test = {};
