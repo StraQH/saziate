@@ -2,11 +2,13 @@ import { importResidentsSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, residentProfiles, notificationLogs, accounts, routeResidents } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { generateId, generateResidentReference } from "@/lib/utils";
+import { generateId, generateSecurePassword, normalizePhoneNumber } from "@/lib/utils";
 import { SaziateLogger } from "@/lib/logger";
-import { sendNotificationWithFallback } from "@/lib/notifications";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
+import { sendNotificationWithFallback } from "@/lib/notifications";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 import { MOCK_PSP_ID, MOCK_ROUTE_NAME, MOCK_WARD } from "@/lib/mockdata";
 
 export const runtime = "edge";
@@ -41,14 +43,16 @@ export async function POST(req: Request) {
     // Process all profiles in D1
     for (const res of residents) {
       const userId = generateId();
-      const refCode = generateResidentReference("LEK", Math.floor(Math.random() * 900) + 100);
+      const tempPassword = generateSecurePassword(8);
+      const normalizedPhone = normalizePhoneNumber(res.phone);
+      const finalEmail = res.email || `${normalizedPhone}@saziate.com`;
 
       // Create User
       await db.insert(users).values({
         id: userId,
         name: res.name,
-        phone: res.phone || null,
-        email: res.email,
+        phone: normalizedPhone || null,
+        email: finalEmail,
         role: "resident",
         pspId: pspId,
       });
@@ -60,11 +64,9 @@ export async function POST(req: Request) {
         ward: MOCK_WARD,
         lga: "Eti-Osa",
         billingCategory: res.billingCategory || "residential",
-        referenceCode: refCode,
         customMonthlyRate: res.baseRate || null,
       });
 
-      const tempPassword = `SZ-${Math.floor(100000 + Math.random() * 900000)}`;
 
       // Create credentials account link
       const hashedPassword = await import("bcryptjs").then(bcrypt => bcrypt.hashSync(tempPassword, 10));
@@ -94,29 +96,38 @@ export async function POST(req: Request) {
       insertedCount.push({
         id: userId,
         name: res.name,
-        email: res.email,
-        phone: res.phone || "",
+        email: finalEmail,
+        phone: normalizedPhone || "",
         address: res.address,
         route: res.route,
         billingCategory: res.billingCategory || "residential",
         baseRate: res.baseRate || 6000,
         isOverride: false,
-        referenceCode: refCode,
         status: "active",
       });
 
-      // Dispatch WhatsApp/SMS setup notification via Termii with fallback queue integration
+      // Dispatch WhatsApp/SMS setup notification via Termii (free onboarding cost)
       if (res.phone) {
-        const msgText = `Hello ${res.name}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${tempPassword}. Your unique payment reference code is ${refCode}.`;
+        const msgText = `Hello ${res.name}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
         await sendNotificationWithFallback({
           dbBinding: env.DB,
-          termiiApiKey: env.TERMII_API_KEY || "dummy_key",
+          termiiApiKey: env.TERMII_API_KEY || "",
           pspId,
           residentId: userId,
-          phone: res.phone,
+          phone: normalizedPhone,
           messageText: msgText,
           messageType: "setup",
-          channel: "whatsapp",
+          channel: "sms",
+        });
+      }
+
+      // Send Welcome Email if real email exists
+      const hasRealEmail = res.email && res.email.includes("@") && !res.email.endsWith("@saziate.com");
+      if (hasRealEmail) {
+        await sendEmail({
+          to: res.email,
+          subject: "Welcome to Saziate!",
+          html: emailTemplates.welcomeResident(res.name.split(" ")[0], tempPassword),
         });
       }
     }

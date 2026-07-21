@@ -1,6 +1,7 @@
 import { getDb } from "@/db";
 import { invoices } from "@/db/schema";
 import { and, lt, eq } from "drizzle-orm";
+import { config } from "@/lib/config";
 
 export const runtime = "edge";
 
@@ -10,10 +11,10 @@ export async function POST(req: Request) {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    const expectedSecret = env.CRON_SECRET || "saziate_local_cron_secret";
-
-    if (authHeader !== `Bearer ${expectedSecret}`) {
-      return new Response("Unauthorized cron trigger.", { status: 401 });
+    if (!config.isMockMode) {
+      if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+        return new Response("Unauthorized cron trigger.", { status: 401 });
+      }
     }
 
     const today = new Date();

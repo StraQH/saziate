@@ -9,11 +9,12 @@ interface SendSMSModalProps {
 
 export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalProps) {
   const [message, setMessage] = useState("");
+  const [channel, setChannel] = useState<"email" | "sms" | "whatsapp">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const costPerSMS = 4.0;
-  const estimatedCost = residentIds.length * costPerSMS;
+  const costPerRecipient = channel === "whatsapp" ? 12.00 : channel === "sms" ? 4.00 : 0.00;
+  const estimatedCost = residentIds.length * costPerRecipient;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,12 +33,13 @@ export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalPr
         body: JSON.stringify({
           residentIds,
           messageText: message,
+          channel,
         }),
       });
 
       if (!res.ok) {
         const errData = await res.json() as any;
-        throw new Error(errData.error || "Failed to send SMS");
+        throw new Error(errData.error || "Failed to send message");
       }
 
       onSuccess();
@@ -78,7 +80,21 @@ export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalPr
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="message">Message Content (SMS)</label>
+            <label className="form-label">Delivery Channel</label>
+            <select 
+              className="form-input" 
+              value={channel} 
+              onChange={(e) => setChannel(e.target.value as any)}
+              style={{ padding: "0.5rem" }}
+            >
+              <option value="email">Email (Free)</option>
+              <option value="sms">SMS (₦4.00 per recipient)</option>
+              <option value="whatsapp">WhatsApp (₦12.00 per recipient)</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="message">Message Content</label>
             <textarea
               id="message"
               className="form-input"
@@ -89,26 +105,28 @@ export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalPr
               required
             />
             <p className="text-muted text-xs" style={{ marginTop: "0.25rem" }}>
-              {message.length} characters (approx. {Math.ceil((message.length || 1) / 160)} SMS segment{Math.ceil((message.length || 1) / 160) > 1 ? "s" : ""})
+              {message.length} characters {channel !== "email" && `(approx. ${Math.ceil((message.length || 1) / 160)} SMS segment(s))`}
             </p>
           </div>
 
-          <div style={{ marginBottom: "1.5rem", padding: "1rem", backgroundColor: "rgba(37, 99, 235, 0.05)", borderRadius: "var(--radius-md)", border: "1px solid rgba(37, 99, 235, 0.1)" }}>
-            <p className="text-sm font-medium" style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-              <span>Estimated Cost:</span>
-              <span style={{ color: "var(--color-primary)" }}>₦{estimatedCost.toFixed(2)}</span>
-            </p>
-            <p className="text-xs text-muted">
-              Cost will be deducted from your available payout balance.
-            </p>
-          </div>
+          {channel !== "email" && (
+            <div style={{ marginBottom: "1.5rem", padding: "1rem", backgroundColor: "rgba(37, 99, 235, 0.05)", borderRadius: "var(--radius-md)", border: "1px solid rgba(37, 99, 235, 0.1)" }}>
+              <p className="text-sm font-medium" style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                <span>Estimated Cost:</span>
+                <span style={{ color: "var(--color-primary)" }}>₦{estimatedCost.toFixed(2)}</span>
+              </p>
+              <p className="text-xs text-muted">
+                Cost will be deducted from your available payout balance.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2" style={{ justifyContent: "flex-end" }}>
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? "Sending..." : "Send SMS"}
+              {loading ? "Sending..." : "Send Message"}
             </button>
           </div>
         </form>

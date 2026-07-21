@@ -1,7 +1,7 @@
 import { createRouteSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { routes, routeBillingRates } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { routes, routeBillingRates, users } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 
@@ -50,6 +50,18 @@ export async function POST(req: Request) {
 
     if (!name) {
       return new Response("Missing route name.", { status: 400 });
+    }
+
+    if (assignedAgentId) {
+      const validAgent = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, assignedAgentId), eq(users.pspId, pspId)))
+        .get();
+        
+      if (!validAgent) {
+        return new Response("Unauthorized: The assigned agent does not belong to this PSP.", { status: 403 });
+      }
     }
 
     const routeId = generateId();

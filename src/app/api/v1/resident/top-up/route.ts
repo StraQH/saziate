@@ -2,10 +2,12 @@ import { getDb } from "@/db";
 import { users, residentProfiles, transactions, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { generateId } from "@/lib/utils";
+import { generateId, generateSecureReference } from "@/lib/utils";
 import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { requireRole } from "@/lib/session";
+import { auth } from "@/lib/auth";
 
 const topUpSchema = z.object({
   residentId: z.string().min(1),
@@ -21,13 +23,24 @@ export async function POST(req: Request) {
     }
 
     const { residentId, amount } = parsed.data;
+
+    // Use environment DB
+    const env = process.env as any;
+    
+    // Authenticate resident session
+    await requireRole(req, env.DB, ["resident"]);
+    const betterAuth = auth(env.DB);
+    const session = await betterAuth.api.getSession({ headers: req.headers });
+    
+    if (!session || !session.user || session.user.id !== residentId) {
+      return new Response("Unauthorized.", { status: 401 });
+    }
     
     // In production, this route would initiate a Paystack transaction and return an authorization_url.
     // The actual balance update would happen in the webhook (e.g. /api/v1/psp/webhook/paystack).
     // For this Mock/Demo environment, we will simulate a successful digital payment instantly.
 
     if (config.isMockMode) {
-      const env = process.env as any;
       const db = getDb(env.DB);
 
       const resident = await db.select().from(users).where(eq(users.id, residentId)).get();
@@ -49,9 +62,9 @@ export async function POST(req: Request) {
       await db.insert(transactions).values({
         id: txId,
         residentId,
-        reference: `PAYSTACK-TOPUP-${Math.floor(Math.random() * 900000) + 100000}`,
+        reference: `PAYSTACK-TOPUP-${generateSecureReference(10)}`,
         amount,
-        paymentMethod: "transfer",
+        paymentMethod: "bank_transfer",
         cashStatus: "settled",
       });
 
@@ -81,9 +94,9 @@ export async function POST(req: Request) {
     } else {
       // Live Paystack Integration placeholder
       return new Response(JSON.stringify({ 
-        status: "success", 
-        message: "Paystack initialization would happen here."
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
+        status: "error", 
+        error: "Live Paystack integration for Resident Top-Up is not yet implemented."
+      }), { status: 501, headers: { "Content-Type": "application/json" } });
     }
 
   } catch (error: any) {

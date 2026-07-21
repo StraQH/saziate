@@ -4,7 +4,8 @@ import { getDb } from "@/db";
 import { psps } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { config } from "@/lib/config";
-import { TermiiClient } from "@/lib/termii";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 
 export const runtime = "edge";
 
@@ -30,12 +31,20 @@ export async function POST(req: Request) {
     }
 
     // Provision Dedicated Virtual Account (DVA)
-    let dvaBankName = "Wema Bank";
-    let dvaAccountNumber = `992${Math.floor(1000000 + Math.random() * 9000000)}`;
-    let dvaAccountName = `Saziate / ${psp.name}`;
-    let dvaCustomerCode = "CUST_99014";
+    let dvaBankName = "";
+    let dvaAccountNumber = "";
+    let dvaAccountName = "";
+    let dvaCustomerCode = "";
 
-    if (!config.isMockMode && env.PAYSTACK_SECRET_KEY) {
+    if (config.isMockMode) {
+      dvaBankName = "Wema Bank";
+      const array = new Uint8Array(4);
+      crypto.getRandomValues(array);
+      const digits = (array[0] * 16777216 + array[1] * 65536 + array[2] * 256 + array[3]).toString().padStart(7, '0').slice(0, 7);
+      dvaAccountNumber = `992${digits}`;
+      dvaAccountName = `Saziate / ${psp.name}`;
+      dvaCustomerCode = "CUST_99014";
+    } else if (env.PAYSTACK_SECRET_KEY) {
       // In live production, calls Paystack APIs to create customer + dva dedicated account
       try {
         const pResponse = await fetch("https://api.paystack.co/customer", {
@@ -75,10 +84,15 @@ export async function POST(req: Request) {
             dvaAccountName = dvaBody.data.account_name;
             dvaCustomerCode = customerCode;
           }
+        } else {
+          throw new Error("Paystack customer creation failed.");
         }
       } catch (paystackErr) {
-        console.error("Failed to provision Paystack DVA, using fallback mock parameters:", paystackErr);
+        console.error("Failed to provision Paystack DVA:", paystackErr);
+        return new Response("Paystack DVA provisioning failed. Please check credentials.", { status: 500 });
       }
+    } else {
+      return new Response("Paystack configuration missing.", { status: 500 });
     }
 
     // Save provisioned parameters to D1
@@ -92,21 +106,16 @@ export async function POST(req: Request) {
       })
       .where(eq(psps.id, pspId));
 
-    // Send dispatch activation alert using Termii client
-    if (psp.contactPhone) {
+    // Send Approval Email to Operator
+    if (psp.contactEmail) {
       try {
-        const termiiKey = env.TERMII_API_KEY;
-        if (!termiiKey) {
-          throw new Error("TERMII_API_KEY is required.");
-        }
-        const termii = new TermiiClient(termiiKey);
-        const msgText = `Hello ${psp.name}, your Saziate operator account has been approved and activated! Your Paystack Dedicated Virtual Account is ${dvaAccountNumber} (${dvaBankName}).`;
-        await termii.sendWhatsApp({
-          to: psp.contactPhone.replace("+", ""),
-          sms: msgText,
+        await sendEmail({
+          to: psp.contactEmail,
+          subject: "Saziate Account Approved!",
+          html: emailTemplates.approvePSP(psp.name, dvaBankName, dvaAccountNumber),
         });
-      } catch (termiiErr) {
-        console.error("Failed to dispatch Termii activation notification:", termiiErr);
+      } catch (emailErr) {
+        console.error("Failed to dispatch Approval email:", emailErr);
       }
     }
 

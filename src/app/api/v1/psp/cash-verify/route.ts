@@ -30,20 +30,34 @@ export async function POST(req: Request) {
       return new Response("Missing transactionId.", { status: 400 });
     }
 
-    // Fetch the cash transaction
-    const tx = await db
-      .select()
+    // Fetch the cash transaction and verify it belongs to the current PSP's invoice
+    const txData = await db
+      .select({
+        id: transactions.id,
+        paymentMethod: transactions.paymentMethod,
+        cashStatus: transactions.cashStatus,
+        amount: transactions.amount,
+        invoiceId: transactions.invoiceId,
+        pspId: invoices.pspId,
+      })
       .from(transactions)
+      .innerJoin(invoices, eq(transactions.invoiceId, invoices.id))
       .where(eq(transactions.id, transactionId))
       .get();
 
-    if (!tx || tx.paymentMethod !== "cash") {
+    if (!txData || txData.paymentMethod !== "cash") {
       return new Response("Valid cash transaction not found.", { status: 404 });
     }
 
-    if (tx.cashStatus === "verified" || tx.cashStatus === "settled") {
+    if (txData.pspId !== pspId) {
+      return new Response("Unauthorized to verify this transaction.", { status: 403 });
+    }
+
+    if (txData.cashStatus === "verified" || txData.cashStatus === "settled") {
       return new Response("Cash is already verified or settled.", { status: 400 });
     }
+
+    const tx = txData;
 
     // Update transaction cashStatus to 'verified'
     await db
@@ -59,15 +73,39 @@ export async function POST(req: Request) {
         .where(eq(invoices.id, tx.invoiceId))
         .get();
 
-      if (invoice && invoice.status !== "paid") {
-        await db
-          .update(invoices)
-          .set({ status: "paid" })
-          .where(eq(invoices.id, invoice.id));
-        
-        // Handle overpayment if cash amount > invoice amount
-        if (tx.amount > invoice.totalAmount) {
-          const surplus = tx.amount - invoice.totalAmount;
+      if (invoice) {
+        if (invoice.status !== "paid") {
+          if (tx.amount >= invoice.totalAmount) {
+            // Full Payment or Overpayment
+            await db
+              .update(invoices)
+              .set({ status: "paid" })
+              .where(eq(invoices.id, invoice.id));
+            
+            const surplus = tx.amount - invoice.totalAmount;
+            if (surplus > 0) {
+              const profile = await db
+                .select()
+                .from(residentProfiles)
+                .where(eq(residentProfiles.userId, invoice.residentId))
+                .get();
+                
+              if (profile) {
+                await db
+                  .update(residentProfiles)
+                  .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
+                  .where(eq(residentProfiles.userId, profile.userId));
+              }
+            }
+          } else {
+            // Partial Payment: Reduce invoice total, leave as pending
+            await db
+              .update(invoices)
+              .set({ totalAmount: invoice.totalAmount - tx.amount })
+              .where(eq(invoices.id, invoice.id));
+          }
+        } else {
+          // Invoice is already paid! The ENTIRE cash amount goes to advance balance
           const profile = await db
             .select()
             .from(residentProfiles)
@@ -77,7 +115,7 @@ export async function POST(req: Request) {
           if (profile) {
             await db
               .update(residentProfiles)
-              .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
+              .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + tx.amount })
               .where(eq(residentProfiles.userId, profile.userId));
           }
         }

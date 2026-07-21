@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth";
 import { config } from "@/lib/config";
 import { MOCK_PSP_ID } from "./mockdata";
+import { getDb } from "@/db";
+import { psps } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Retrieve active session and verify associated tenant pspId.
@@ -46,6 +49,20 @@ export async function requireRole(req: Request, dbBinding: D1Database, allowedRo
   
   if (!allowedRoles.includes(userRole)) {
     throw new Error("Forbidden");
+  }
+
+  if (userRole === "psp_operator") {
+    const pspId = (session.user as any).pspId;
+    if (!pspId) {
+      throw new Error("Forbidden");
+    }
+    const db = getDb(dbBinding);
+    const psp = await db.select().from(psps).where(eq(psps.id, pspId)).get();
+    
+    // Only allow operators whose PSP has been approved and provisioned a DVA
+    if (!psp || !psp.dvaAccountNumber) {
+      throw new Error("PSP operator account pending admin approval.");
+    }
   }
 
   return session;

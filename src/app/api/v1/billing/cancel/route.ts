@@ -1,8 +1,9 @@
 import { cancelInvoiceSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { invoices } from "@/db/schema";
+import { invoices, transactions, residentProfiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
+import { generateId } from "@/lib/utils";
 
 export const runtime = "edge";
 
@@ -35,6 +36,49 @@ export async function PATCH(req: Request) {
 
     if (existing.status !== "pending" && existing.status !== "overdue") {
       return new Response(`Cannot cancel invoice with status ${existing.status}`, { status: 400 });
+    }
+
+    // Calculate total refundable amount (advance_balance + bank_transfer + verified cash)
+    const txs = await db
+      .select({
+        amount: transactions.amount,
+        paymentMethod: transactions.paymentMethod,
+        cashStatus: transactions.cashStatus,
+      })
+      .from(transactions)
+      .where(and(eq(transactions.invoiceId, invoiceId), eq(transactions.status, "success")));
+
+    let refundAmount = 0;
+    for (const tx of txs) {
+      if (tx.paymentMethod === "cash" && tx.cashStatus !== "verified" && tx.cashStatus !== "settled") {
+        continue; // Unverified cash shouldn't be refunded to digital balance
+      }
+      refundAmount += tx.amount;
+    }
+
+    if (refundAmount > 0) {
+      const profile = await db
+        .select()
+        .from(residentProfiles)
+        .where(eq(residentProfiles.userId, existing.residentId))
+        .get();
+
+      if (profile) {
+        await db
+          .update(residentProfiles)
+          .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + refundAmount })
+          .where(eq(residentProfiles.userId, profile.userId));
+        
+        await db.insert(transactions).values({
+          id: generateId(),
+          residentId: profile.userId,
+          reference: `REFUND-${Date.now()}-${generateId().slice(0, 4)}`,
+          amount: refundAmount,
+          status: "success",
+          paymentMethod: "advance_surplus",
+          paidAt: new Date(),
+        });
+      }
     }
 
     await db

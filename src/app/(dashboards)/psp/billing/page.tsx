@@ -23,7 +23,7 @@ export default function PSPBillingPage() {
   const fetchInvoices = async () => {
     if (!user) return;
     setLoading(true);
-    const repo = new SaziateRepository(user.pspId || MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId!);
     const data = await repo.getInvoices();
     setInvoices(data);
 
@@ -44,8 +44,8 @@ export default function PSPBillingPage() {
           const cashData = await resCash.json();
           setPendingCash(cashData as any);
         }
-      } catch (err) {
-        console.error("Failed to fetch data:", err);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
       }
     }
     setLoading(false);

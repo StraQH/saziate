@@ -1,8 +1,9 @@
 import { getDb } from "@/db";
 import { invoices, users, transactions, residentProfiles } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
-import { TermiiClient } from "@/lib/termii";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 
 export const runtime = "edge";
 
@@ -32,17 +33,19 @@ async function verifyPaystackSignature(
 
 export async function POST(req: Request) {
   const env = process.env as any;
-  const signature = req.headers.get("x-paystack-signature");
-  if (!signature) {
-    return new Response("Missing signature", { status: 400 });
-  }
+  try {
+    const signature = req.headers.get("x-paystack-signature");
+    if (!signature) {
+      return new Response("Missing signature", { status: 400 });
+    }
 
-  const rawBody = await req.text();
-  const webhookSecret = env.PAYSTACK_WEBHOOK_SECRET;
-  
-  if (!webhookSecret) {
-    throw new Error("PAYSTACK_WEBHOOK_SECRET environment variable is required.");
-  }
+    const rawBody = await req.text();
+    const webhookSecret = env.PAYSTACK_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.error("PAYSTACK_WEBHOOK_SECRET environment variable is required.");
+      return new Response("Server configuration error", { status: 500 });
+    }
 
   const isValid = await verifyPaystackSignature(
     signature,
@@ -85,7 +88,7 @@ export async function POST(req: Request) {
 
     // 1. Try matching by paymentReference from narration
     const narration = data.narration || data.metadata?.narration || "";
-    const refMatch = narration.match(/SZ-[A-Z0-9]+/i);
+    const refMatch = narration.match(/\b[a-f0-9]{10}\b/i);
     
     let matchedInvoice: any = null;
 
@@ -145,6 +148,7 @@ export async function POST(req: Request) {
           eq(invoices.status, "pending")
         )
       )
+      .orderBy(asc(invoices.dueDate))
       .get();
 
     const txId = generateId();
@@ -163,37 +167,67 @@ export async function POST(req: Request) {
     });
 
     if (invoice) {
-      if (amountInNaira > invoice.totalAmount) {
+      if (amountInNaira >= invoice.totalAmount) {
         const surplus = amountInNaira - invoice.totalAmount;
+        
+        if (surplus > 0) {
+          await db
+            .update(residentProfiles)
+            .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
+            .where(eq(residentProfiles.userId, profile.userId));
+          
+          // Log secondary transaction for ledger balance
+          await db.insert(transactions).values({
+            id: generateId(),
+            residentId: profile.userId,
+            reference: `${reference}-SURPLUS`,
+            amount: surplus,
+            status: "success",
+            paymentMethod: "advance_surplus",
+            paidAt: new Date(),
+          });
+        }
+
+        // Mark invoice paid
         await db
-          .update(residentProfiles)
-          .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
-          .where(eq(residentProfiles.userId, profile.userId));
+          .update(invoices)
+          .set({ status: "paid" })
+          .where(eq(invoices.id, invoice.id));
+      } else {
+        // Partial Payment - reduce total amount but keep it pending
+        await db
+          .update(invoices)
+          .set({ totalAmount: invoice.totalAmount - amountInNaira })
+          .where(eq(invoices.id, invoice.id));
       }
 
-      // Mark invoice paid
+      // Dispatch real-time payment confirmation receipt to resident via Email
+      if (residentUser?.email) {
+        await sendEmail({
+          to: residentUser.email,
+          subject: "Saziate Payment Receipt",
+          html: emailTemplates.invoiceReceipt(
+            residentUser.name.split(" ")[0],
+            amountInNaira,
+            invoice.paymentReference || invoice.id,
+            reference
+          ),
+        });
+      }
+    } else {
+      // Resident is pre-funding their account (no pending invoices)
       await db
-        .update(invoices)
-        .set({ status: "paid" })
-        .where(eq(invoices.id, invoice.id));
+        .update(residentProfiles)
+        .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + amountInNaira })
+        .where(eq(residentProfiles.userId, profile.userId));
 
-      // Dispatch real-time payment confirmation receipt to resident via Termii
-      if (residentUser?.phone) {
-        try {
-          const termiiKey = env.TERMII_API_KEY;
-          if (!termiiKey) {
-            console.error("TERMII_API_KEY is not set.");
-          } else {
-            const termii = new TermiiClient(termiiKey);
-            const msg = `Payment confirmed! ₦${amountInNaira.toLocaleString()} received for invoice ${invoice.paymentReference || invoice.id}. Reference: ${reference}. Thank you for keeping your community clean.`;
-            await termii.sendWhatsApp({
-              to: residentUser.phone.replace("+", ""),
-              sms: msg,
-            });
-          }
-        } catch (err) {
-          console.error("Failed to send Termii payment confirmation receipt:", err);
-        }
+      if (residentUser?.email) {
+        const firstName = residentUser.name.split(" ")[0];
+        await sendEmail({
+          to: residentUser.email,
+          subject: "Advance Payment Received!",
+          html: emailTemplates.advancePaymentReceipt(firstName, amountInNaira),
+        });
       }
     }
 
@@ -225,5 +259,9 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ status: "failed_payout_logged" }), { status: 200 });
   }
 
-  return new Response("Event unhandled", { status: 200 });
+    return new Response("Event unhandled", { status: 200 });
+  } catch (err: any) {
+    console.error("Webhook error:", err);
+    return new Response("Internal Server Error", { status: 500 });
+  }
 }

@@ -2,7 +2,7 @@ import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, residentProfiles, notificationLogs, accounts, routeResidents } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { generateId, generateResidentReference } from "@/lib/utils";
+import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { auditLogs } from "@/db/schema";
@@ -31,7 +31,6 @@ export async function GET(req: Request) {
         address: residentProfiles.address,
         billingCategory: residentProfiles.billingCategory,
         customMonthlyRate: residentProfiles.customMonthlyRate,
-        referenceCode: residentProfiles.referenceCode,
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
@@ -63,13 +62,15 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { firstName, lastName, email, phone, address, billingCategory, baseRate, isOverride, route } = body;
+    const { firstName, lastName, email, address, billingCategory, baseRate, isOverride, route } = body;
+    const phone = normalizePhoneNumber(body.phone);
 
-    if (!firstName || !lastName || !email || !phone || !address || !route) {
+    if (!firstName || !lastName || !phone || !address || !route) {
       return new Response("Missing required fields.", { status: 400 });
     }
 
     const name = `${firstName} ${lastName}`;
+    const finalEmail = email || `${phone}@saziate.com`;
 
     // Duplicate phone validation
     const existing = await db
@@ -83,28 +84,26 @@ export async function POST(req: Request) {
     }
 
     const userId = generateId();
-    const referenceCode = generateResidentReference("LEK", Math.floor(Math.random() * 900) + 100);
-
-    const tempPassword = `SZ-${Math.floor(100000 + Math.random() * 900000)}`;
+    const tempPassword = generateSecurePassword(10);
 
     await db.insert(users).values({
       id: userId,
       name,
-      firstName,
-      lastName,
+      email: finalEmail,
       phone,
-      email,
       role: "resident",
       pspId: pspId,
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     await db.insert(residentProfiles).values({
       userId,
       address,
-      ward: "Lekki Ward A",
-      lga: "Eti-Osa",
+      ward: "",
+      lga: "",
       billingCategory,
-      referenceCode,
       customMonthlyRate: isOverride ? (typeof baseRate === "number" ? baseRate : parseFloat(baseRate)) : null,
     });
 
@@ -132,13 +131,13 @@ export async function POST(req: Request) {
       sequenceOrder: nextSequence,
     });
 
-    // Dispatch WhatsApp/SMS setup notification via Termii with fallback queue integration
+    // Dispatch WhatsApp/SMS setup notification via Termii (free onboarding cost)
     if (phone) {
       const termiiKey = env.TERMII_API_KEY;
       if (!termiiKey) {
         throw new Error("TERMII_API_KEY is required for notifications.");
       }
-      const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${tempPassword}. Your unique payment reference code is ${referenceCode}.`;
+      const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
       await sendNotificationWithFallback({
         dbBinding: env.DB,
         termiiApiKey: termiiKey,
@@ -147,16 +146,17 @@ export async function POST(req: Request) {
         phone,
         messageText: msgText,
         messageType: "setup",
-        channel: "whatsapp",
+        channel: "sms",
       });
     }
 
-    // Send Welcome Email
-    if (email) {
+    // Send Welcome Email if real email exists
+    const hasRealEmail = email && email.includes("@") && !email.endsWith("@saziate.com");
+    if (hasRealEmail) {
       await sendEmail({
         to: email,
         subject: "Welcome to Saziate!",
-        html: emailTemplates.welcomeResident(firstName, tempPassword, referenceCode),
+        html: emailTemplates.welcomeResident(firstName, tempPassword),
       });
     }
 
@@ -178,14 +178,13 @@ export async function POST(req: Request) {
           firstName,
           lastName,
           name,
-          email,
+          email: finalEmail,
           phone,
           address,
           route,
           billingCategory,
           baseRate: typeof baseRate === "number" ? baseRate : parseFloat(baseRate),
           isOverride,
-          referenceCode,
           status: "active",
         },
       }),

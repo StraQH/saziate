@@ -22,7 +22,8 @@ export async function sendNotificationWithFallback(params: NotificationParams) {
   const db = getDb(params.dbBinding);
   const logId = generateId();
   
-  const costNgn = params.channel === "whatsapp" ? 12.00 : 4.00;
+  const isSystemNotification = params.messageType === "setup" || params.messageType === "due_invoice";
+  const costNgn = isSystemNotification ? 0.00 : (params.channel === "whatsapp" ? 12.00 : 4.00);
   const cleanedPhone = params.phone.replace("+", "");
 
   try {

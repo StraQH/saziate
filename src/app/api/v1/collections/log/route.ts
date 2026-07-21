@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/session";
 import { collectionLogSchema } from "@/lib/validators";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
-import { collectionLogs, users } from "@/db/schema";
+import { collectionLogs, users, routes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
@@ -41,6 +41,21 @@ export async function POST(req: Request) {
 
     if (!routeId || !residentId || !status) {
       return new Response("Missing required fields.", { status: 400 });
+    }
+
+    // Ensure the route is assigned to the current field agent
+    const route = await db
+      .select()
+      .from(routes)
+      .where(eq(routes.id, routeId))
+      .get();
+
+    if (!route) {
+      return new Response("Route not found.", { status: 404 });
+    }
+
+    if (route.assignedAgentId !== actorId) {
+      return new Response("Unauthorized to log collections for this route.", { status: 403 });
     }
 
     const logId = generateId();

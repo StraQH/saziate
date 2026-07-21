@@ -1,7 +1,7 @@
 import { getDb } from "@/db";
 import { notificationLogs } from "@/db/schema";
 import { eq, and, gte } from "drizzle-orm";
-import { getActivePspId } from "@/lib/session";
+import { getActivePspId, requireRole } from "@/lib/session";
 
 export const runtime = "edge";
 
@@ -10,6 +10,7 @@ export async function GET(req: Request) {
   const db = getDb(env.DB);
 
   try {
+    await requireRole(req, env.DB, ["psp_operator"]);
     const pspId = await getActivePspId(req, env.DB);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });

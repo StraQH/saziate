@@ -15,11 +15,12 @@ export async function GET(req: Request) {
     await requireRole(req, env.DB, ["resident"]);
     let residentId = "";
     let residentName = "Resident";
+    let residentEmail = "";
     let pspInfo = {
-      name: "Lekki Green Waste Solutions",
-      dvaBankName: "Wema Bank (Saziate/Paystack)",
-      dvaAccountNumber: "9920148563",
-      dvaAccountName: "Saziate / Lekki Green - Sanwo",
+      name: "",
+      dvaBankName: "",
+      dvaAccountNumber: "",
+      dvaAccountName: "",
     };
 
     let advancePaymentBalance = 0;
@@ -27,6 +28,7 @@ export async function GET(req: Request) {
     if (config.isMockMode) {
       residentId = "r1";
       residentName = "Babajide Sanwo";
+      residentEmail = "08031234567@saziate.com"; // mock placeholder email to test banner
       advancePaymentBalance = 12000;
     } else {
       const betterAuth = auth(env.DB);
@@ -40,14 +42,14 @@ export async function GET(req: Request) {
 
       residentId = session.user.id;
       residentName = session.user.name;
+      residentEmail = session.user.email || "";
 
       // Fetch user profile and associated PSP dva details
-      const profileResult = await db
-        .select({
-          referenceCode: residentProfiles.referenceCode,
-          pspId: users.pspId,
-          advancePaymentBalance: residentProfiles.advancePaymentBalance,
-        })
+        const profileResult = await db
+          .select({
+            pspId: users.pspId,
+            advancePaymentBalance: residentProfiles.advancePaymentBalance,
+          })
         .from(residentProfiles)
         .innerJoin(users, eq(residentProfiles.userId, users.id))
         .where(eq(users.id, residentId))
@@ -115,7 +117,7 @@ export async function GET(req: Request) {
       }
     }
 
-    let routeName = "Lekki Res Zone A";
+    let routeName = "";
     let routeSchedule = "Mondays & Thursdays";
 
     if (!config.isMockMode) {
@@ -141,6 +143,7 @@ export async function GET(req: Request) {
     return new Response(
       JSON.stringify({
         residentName,
+        residentEmail,
         pspInfo,
         currentInvoice,
         nextCollection,

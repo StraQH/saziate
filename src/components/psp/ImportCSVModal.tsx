@@ -77,7 +77,7 @@ export function ImportCSVModal({ onClose, onSuccess }: ImportCSVModalProps) {
             email: cols[emailIndex] || "",
             phone: cols[phoneIndex] || "",
             address: cols[addressIndex] || "",
-            route: cols[routeIndex] || "Lekki Res Zone A",
+            route: cols[routeIndex] || "",
             billingCategory: (categoryIndex !== -1 ? cols[categoryIndex] : "residential") || "residential",
             baseRate,
           });

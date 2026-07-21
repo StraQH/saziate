@@ -1,9 +1,12 @@
 import { onboardSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, psps } from "@/db/schema";
+import { users, psps, agentInvitations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
+import { sendEmail } from "@/lib/email";
+import { emailTemplates } from "@/lib/email-templates";
 import { SaziateLogger } from "@/lib/logger";
+import { auth } from "@/lib/auth";
 
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -26,10 +29,16 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { userId, phone, role, pspName, rcNumber, address } = body;
+    const { userId, phone, role, pspName, rcNumber, address, inviteToken } = body;
 
     if (!userId || !role) {
       return new Response("Missing required onboarding parameters.", { status: 400 });
+    }
+
+    const betterAuth = auth(env.DB);
+    const session = await betterAuth.api.getSession({ headers: req.headers });
+    if (!session || !session.user || session.user.id !== userId) {
+      return new Response("Unauthorized to onboard this user.", { status: 401 });
     }
 
     // Verify user exists
@@ -41,6 +50,11 @@ export async function POST(req: Request) {
 
     if (!userRecord) {
       return new Response("User not found.", { status: 404 });
+    }
+
+    // Prevent Privilege Escalation & Re-Onboarding
+    if (userRecord.pspId || ["psp_operator", "field_agent", "admin", "resident"].includes(userRecord.role)) {
+      return new Response("User has already been onboarded or possesses an immutable role.", { status: 403 });
     }
 
     let pspId: string | null = null;
@@ -63,6 +77,44 @@ export async function POST(req: Request) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+
+      // Send Welcome Email
+      if (userRecord.email) {
+        await sendEmail({
+          to: userRecord.email,
+          subject: "Welcome to Saziate! (Action Required)",
+          html: emailTemplates.welcomePSP(pspName),
+        });
+      }
+    } else if (role === "field_agent") {
+      if (!inviteToken) {
+        return new Response("Missing invite token for field agent registration.", { status: 400 });
+      }
+
+      const invite = await db
+        .select()
+        .from(agentInvitations)
+        .where(eq(agentInvitations.token, inviteToken))
+        .get();
+
+      if (!invite) {
+        return new Response("Invalid or expired invitation token.", { status: 400 });
+      }
+
+      if (invite.email.toLowerCase() !== userRecord.email.toLowerCase()) {
+        return new Response("Invitation email does not match registered email.", { status: 403 });
+      }
+
+      if (invite.expiresAt < new Date()) {
+        return new Response("Invitation token has expired.", { status: 400 });
+      }
+
+      pspId = invite.pspId;
+
+      // Delete the token so it can't be used again
+      await db
+        .delete(agentInvitations)
+        .where(eq(agentInvitations.token, inviteToken));
     }
 
     // Update user profile fields with role and associated pspId

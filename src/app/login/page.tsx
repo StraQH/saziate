@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Landmark, ArrowRight, Lock, Mail, ShieldAlert, Sparkles, User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { config } from "@/lib/config";
+import { normalizePhoneNumber } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function LoginPage() {
     }
 
     try {
-      const emailValue = identifier.includes("@") ? identifier : `${identifier}@saziate.com`;
+      const emailValue = lower.includes("@") ? lower : `${normalizePhoneNumber(lower)}@saziate.com`;
       const { data, error: signInError } = await authClient.signIn.email({
         email: emailValue,
         password,

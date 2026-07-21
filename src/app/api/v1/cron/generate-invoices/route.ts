@@ -1,8 +1,9 @@
 import { getDb } from "@/db";
 import { users, residentProfiles, invoices, psps, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { generateId, calculateResidentBill } from "@/lib/utils";
+import { generateId, generateSecureReference, calculateResidentBill } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
+import { sendNotificationWithFallback } from "@/lib/notifications";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
@@ -14,8 +15,10 @@ export async function GET(req: Request) {
   
   // Basic security: require a CRON_SECRET token
   const authHeader = req.headers.get("Authorization");
-  if (!config.isMockMode && authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return new Response("Unauthorized", { status: 401 });
+  if (!config.isMockMode) {
+    if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
   }
 
   const db = getDb(env.DB);
@@ -28,6 +31,7 @@ export async function GET(req: Request) {
         name: users.name,
         firstName: users.firstName,
         email: users.email,
+        phone: users.phone,
         pspId: users.pspId,
         customMonthlyRate: residentProfiles.customMonthlyRate,
         billingCategory: residentProfiles.billingCategory,
@@ -47,6 +51,14 @@ export async function GET(req: Request) {
 
     const dueDate = new Date();
     dueDate.setDate(7); // Bills due on the 7th of the month
+    
+    // 1.5 Fetch existing invoices for this month to prevent duplication
+    const existingInvoices = await db
+      .select({ residentId: invoices.residentId })
+      .from(invoices)
+      .where(eq(invoices.billingPeriodStart, new Date(currentMonthStart)));
+    
+    const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
 
     let generatedCount = 0;
     let emailCount = 0;
@@ -55,11 +67,16 @@ export async function GET(req: Request) {
     for (const resident of activeResidents) {
       if (!resident.pspId) continue;
       
+      // Prevent double billing
+      if (billedResidentIds.has(resident.userId)) {
+        continue;
+      }
+      
       const baseRate = resident.customMonthlyRate || 6000; // Default fallback
       const { baseAmount, platformFee, totalAmount } = calculateResidentBill(baseRate);
 
       const invoiceId = generateId();
-      const paymentReference = `INV-${Math.floor(Math.random() * 900000) + 100000}-${dueDate.getMonth() + 1}`;
+      const paymentReference = generateSecureReference(10);
       
       const advanceBalance = resident.advancePaymentBalance || 0;
       let finalAmount = totalAmount;
@@ -119,24 +136,26 @@ export async function GET(req: Request) {
 
       generatedCount++;
 
-      // 3. Dispatch Emails
-      if (resident.email) {
-        const firstName = resident.firstName || resident.name.split(" ")[0];
+      // 3. Dispatch Emails or SMS fallback
+      const hasRealEmail = resident.email && resident.email.includes("@") && !resident.email.endsWith("@saziate.com");
+      const firstName = resident.firstName || resident.name.split(" ")[0];
+
+      if (hasRealEmail) {
         if (isFullySettled) {
           await sendEmail({
-            to: resident.email,
+            to: resident.email!,
             subject: "Your Monthly Bill is Settled!",
             html: emailTemplates.advanceBillSettled(firstName, totalAmount, advanceBalance - totalAmount),
           });
         } else if (isPartiallySettled) {
           await sendEmail({
-            to: resident.email,
+            to: resident.email!,
             subject: "Partial Advance Payment Applied",
             html: emailTemplates.partialAdvanceSettled(firstName, amountSettledFromAdvance, finalAmount),
           });
         } else {
           await sendEmail({
-            to: resident.email,
+            to: resident.email!,
             subject: "Your Monthly Waste Bill is Ready",
             html: emailTemplates.monthlyBill(
               firstName, 
@@ -147,6 +166,26 @@ export async function GET(req: Request) {
           });
         }
         emailCount++;
+      } else if (resident.phone) {
+        let msg = "";
+        if (isFullySettled) {
+          msg = `Hello ${firstName}, your monthly bill of ₦${totalAmount} has been fully settled from your advance balance!`;
+        } else if (isPartiallySettled) {
+          msg = `Hello ${firstName}, partial payment applied. Outstanding: ₦${finalAmount}. Reference: ${paymentReference}.`;
+        } else {
+          msg = `Hello ${firstName}, your monthly bill of ₦${totalAmount} is due on ${dueDate.toLocaleDateString("en-GB")}. Reference: ${paymentReference}.`;
+        }
+
+        await sendNotificationWithFallback({
+          dbBinding: env.DB,
+          termiiApiKey: env.TERMII_API_KEY || "",
+          pspId: resident.pspId,
+          residentId: resident.userId,
+          phone: resident.phone,
+          messageText: msg,
+          messageType: "due_invoice", // free system notification
+          channel: "sms",
+        });
       }
     }
 

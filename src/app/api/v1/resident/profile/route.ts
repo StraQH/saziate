@@ -48,10 +48,10 @@ export async function GET(req: Request) {
       residentEmail = residentUser.email || "";
     }
 
-    let pspName = "Lekki Green Waste Solutions";
-    let pspPhone = "+2348021234567";
-    let pspEmail = "ops@lekkigreenclean.com";
-    let routeName = "Lekki Res Zone A";
+    let pspName = "";
+    let pspPhone = "";
+    let pspEmail = "";
+    let routeName = "";
 
     if (!config.isMockMode) {
       const residentUser = await db
@@ -68,8 +68,8 @@ export async function GET(req: Request) {
           .get();
         if (psp) {
           pspName = psp.name;
-          pspPhone = psp.contactPhone;
           pspEmail = psp.contactEmail;
+          pspPhone = psp.contactPhone || "";
         }
       }
 
@@ -150,14 +150,13 @@ export async function PATCH(req: Request) {
 
     // Handle password update if provided
     if (newPassword) {
-      // In a real application, you'd use a crypto hash compatible with Better Auth.
-      // Better Auth credentials provider default is using bcrypt or scrypt.
-      // For this implementation, we will update the password value in the accounts table.
-      // If Better Auth uses password-hash, we can set it. To be safe, we perform database write of the raw/hashed string.
+      const bcrypt = await import("bcryptjs");
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      
       await db
         .update(accounts)
         .set({
-          password: newPassword, // Better Auth adapter handles decryption/hashing, or we store the updated value
+          password: hashedPassword,
           updatedAt: new Date(),
         })
         .where(

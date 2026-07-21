@@ -10,7 +10,6 @@ import { config } from "@/lib/config";
 interface ResidentPaymentStatus {
   residentId: string;
   name: string;
-  referenceCode: string;
   dvaAccountNumber: string;
   dvaBankName: string;
   lastPaymentAmount: number;
@@ -24,7 +23,6 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
   {
     residentId: "r1",
     name: "Babajide Sanwo",
-    referenceCode: "SZ-LEK-001",
     dvaAccountNumber: "9920192834",
     dvaBankName: "Wema Bank",
     lastPaymentAmount: 0,
@@ -35,7 +33,6 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
   {
     residentId: "r2",
     name: "Funke Akindele",
-    referenceCode: "SZ-LEK-002",
     dvaAccountNumber: "9920192835",
     dvaBankName: "Wema Bank",
     lastPaymentAmount: 7875,
@@ -46,7 +43,6 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
   {
     residentId: "r3",
     name: "St. Nicholas Clinic",
-    referenceCode: "SZ-LEK-003",
     dvaAccountNumber: "9920192836",
     dvaBankName: "Wema Bank",
     lastPaymentAmount: 31500,
@@ -58,7 +54,7 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
 
 export default function AgentPaymentsPage() {
   const [search, setSearch] = useState("");
-  const [statuses, setStatuses] = useState<ResidentPaymentStatus[]>(MOCK_STATUSES);
+  const [statuses, setStatuses] = useState<ResidentPaymentStatus[]>(config.isMockMode ? MOCK_STATUSES : []);
   const [selectedResident, setSelectedResident] = useState<ResidentPaymentStatus | null>(null);
   const [cashAmount, setCashAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,7 +69,6 @@ export default function AgentPaymentsPage() {
         const mapped: ResidentPaymentStatus[] = body.map((r: any) => ({
           residentId: r.id,
           name: r.name,
-          referenceCode: r.referenceCode,
           dvaAccountNumber: "9920148563",
           dvaBankName: "Wema Bank (Saziate/Paystack)",
           lastPaymentAmount: 0,
@@ -96,9 +91,7 @@ export default function AgentPaymentsPage() {
     e.preventDefault();
     if (!search) return;
     const match = statuses.find(
-      (s) =>
-        s.referenceCode.toLowerCase() === search.toLowerCase() ||
-        s.name.toLowerCase().includes(search.toLowerCase())
+      (s) => s.name.toLowerCase().includes(search.toLowerCase())
     );
     if (match) {
       setSelectedResident(match);
@@ -204,7 +197,7 @@ export default function AgentPaymentsPage() {
               className="input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Enter reference (e.g. SZ-LEK-001) or resident name"
+              placeholder="Enter resident name"
               required
             />
             <button type="submit" className="btn btn-primary">
@@ -232,11 +225,10 @@ export default function AgentPaymentsPage() {
                   backgroundColor: selectedResident?.residentId === s.residentId ? "var(--color-bg)" : "var(--color-surface)",
                 }}
               >
-                <div>
-                  <p className="font-semibold text-sm">{s.name}</p>
-                  <p className="text-xs text-muted" style={{ fontFamily: "monospace", marginTop: "0.15rem" }}>
-                    {s.referenceCode}
-                  </p>
+                <div style={{ flex: 1 }}>
+                  <div className="font-semibold text-foreground">
+                    {s.name}
+                  </div>
                 </div>
                 <Badge variant={s.status === "paid" ? "success" : s.status === "overdue" ? "danger" : "warning"}>
                   {s.status.toUpperCase()}

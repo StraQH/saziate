@@ -17,6 +17,18 @@ interface OnboardedPSP {
   status: "verified" | "pending_verification";
 }
 
+interface AuditLog {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  meta: string;
+  createdAt: number;
+  actorName: string | null;
+  actorEmail: string | null;
+  actorRole: string | null;
+}
+
 const INITIAL_PSPS: OnboardedPSP[] = [
   {
     id: "psp1",
@@ -39,8 +51,10 @@ const INITIAL_PSPS: OnboardedPSP[] = [
 ];
 
 export default function AdminDashboardPage() {
-  const [psps, setPsps] = useState<OnboardedPSP[]>(INITIAL_PSPS);
+  const [psps, setPsps] = useState<OnboardedPSP[]>(config.isMockMode ? INITIAL_PSPS : []);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<"operators" | "audit">("operators");
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // New PSP fields
   const [name, setName] = useState("");
@@ -67,13 +81,29 @@ export default function AdminDashboardPage() {
         setPsps(mapped);
       }
     } catch (err) {
-      console.error("Failed to load operators:", err);
+      console.error(err);
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    if (config.isMockMode) return;
+    try {
+      const res = await fetch("/api/v1/admin/audit-logs");
+      if (res.ok) {
+        const data = await res.json();
+        setAuditLogs(data as AuditLog[]);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
   useEffect(() => {
     fetchPSPs();
-  }, []);
+    if (activeTab === "audit") {
+      fetchAuditLogs();
+    }
+  }, [activeTab]);
 
   const handleCreatePSP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,7 +195,7 @@ export default function AdminDashboardPage() {
             Monitor onboarding, platform volume, and verify PSP operations.
           </p>
         </div>
-        {!showAddForm && (
+        {!showAddForm && activeTab === "operators" && (
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm(true)}>
             <UserPlus size={16} />
             Onboard Operator
@@ -173,7 +203,24 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
+      <div className="tabs" style={{ display: "flex", gap: "1rem", marginBottom: "2rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem" }}>
+        <button 
+          className={`btn ${activeTab === "operators" ? "btn-primary" : "btn-ghost"}`}
+          onClick={() => setActiveTab("operators")}
+        >
+          Operators
+        </button>
+        <button 
+          className={`btn ${activeTab === "audit" ? "btn-primary" : "btn-ghost"}`}
+          onClick={() => setActiveTab("audit")}
+        >
+          Audit Logs
+        </button>
+      </div>
+
+      {activeTab === "operators" ? (
+        <>
+          <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
         <MetricCard label="Active Operators" value={psps.filter((p) => p.status === "verified").length.toString()} />
         <MetricCard label="Total Platform Volume" value="₦1,240,000" />
         <MetricCard label="Saziate Revenue (5%)" value="₦62,000" />
@@ -286,6 +333,58 @@ export default function AdminDashboardPage() {
           </table>
         </div>
       </div>
+        </>
+      ) : (
+        <div className="card">
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.25rem" }}>System Audit Logs</h2>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Entity Type</th>
+                  <th>Entity ID</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: "center", padding: "2rem" }}>No audit logs found.</td>
+                  </tr>
+                ) : (
+                  auditLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td>{new Date(log.createdAt).toLocaleString()}</td>
+                      <td>
+                        <div style={{ fontWeight: 500 }}>{log.actorName || "System"}</div>
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{log.actorEmail || log.actorRole || "Automated"}</div>
+                      </td>
+                      <td>
+                        <Badge variant="neutral">{log.action}</Badge>
+                      </td>
+                      <td>{log.entityType}</td>
+                      <td><code style={{ fontSize: "0.8rem", background: "var(--surface-hover)", padding: "0.2rem 0.4rem", borderRadius: "4px" }}>{log.entityId}</code></td>
+                      <td style={{ maxWidth: "200px" }}>
+                        {log.meta && (
+                          <details>
+                            <summary style={{ cursor: "pointer", fontSize: "0.85rem", color: "var(--primary-color)" }}>View JSON</summary>
+                            <pre style={{ fontSize: "0.75rem", background: "var(--surface-hover)", padding: "0.5rem", borderRadius: "4px", marginTop: "0.5rem", overflowX: "auto" }}>
+                              {log.meta}
+                            </pre>
+                          </details>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

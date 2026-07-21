@@ -30,7 +30,7 @@ export default function PSPRoutesPage() {
   const fetchRoutes = async () => {
     if (!user) return;
     setLoading(true);
-    const repo = new SaziateRepository(user.pspId || MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId!);
     repo.getRoutes().then((data) => {
       setRoutes(data);
       setLoading(false);

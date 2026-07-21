@@ -148,7 +148,6 @@ export default function PSPResidentsPage() {
                   />
                 </th>
                 <th>Name</th>
-                <th>Reference</th>
                 <th>Route</th>
                 <th>Category</th>
                 <th>PSP Rate</th>
@@ -174,11 +173,6 @@ export default function PSPResidentsPage() {
                         <p className="font-medium">{r.name}</p>
                         <p className="text-muted text-xs">{r.phone}</p>
                       </div>
-                    </td>
-                    <td>
-                      <span className="text-sm" style={{ fontFamily: "monospace", color: "var(--color-primary)" }}>
-                        {r.referenceCode}
-                      </span>
                     </td>
                     <td className="text-sm">{r.route}</td>
                     <td>

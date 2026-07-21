@@ -5,20 +5,20 @@ import { Settings, Save, Key, CreditCard, ShieldAlert, CheckCircle2 } from "luci
 import { config } from "@/lib/config";
 
 export default function PSPSettingsPage() {
-  const [pspName, setPspName] = useState("Lekki Green Cleaners Ltd");
-  const [phone, setPhone] = useState("+2348021234567");
-  const [email, setEmail] = useState("ops@lekkigreenclean.com");
-  const [address, setAddress] = useState("Plot 15, Admiralty Way, Lekki");
+  const [pspName, setPspName] = useState(config.isMockMode ? "Lekki Green Cleaners Ltd" : "");
+  const [phone, setPhone] = useState(config.isMockMode ? "+2348021234567" : "");
+  const [email, setEmail] = useState(config.isMockMode ? "ops@lekkigreenclean.com" : "");
+  const [address, setAddress] = useState(config.isMockMode ? "Plot 15, Admiralty Way, Lekki" : "");
 
   // DVA config
-  const [dvaBankName, setDvaBankName] = useState("Wema Bank");
-  const [dvaAccountNumber, setDvaAccountNumber] = useState("9920192834");
-  const [dvaAccountName, setDvaAccountName] = useState("Saziate - Lekki Green Cleaners Ltd");
+  const [dvaBankName, setDvaBankName] = useState(config.isMockMode ? "Wema Bank" : "");
+  const [dvaAccountNumber, setDvaAccountNumber] = useState(config.isMockMode ? "9920192834" : "");
+  const [dvaAccountName, setDvaAccountName] = useState(config.isMockMode ? "Saziate - Lekki Green Cleaners Ltd" : "");
 
   // Payout Settings
-  const [bankCode, setBankCode] = useState("035");
-  const [accountNumber, setAccountNumber] = useState("0123456789");
-  const [accountName, setAccountName] = useState("Lekki Green Cleaners Ltd");
+  const [bankCode, setBankCode] = useState(config.isMockMode ? "035" : "");
+  const [accountNumber, setAccountNumber] = useState(config.isMockMode ? "0123456789" : "");
+  const [accountName, setAccountName] = useState(config.isMockMode ? "Lekki Green Cleaners Ltd" : "");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

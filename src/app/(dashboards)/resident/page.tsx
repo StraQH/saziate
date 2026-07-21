@@ -20,6 +20,7 @@ import { TopUpModal } from "@/components/resident/TopUpModal";
 
 interface DashboardData {
   residentName: string;
+  residentEmail?: string;
   pspInfo: {
     name: string;
     dvaBankName: string;
@@ -124,6 +125,24 @@ export default function ResidentDashboard() {
             fetchDashboardData();
           }}
         />
+      )}
+
+      {/* Email Alert reminder for onboarding fallback */}
+      {data.residentEmail && data.residentEmail.endsWith("@saziate.com") && (
+        <div style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid var(--color-warning)", padding: "1.25rem", borderRadius: "var(--radius-lg)", marginBottom: "2rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <div style={{ background: "var(--color-bg)", padding: "0.5rem", borderRadius: "50%", color: "var(--color-warning)" }}>
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: 600, color: "var(--color-warning-dark)" }}>Configure Your Email Address</p>
+              <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--color-warning)", marginTop: "0.25rem" }}>You are currently using your phone number for login. Please update your profile with a valid email to receive digital invoices and payment receipts.</p>
+            </div>
+          </div>
+          <Link href="/resident/profile" className="btn btn-warning btn-sm" style={{ backgroundColor: "var(--color-warning)", color: "white" }}>
+            Add Email
+          </Link>
+        </div>
       )}
 
       {/* Advance Balance Alert */}

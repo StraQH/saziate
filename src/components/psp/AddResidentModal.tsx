@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { config } from "@/lib/config";
-import { generateId, generateResidentReference } from "@/lib/utils";
+import { generateId, generateSecureReference } from "@/lib/utils";
 
 type BillingCategory = "residential" | "commercial" | "industrial" | "health";
 
@@ -34,7 +34,7 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [route, setRoute] = useState("Lekki Res Zone A");
+  const [route, setRoute] = useState("");
   const [billingCategory, setBillingCategory] = useState<BillingCategory>("residential");
   const [baseRate, setBaseRate] = useState("6000");
   const [isOverride, setIsOverride] = useState(false);
@@ -63,7 +63,7 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           billingCategory,
           baseRate: rateNum,
           isOverride,
-          referenceCode: generateResidentReference("LEK", Math.floor(Math.random() * 900) + 100),
+          referenceCode: generateSecureReference(8),
           status: "active",
         };
         onSuccess(newResident);
@@ -208,11 +208,13 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div className="form-group">
               <label className="label">Route</label>
-              <select className="select" value={route} onChange={(e) => setRoute(e.target.value)}>
-                <option value="Lekki Res Zone A">Lekki Res Zone A</option>
-                <option value="Lekki Comm Zone B">Lekki Comm Zone B</option>
-                <option value="Lekki Res Zone C">Lekki Res Zone C</option>
-              </select>
+              <input
+                type="text"
+                className="input"
+                value={route}
+                onChange={(e) => setRoute(e.target.value)}
+                placeholder="e.g. Route A"
+              />
             </div>
 
             <div className="form-group">

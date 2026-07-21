@@ -20,9 +20,12 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/psp",             label: "Dashboard",   icon: LayoutDashboard },
   { href: "/psp/residents",   label: "Residents",   icon: Users },
+  { href: "/psp/agents",      label: "Field Agents",icon: Users },
   { href: "/psp/routes",      label: "Routes",      icon: MapPin },
   { href: "/psp/billing",     label: "Billing",     icon: FileText },
-  { href: "/psp/collections", label: "Collections", icon: Truck },
+  { href: "/psp/collections", label: "Collections Feed", icon: Truck },
+  { href: "/psp/field-route", label: "Log Route",   icon: MapPin },
+  { href: "/psp/field-cash",  label: "Log Cash",    icon: FileText },
   { href: "/psp/settings",    label: "Settings",    icon: Settings },
 ];
 

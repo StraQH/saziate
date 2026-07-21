@@ -19,10 +19,15 @@ export const auth = (dbBinding: D1Database) => {
     emailAndPassword: {
       enabled: true,
     },
-    trustedOrigins: ["http://localhost:3000", "https://saziate.pages.dev"],
+    trustedOrigins: [
+      "http://localhost:3000", 
+      "https://saziate.pages.dev", 
+      "https://app.saziate.com", 
+      "https://demo.saziate.com"
+    ],
     advanced: {
       crossSubDomainCookies: {
-        enabled: true,
+        enabled: false, // CRITICAL: Disabled to prevent session bleed between app.saziate.com and demo.saziate.com
       },
       disableCSRFCheck: false,
     },

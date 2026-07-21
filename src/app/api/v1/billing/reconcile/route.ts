@@ -39,15 +39,6 @@ export async function POST(req: Request) {
       return new Response("Invoice is already marked as paid.", { status: 400 });
     }
 
-    // Fetch resident reference code
-    const profile = await db
-      .select({ referenceCode: residentProfiles.referenceCode })
-      .from(residentProfiles)
-      .where(eq(residentProfiles.userId, invoice.residentId))
-      .get();
-
-    const referenceCode = profile?.referenceCode || "SZ-MAN-REC";
-
     // Simulate Paystack verification success
     const txId = generateId();
     const paystackRef = `MAN-REC-${Date.now()}`;
@@ -66,7 +57,8 @@ export async function POST(req: Request) {
       reference: paystackRef,
       amount: invoice.totalAmount,
       status: "success",
-      paymentMethod: "bank_transfer",
+      paymentMethod: "cash",
+      cashStatus: "settled",
       paidAt: new Date(),
     });
 

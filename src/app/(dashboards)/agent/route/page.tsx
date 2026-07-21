@@ -10,7 +10,7 @@ import { config } from "@/lib/config";
 
 export default function AgentRoutePage() {
   const { user } = useSession();
-  const [collections, setCollections] = useState<CollectionRun[]>(MOCK_COLLECTIONS);
+  const [collections, setCollections] = useState<CollectionRun[]>(config.isMockMode ? MOCK_COLLECTIONS : []);
   const [selectedTask, setSelectedTask] = useState<CollectionRun | null>(null);
   const [status, setStatus] = useState<"collected" | "no_access" | "no_waste">("collected");
   const [notes, setNotes] = useState("");
@@ -20,7 +20,7 @@ export default function AgentRoutePage() {
   const fetchCollections = async () => {
     if (!user) return;
     setLoading(true);
-    const repo = new SaziateRepository(user.pspId || MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId!);
     const data = await repo.getCollections();
     setCollections(data);
     setLoading(false);
@@ -62,7 +62,7 @@ export default function AgentRoutePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          routeId: MOCK_ROUTE_ID, // Mock default route ID
+          routeId: config.isMockMode ? "route_lekki_1" : "", // TODO: Pass actual routeId from context or task
           residentId: selectedTask.id,
           status,
           notes,
@@ -117,7 +117,7 @@ export default function AgentRoutePage() {
         <div>
           <h1>Active Route Streets</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Lekki Res Zone A &bull; assigned today &bull; Schedule: Mondays & Thursdays
+            {config.isMockMode ? "Lekki Res Zone A \u2022 assigned today \u2022 Schedule: Mondays & Thursdays" : "Active Route"}
           </p>
         </div>
       </div>

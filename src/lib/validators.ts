@@ -18,18 +18,19 @@ export const signupSchema = z.object({
 
 export const onboardSchema = z.object({
   userId: z.string().min(1),
-  role: z.enum(["admin", "psp_operator", "field_agent"]),
+  role: z.enum(["psp_operator", "field_agent"]),
   phone: z.string().optional(),
   pspName: z.string().optional(),
   rcNumber: z.string().optional(),
   address: z.string().optional(),
+  inviteToken: z.string().optional(),
 });
 
 // Residents
 export const createResidentSchema = z.object({
   firstName: z.string().min(2).max(50),
   lastName: z.string().min(2).max(50),
-  email: z.string().email("A valid email is required"),
+  email: z.string().email("A valid email is required").optional().or(z.literal("")),
   phone: z.string().min(10).max(15),
   address: z.string().min(5),
   route: z.string().min(1, "Route selection is required"),
@@ -80,6 +81,7 @@ export const cancelInvoiceSchema = z.object({
 
 export const reconcileInvoiceSchema = z.object({
   invoiceId: z.string().min(1),
+  paymentReference: z.string().min(1),
 });
 
 export const generateBillingSchema = z.object({

@@ -73,7 +73,16 @@ export async function GET(req: Request) {
 
     // Query D1 database
     const results = await db
-      .select()
+      .select({
+        id: invoices.id,
+        baseAmount: invoices.baseAmount,
+        platformFee: invoices.platformFee,
+        totalAmount: invoices.totalAmount,
+        dueDate: invoices.dueDate,
+        status: invoices.status,
+        billingPeriodStart: invoices.billingPeriodStart,
+        paymentReference: invoices.paymentReference,
+      })
       .from(invoices)
       .where(eq(invoices.residentId, residentId))
       .orderBy(invoices.dueDate)
@@ -87,7 +96,7 @@ export async function GET(req: Request) {
       dueDate: new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
       status: inv.status,
       billingPeriod: new Date(inv.billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
-      referenceCode: "SZ-LEK-REF",
+      referenceCode: inv.paymentReference,
     }));
 
     return new Response(JSON.stringify(formatted), {

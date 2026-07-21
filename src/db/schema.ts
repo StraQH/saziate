@@ -18,6 +18,14 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
+export const agentInvitations = sqliteTable("agent_invitations", {
+  token: text("token").primaryKey(),
+  email: text("email").notNull(),
+  pspId: text("psp_id").notNull().references(() => psps.id, { onDelete: "cascade" }),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
@@ -110,8 +118,6 @@ export const residentProfiles = sqliteTable("resident_profiles", {
   billingCategory: text("billing_category", {
     enum: ["commercial", "residential", "industrial", "health"],
   }).notNull(),
-  // Auto-generated unique reference for DVA payment reconciliation e.g. "SZ-LEK-102"
-  referenceCode: text("reference_code").notNull().unique(),
   // NULL = inherit from route_billing_rates; set for custom override
   customMonthlyRate: real("custom_monthly_rate"),
   // Surplus payment balance to be applied to future invoices

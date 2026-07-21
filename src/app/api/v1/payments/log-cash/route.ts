@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/session";
 import { logCashSchema } from "@/lib/validators";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
-import { transactions, invoices } from "@/db/schema";
+import { transactions, invoices, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
@@ -54,9 +54,25 @@ export async function POST(req: Request) {
       return new Response("Invoice not found.", { status: 404 });
     }
 
-    if (inv.status === "paid") {
-      return new Response("Invoice already marked paid.", { status: 400 });
+    // Fetch actor's PSP ID to ensure cross-tenant safety
+    const actorUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, actorId))
+      .get();
+      
+    if (!actorUser || !actorUser.pspId) {
+      return new Response("Actor does not belong to a PSP.", { status: 403 });
     }
+    
+    if (inv.pspId !== actorUser.pspId) {
+      return new Response("Unauthorized to log cash for this invoice.", { status: 403 });
+    }
+
+    // Note: We deliberately allow logging cash even if the invoice is "paid".
+    // This handles the race condition where a resident pays via bank transfer
+    // right before giving physical cash to an agent. The cash-verify route
+    // will safely convert this to advance balance later.
 
     const txId = generateId();
     const cashRef = `CASH-REC-${Date.now()}`;

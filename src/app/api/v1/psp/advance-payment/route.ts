@@ -2,9 +2,10 @@ import { getDb } from "@/db";
 import { users, residentProfiles, transactions, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { generateId } from "@/lib/utils";
+import { generateId, generateSecureReference } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { getActivePspId, requireRole } from "@/lib/session";
 
 const advancePaymentSchema = z.object({
   residentId: z.string().min(1),
@@ -24,10 +25,21 @@ export async function POST(req: Request) {
     // Use environment DB
     const env = process.env as any;
     const db = getDb(env.DB);
+    
+    await requireRole(req, env.DB, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB);
+
+    if (!pspId) {
+      return new Response("Unauthorized.", { status: 401 });
+    }
 
     const resident = await db.select().from(users).where(eq(users.id, residentId)).get();
     if (!resident || resident.role !== "resident") {
       return new Response("Invalid resident ID.", { status: 400 });
+    }
+
+    if (resident.pspId !== pspId) {
+      return new Response("Resident does not belong to this PSP.", { status: 403 });
     }
 
     const profile = await db.select().from(residentProfiles).where(eq(residentProfiles.userId, residentId)).get();
@@ -45,16 +57,20 @@ export async function POST(req: Request) {
     await db.insert(transactions).values({
       id: txId,
       residentId,
-      reference: `ADV-CASH-${Math.floor(Math.random() * 900000) + 100000}`,
+      reference: `ADV-CASH-${generateSecureReference(10)}`,
       amount,
       paymentMethod: "cash",
       cashStatus: "settled",
     });
 
     // 3. Log Audit
+    const betterAuth = (await import("@/lib/auth")).auth(env.DB);
+    const session = await betterAuth.api.getSession({ headers: req.headers });
+    const actorId = session?.user?.id || "unknown";
+
     await db.insert(auditLogs).values({
       id: generateId(),
-      actorId: "psp_operator", // In reality, fetch from auth session
+      actorId,
       action: "advance_payment.log",
       entityType: "resident",
       entityId: residentId,

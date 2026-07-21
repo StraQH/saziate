@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
-import { invoices, transactions, auditLogs } from "@/db/schema";
+import { invoices, transactions, auditLogs, residentProfiles } from "@/db/schema";
 import { eq, like } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
@@ -45,12 +45,12 @@ export async function POST(req: Request) {
     }
 
     const narration = verifyData.data.metadata?.custom_fields?.[0]?.value || verifyData.data.reference;
-    // Extract paymentReference from narration using regex SZ-[A-Z0-9]+
-    const match = narration.match(/SZ-[A-Z0-9]+/);
+    // Extract paymentReference from narration using regex for 10-char hex string
+    const match = narration.match(/\b[a-f0-9]{10}\b/i);
     const paymentRef = match ? match[0] : null;
 
     if (!paymentRef) {
-      return new Response(JSON.stringify({ status: "failed", message: "No Saziate payment reference (SZ-...) found in transaction narration." }), { status: 400 });
+      return new Response(JSON.stringify({ status: "failed", message: "No secure payment reference found in transaction narration." }), { status: 400 });
     }
 
     // Find the invoice based on paymentRef
@@ -64,29 +64,89 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ status: "failed", message: "Matching invoice not found for this reference." }), { status: 404 });
     }
 
-    if (invoice.status === "paid") {
-      return new Response(JSON.stringify({ status: "success", message: "Invoice is already paid." }), { status: 200 });
-    }
+    const amountInNaira = verifyData.data.amount / 100;
 
     const txId = generateId();
 
-    // Mark invoice paid
-    await db
-      .update(invoices)
-      .set({ status: "paid" })
-      .where(eq(invoices.id, invoice.id));
-
-    // Insert transaction
+    // Insert transaction with EXACT amount from Paystack
     await db.insert(transactions).values({
       id: txId,
       invoiceId: invoice.id,
       residentId: invoice.residentId,
       reference: verifyData.data.reference,
-      amount: invoice.totalAmount, // or verifyData.data.amount / 100
+      amount: amountInNaira,
       status: "success",
       paymentMethod: "bank_transfer",
       paidAt: new Date(),
     });
+
+    if (invoice.status !== "paid") {
+      if (amountInNaira >= invoice.totalAmount) {
+        // Full Payment or Overpayment
+        await db
+          .update(invoices)
+          .set({ status: "paid" })
+          .where(eq(invoices.id, invoice.id));
+        
+        const surplus = amountInNaira - invoice.totalAmount;
+        if (surplus > 0) {
+          const profile = await db
+            .select()
+            .from(residentProfiles)
+            .where(eq(residentProfiles.userId, invoice.residentId))
+            .get();
+            
+          if (profile) {
+            await db
+              .update(residentProfiles)
+              .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
+              .where(eq(residentProfiles.userId, profile.userId));
+              
+            // Log secondary transaction for ledger balance
+            await db.insert(transactions).values({
+              id: generateId(),
+              residentId: profile.userId,
+              reference: `${verifyData.data.reference}-SURPLUS`,
+              amount: surplus,
+              status: "success",
+              paymentMethod: "advance_surplus",
+              paidAt: new Date(),
+            });
+          }
+        }
+      } else {
+        // Partial Payment - reduce total amount but keep it pending
+        await db
+          .update(invoices)
+          .set({ totalAmount: invoice.totalAmount - amountInNaira })
+          .where(eq(invoices.id, invoice.id));
+      }
+    } else {
+      // Invoice is already paid! The ENTIRE amount goes to advance balance
+      const profile = await db
+        .select()
+        .from(residentProfiles)
+        .where(eq(residentProfiles.userId, invoice.residentId))
+        .get();
+        
+      if (profile) {
+        await db
+          .update(residentProfiles)
+          .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + amountInNaira })
+          .where(eq(residentProfiles.userId, profile.userId));
+          
+        // Log secondary transaction for ledger balance
+        await db.insert(transactions).values({
+          id: generateId(),
+          residentId: profile.userId,
+          reference: `${verifyData.data.reference}-SURPLUS`,
+          amount: amountInNaira,
+          status: "success",
+          paymentMethod: "advance_surplus",
+          paidAt: new Date(),
+        });
+      }
+    }
 
     const session = await auth(env.DB).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({

@@ -12,8 +12,8 @@ import {
   type OnboardedPSP
 } from "./mockdata";
 import { getDb } from "@/db";
-import { residentProfiles, routes, invoices, collectionLogs, psps, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { residentProfiles, routes, invoices, collectionLogs, psps, users, notificationLogs, transactions } from "@/db/schema";
+import { eq, and, like } from "drizzle-orm";
 
 /**
  * Data Repository Layer for Saziate.
@@ -52,7 +52,6 @@ export class SaziateRepository {
         address: residentProfiles.address,
         billingCategory: residentProfiles.billingCategory,
         customMonthlyRate: residentProfiles.customMonthlyRate,
-        referenceCode: residentProfiles.referenceCode,
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
@@ -67,7 +66,6 @@ export class SaziateRepository {
       billingCategory: r.billingCategory,
       baseRate: r.customMonthlyRate || 6000,
       isOverride: !!r.customMonthlyRate,
-      referenceCode: r.referenceCode,
       status: "active",
     }));
   }
@@ -113,7 +111,7 @@ export class SaziateRepository {
       .select({
         id: invoices.id,
         residentName: users.name,
-        referenceCode: residentProfiles.referenceCode,
+        paymentReference: invoices.paymentReference,
         baseAmount: invoices.baseAmount,
         platformFee: invoices.platformFee,
         totalAmount: invoices.totalAmount,
@@ -129,7 +127,7 @@ export class SaziateRepository {
     return results.map((inv: any) => ({
       id: inv.id,
       residentName: inv.residentName,
-      referenceCode: inv.referenceCode,
+      referenceCode: inv.paymentReference || inv.id,
       baseAmount: inv.baseAmount,
       platformFee: inv.platformFee,
       totalAmount: inv.totalAmount,
@@ -224,10 +222,29 @@ export class SaziateRepository {
 
     const totalPaidSum = paidSums.reduce((sum: number, inv: any) => sum + inv.total, 0);
 
+    // Sum of manual and automatic payouts
+    const pastPayouts = await db
+      .select({ amount: transactions.amount })
+      .from(transactions)
+      .where(and(
+        eq(transactions.residentId, this.pspId), // reusing residentId
+        like(transactions.reference, "PAYOUT-%")
+      ));
+    const totalPaidOut = pastPayouts.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+
+    // Sum of custom messaging SMS costs
+    const notificationCosts = await db
+      .select({ costNgn: notificationLogs.costNgn })
+      .from(notificationLogs)
+      .where(eq(notificationLogs.pspId, this.pspId));
+    const totalNotificationCosts = notificationCosts.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
+
+    const availableSettlement = Math.max(0, (totalPaidSum * 0.95) - totalPaidOut - totalNotificationCosts);
+
     return [
       { label: "Collections This Month", value: `₦${totalPaidSum.toLocaleString("en-NG")}` },
       { label: "Settled Today",          value: "₦0" },
-      { label: "Available Settlement",   value: `₦${(totalPaidSum * 0.95).toLocaleString("en-NG")}` }, // Less Saziate 5% commission
+      { label: "Available Settlement",   value: `₦${availableSettlement.toLocaleString("en-NG")}` }, // Less Saziate 5% commission and payouts/SMS costs
       { label: "Next Settlement Date",   value: new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }, // T+1
       { label: "Total Active Residents", value: residentUsers.length.toLocaleString() },
       { label: "Paid Invoices",          value: paidInvoices.length.toLocaleString() },

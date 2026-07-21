@@ -39,7 +39,7 @@ export default function PSPDashboardPage() {
 
   useEffect(() => {
     if (!user) return;
-    const repo = new SaziateRepository(user.pspId || MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId!);
     repo.getMetrics().then((data) => {
       setMetrics(data);
       setLoading(false);

@@ -17,7 +17,7 @@ export default function AgentDashboardPage() {
   const fetchAgentLogs = async () => {
     if (!user) return;
     setLoading(true);
-    const repo = new SaziateRepository(user.pspId || MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId!);
     const data = await repo.getCollections();
     setLogs(data);
     setLoading(false);
@@ -49,8 +49,8 @@ export default function AgentDashboardPage() {
       <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
         <MetricCard label="My Completed Logs" value={completedCount.toString()} />
         <MetricCard label="Pending route tasks" value={pendingCount.toString()} />
-        <MetricCard label="Today's assigned zone" value="Lekki Res Zone A" />
-        <MetricCard label="Collection Schedule" value="Mondays & Thursdays" />
+        <MetricCard label="Today's assigned zone" value={config.isMockMode ? "Lekki Res Zone A" : "Unassigned"} />
+        <MetricCard label="Collection Schedule" value={config.isMockMode ? "Mondays & Thursdays" : "-"} />
       </div>
 
       <div className="card">

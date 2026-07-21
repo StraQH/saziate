@@ -18,7 +18,7 @@ export default function PSPCollectionsPage() {
   const fetchCollections = async () => {
     if (!user) return;
     setLoading(true);
-    const repo = new SaziateRepository(user.pspId || MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId!);
     const data = await repo.getCollections();
     setCollections(data);
     setLoading(false);
