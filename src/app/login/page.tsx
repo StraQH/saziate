@@ -73,9 +73,9 @@ export default function LoginPage() {
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-bg)" }}>
       {/* Brand Side Panel */}
-      <div 
-        style={{ 
-          flex: 1, 
+      <div
+        style={{
+          flex: 1,
           background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
           display: "flex",
           flexDirection: "column",
@@ -98,28 +98,28 @@ export default function LoginPage() {
             A unified platform for communities and service providers. Track collection schedules, manage operations seamlessly, and collaborate for a cleaner environment.
           </p>
         </div>
-        <div 
-          style={{ 
-            position: "absolute", 
-            bottom: "-10%", 
-            right: "-10%", 
-            width: "50%", 
-            height: "50%", 
-            background: "rgba(255,255,255,0.05)", 
-            borderRadius: "50%" 
-          }} 
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-10%",
+            right: "-10%",
+            width: "50%",
+            height: "50%",
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: "50%"
+          }}
         />
       </div>
 
       {/* Form Container */}
-      <div 
-        style={{ 
-          flex: 1.2, 
-          display: "flex", 
-          flexDirection: "column", 
-          justifyContent: "center", 
+      <div
+        style={{
+          flex: 1.2,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
           alignItems: "center",
-          padding: "2rem" 
+          padding: "2rem"
         }}
       >
         <div style={{ width: "100%", maxWidth: "440px" }} className="card">
@@ -131,9 +131,9 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div 
-              style={{ 
-                background: "var(--color-danger-bg)", 
+            <div
+              style={{
+                background: "var(--color-danger-bg)",
                 border: "1px solid var(--color-danger)",
                 borderRadius: "var(--radius-sm)",
                 padding: "0.875rem",
@@ -158,7 +158,7 @@ export default function LoginPage() {
                   type="text"
                   className="input"
                   style={{ paddingLeft: "2.5rem" }}
-                  placeholder="ops@lekkigreenclean.com or +2348021111111"
+                  placeholder="ops@lekkigreenclean.com or 08021111111"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
@@ -185,9 +185,9 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              className="btn btn-primary w-full" 
+            <button
+              type="submit"
+              className="btn btn-primary w-full"
               style={{ marginTop: "0.5rem" }}
               disabled={loading}
             >
@@ -198,13 +198,13 @@ export default function LoginPage() {
 
           {/* Quick Mock Login panel */}
           {config.isMockMode && (
-            <div 
-              style={{ 
-                marginTop: "2rem", 
-                padding: "1.25rem", 
-                background: "var(--color-primary-light)", 
+            <div
+              style={{
+                marginTop: "2rem",
+                padding: "1.25rem",
+                background: "var(--color-primary-light)",
                 borderRadius: "var(--radius-md)",
-                border: "1px dashed var(--color-primary)" 
+                border: "1px dashed var(--color-primary)"
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.875rem", color: "var(--color-primary)" }}>
@@ -212,25 +212,25 @@ export default function LoginPage() {
                 <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Mock Mode Quick Access</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <button 
+                <button
                   className="btn btn-secondary btn-sm w-full"
                   onClick={() => handleQuickLogin("psp_operator")}
                 >
                   Enter as PSP Operator
                 </button>
-                <button 
+                <button
                   className="btn btn-secondary btn-sm w-full"
                   onClick={() => handleQuickLogin("field_agent")}
                 >
                   Enter as Field Agent
                 </button>
-                <button 
+                <button
                   className="btn btn-secondary btn-sm w-full"
                   onClick={() => handleQuickLogin("resident")}
                 >
                   Enter as Resident Portal
                 </button>
-                <button 
+                <button
                   className="btn btn-secondary btn-sm w-full"
                   onClick={() => handleQuickLogin("admin")}
                 >

@@ -70,9 +70,9 @@ export default function SignupPage() {
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-bg)" }}>
       {/* Visual Brand Panel */}
-      <div 
-        style={{ 
-          flex: 1, 
+      <div
+        style={{
+          flex: 1,
           background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
           display: "flex",
           flexDirection: "column",
@@ -92,31 +92,31 @@ export default function SignupPage() {
             Digitize your waste operations today.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px" }}>
-            Manage residents, automate recurring monthly invoicing via Paystack DVAs, coordinate field agent dispatches, and secure automated T+1 settlements.
+            Manage residents, automate recurring monthly invoicing, collect bills with <span style={{ fontWeight: 600 }}>Dedicated Virtual Accounts</span>, coordinate field agents, and secure automated settlements.
           </p>
         </div>
-        <div 
-          style={{ 
-            position: "absolute", 
-            bottom: "-10%", 
-            right: "-10%", 
-            width: "50%", 
-            height: "50%", 
-            background: "rgba(255,255,255,0.05)", 
-            borderRadius: "50%" 
-          }} 
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-10%",
+            right: "-10%",
+            width: "50%",
+            height: "50%",
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: "50%"
+          }}
         />
       </div>
 
       {/* Signup Form Panel */}
-      <div 
-        style={{ 
-          flex: 1.2, 
-          display: "flex", 
-          flexDirection: "column", 
-          justifyContent: "center", 
+      <div
+        style={{
+          flex: 1.2,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
           alignItems: "center",
-          padding: "2rem" 
+          padding: "2rem"
         }}
       >
         <div style={{ width: "100%", maxWidth: "520px" }} className="card">
@@ -128,9 +128,9 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <div 
-              style={{ 
-                background: "var(--color-danger-bg)", 
+            <div
+              style={{
+                background: "var(--color-danger-bg)",
                 border: "1px solid var(--color-danger)",
                 borderRadius: "var(--radius-sm)",
                 padding: "0.875rem",
@@ -271,9 +271,9 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              className="btn btn-primary w-full" 
+            <button
+              type="submit"
+              className="btn btn-primary w-full"
               style={{ marginTop: "1rem" }}
               disabled={loading}
             >
