@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // 1. Bypass authentication filters completely in Mock Mode for easy testing
-  if (appConfig.isMockMode) {
+  if (appConfig.isMockMode || request.nextUrl.hostname.includes("demo.")) {
     return NextResponse.next();
   }
 

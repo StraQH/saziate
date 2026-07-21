@@ -30,10 +30,8 @@ NEXT_PUBLIC_APP_NAME = "Saziate Demo"
 NEXT_PUBLIC_MOCK_MODE = "true"
 
 # CRITICAL: Isolate the Demo Database!
-# Create a new DB: npx wrangler d1 create saziate-demo-db
-# Then replace the database_id below. This ensures BetterAuth and any fallback queries 
-# NEVER touch the production database, even if mock mode is bypassed.
+
 [[env.demo.d1_databases]]
 binding = "DB"
 database_name = "saziate-demo-db"
-database_id = "REPLACE_WITH_NEW_DEMO_DB_ID"
+database_id = "d52c8fa6-9567-4dc2-9139-379a12f6093e"
