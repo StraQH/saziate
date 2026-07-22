@@ -1,0 +1,20 @@
+name = "saziate-demo"
+main = ".open-next/worker.js"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+assets = { directory = ".open-next/assets", binding = "ASSETS" }
+
+[env.demo.vars]
+NEXT_PUBLIC_APP_NAME = "Saziate Demo"
+NEXT_PUBLIC_MOCK_MODE = "true"
+
+# CRITICAL: Isolate the Demo Database!
+
+[[env.demo.d1_databases]]
+binding = "DB"
+database_name = "saziate-demo-db"
+database_id = "d52c8fa6-9567-4dc2-9139-379a12f6093e"
+
+[build]
+command = "npm run build:worker"
