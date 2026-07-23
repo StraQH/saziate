@@ -1,19 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Landmark, ArrowRight, Lock, Mail, ShieldAlert, Sparkles, User } from "lucide-react";
+import { ArrowRight, Lock, ShieldAlert, Sparkles, User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { config } from "@/lib/config";
 import { normalizePhoneNumber } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,20 +54,19 @@ export default function LoginPage() {
         throw new Error(signInError?.message || "Invalid credentials");
       }
 
-      // Route based on role
-      const role = (data.user as any).role || "psp_operator";
+      const role = (data.user as { role?: string }).role || "psp_operator";
       if (role === "admin") router.push("/admin");
       else if (role === "field_agent") router.push("/agent");
       else if (role === "resident") router.push("/resident");
       else router.push("/psp");
-    } catch (err: any) {
-      setError(err.message || "Sign in failed. Check credentials.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Sign in failed. Check credentials.";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fast login helpers in Mock Mode
   const handleQuickLogin = (role: "admin" | "psp_operator" | "field_agent" | "resident") => {
     if (role === "admin") router.push("/admin");
     else if (role === "field_agent") router.push("/agent");
@@ -71,25 +75,25 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-bg)" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-bg, #0f172a)" }}>
       {/* Brand Side Panel */}
       <div
         style={{
           flex: 1,
-          background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
+          background: "linear-gradient(135deg, var(--color-primary, #2563eb) 0%, var(--color-primary-dark, #1d4ed8) 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           padding: "4rem",
           color: "#fff",
           position: "relative",
-          overflow: "hidden"
+          overflow: "hidden",
         }}
         className="hide-mobile"
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <img src="/logo.svg" alt="Saziate Logo" style={{ height: "40px", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+            <span style={{ fontSize: "1.75rem", fontWeight: 800, letterSpacing: "-0.025em" }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
             Waste management, simplified.
@@ -106,7 +110,7 @@ export default function LoginPage() {
             width: "50%",
             height: "50%",
             background: "rgba(255,255,255,0.05)",
-            borderRadius: "50%"
+            borderRadius: "50%",
           }}
         />
       </div>
@@ -119,12 +123,12 @@ export default function LoginPage() {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          padding: "2rem"
+          padding: "2rem",
         }}
       >
         <div style={{ width: "100%", maxWidth: "440px" }} className="card">
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text)" }}>Welcome Back</h2>
+            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text, #f8fafc)" }}>Welcome Back</h2>
             <p className="text-muted" style={{ marginTop: "0.25rem" }}>
               Sign in to manage your collection operations
             </p>
@@ -133,16 +137,16 @@ export default function LoginPage() {
           {error && (
             <div
               style={{
-                background: "var(--color-danger-bg)",
-                border: "1px solid var(--color-danger)",
-                borderRadius: "var(--radius-sm)",
+                background: "var(--color-danger-bg, rgba(239, 68, 68, 0.1))",
+                border: "1px solid var(--color-danger, #ef4444)",
+                borderRadius: "var(--radius-sm, 6px)",
                 padding: "0.875rem",
-                color: "var(--color-danger)",
+                color: "var(--color-danger, #ef4444)",
                 fontSize: "0.875rem",
                 display: "flex",
                 alignItems: "center",
                 gap: "0.5rem",
-                marginBottom: "1.5rem"
+                marginBottom: "1.5rem",
               }}
             >
               <ShieldAlert size={16} />
@@ -164,7 +168,7 @@ export default function LoginPage() {
                   autoComplete="username"
                   required
                 />
-                <User size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                <User size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
               </div>
             </div>
 
@@ -181,7 +185,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                   required
                 />
-                <Lock size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                <Lock size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
               </div>
             </div>
 
@@ -196,44 +200,32 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Mock Login panel */}
-          {config.isMockMode && (
+          {/* Render Mock Access Panel only after client hydration */}
+          {mounted && config.isMockMode && (
             <div
               style={{
                 marginTop: "2rem",
                 padding: "1.25rem",
-                background: "var(--color-primary-light)",
-                borderRadius: "var(--radius-md)",
-                border: "1px dashed var(--color-primary)"
+                background: "var(--color-primary-light, rgba(37, 99, 235, 0.1))",
+                borderRadius: "var(--radius-md, 8px)",
+                border: "1px dashed var(--color-primary, #2563eb)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.875rem", color: "var(--color-primary)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.875rem", color: "var(--color-primary, #2563eb)" }}>
                 <Sparkles size={16} />
                 <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Mock Mode Quick Access</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <button
-                  className="btn btn-secondary btn-sm w-full"
-                  onClick={() => handleQuickLogin("psp_operator")}
-                >
+                <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("psp_operator")}>
                   Enter as PSP Operator
                 </button>
-                <button
-                  className="btn btn-secondary btn-sm w-full"
-                  onClick={() => handleQuickLogin("field_agent")}
-                >
+                <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("field_agent")}>
                   Enter as Field Agent
                 </button>
-                <button
-                  className="btn btn-secondary btn-sm w-full"
-                  onClick={() => handleQuickLogin("resident")}
-                >
+                <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("resident")}>
                   Enter as Resident Portal
                 </button>
-                <button
-                  className="btn btn-secondary btn-sm w-full"
-                  onClick={() => handleQuickLogin("admin")}
-                >
+                <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("admin")}>
                   Enter as Platform Admin
                 </button>
               </div>
@@ -242,7 +234,7 @@ export default function LoginPage() {
 
           <p className="text-muted" style={{ textAlign: "center", marginTop: "1.5rem" }}>
             New waste operator?{" "}
-            <Link href="/signup" style={{ color: "var(--color-primary)", fontWeight: 500 }}>
+            <Link href="/signup" style={{ color: "var(--color-primary, #2563eb)", fontWeight: 500 }}>
               Create Account
             </Link>
           </p>

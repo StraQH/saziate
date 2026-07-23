@@ -5,7 +5,7 @@ const ASSETS_TO_CACHE = [
   "/manifest.json",
   "/next.svg",
   "/globe.svg",
-  "/logo.png"
+  "/logo.svg"
 ];
 
 // Install Event

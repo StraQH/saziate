@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Landmark, ArrowRight, UserPlus, Lock, Mail, Phone, MapPin, Building, ShieldAlert } from "lucide-react";
+import { ArrowRight, UserPlus, Lock, Mail, Phone, MapPin, Building, ShieldAlert } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignupPage() {
@@ -11,13 +11,11 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Operator user states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  // Company / PSP details states
   const [pspName, setPspName] = useState("");
   const [rcNumber, setRcNumber] = useState("");
   const [address, setAddress] = useState("");
@@ -28,7 +26,6 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      // 1. Sign up user via Better Auth
       const { data, error: signUpError } = await authClient.signUp.email({
         email,
         password,
@@ -39,7 +36,6 @@ export default function SignupPage() {
         throw new Error(signUpError?.message || "Auth signup failed");
       }
 
-      // 2. Onboard Operator details & create PSP organization profile
       const onboardResponse = await fetch("/api/v1/auth/onboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,35 +54,35 @@ export default function SignupPage() {
         throw new Error(onboardErrText || "PSP Onboarding database sync failed");
       }
 
-      // Sign in user automatically and route to dashboard
       router.push("/psp");
-    } catch (err: any) {
-      setError(err.message || "An unexpected signup error occurred.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unexpected signup error occurred.";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-bg)" }}>
+    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-bg, #0f172a)" }}>
       {/* Visual Brand Panel */}
       <div
         style={{
           flex: 1,
-          background: "linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
+          background: "linear-gradient(135deg, var(--color-primary, #2563eb) 0%, var(--color-primary-dark, #1d4ed8) 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           padding: "4rem",
           color: "#fff",
           position: "relative",
-          overflow: "hidden"
+          overflow: "hidden",
         }}
         className="hide-mobile"
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <img src="/logo.svg" alt="Saziate Logo" style={{ height: "40px", objectFit: "contain", filter: "brightness(0) invert(1)" }} />
+            <span style={{ fontSize: "1.75rem", fontWeight: 800, letterSpacing: "-0.025em" }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
             Digitize your waste operations today.
@@ -103,7 +99,7 @@ export default function SignupPage() {
             width: "50%",
             height: "50%",
             background: "rgba(255,255,255,0.05)",
-            borderRadius: "50%"
+            borderRadius: "50%",
           }}
         />
       </div>
@@ -116,12 +112,12 @@ export default function SignupPage() {
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          padding: "2rem"
+          padding: "2rem",
         }}
       >
         <div style={{ width: "100%", maxWidth: "520px" }} className="card">
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text)" }}>Get Started</h2>
+            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text, #f8fafc)" }}>Get Started</h2>
             <p className="text-muted" style={{ marginTop: "0.25rem" }}>
               Register your PSP waste operator account on Saziate
             </p>
@@ -130,16 +126,16 @@ export default function SignupPage() {
           {error && (
             <div
               style={{
-                background: "var(--color-danger-bg)",
-                border: "1px solid var(--color-danger)",
-                borderRadius: "var(--radius-sm)",
+                background: "var(--color-danger-bg, rgba(239, 68, 68, 0.1))",
+                border: "1px solid var(--color-danger, #ef4444)",
+                borderRadius: "var(--radius-sm, 6px)",
                 padding: "0.875rem",
-                color: "var(--color-danger)",
+                color: "var(--color-danger, #ef4444)",
                 fontSize: "0.875rem",
                 display: "flex",
                 alignItems: "center",
                 gap: "0.5rem",
-                marginBottom: "1.5rem"
+                marginBottom: "1.5rem",
               }}
             >
               <ShieldAlert size={16} />
@@ -149,7 +145,7 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div>
-              <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.875rem", borderBottom: "1px solid var(--color-border)", paddingBottom: "0.375rem" }}>
+              <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.875rem", borderBottom: "1px solid var(--color-border, #334155)", paddingBottom: "0.375rem" }}>
                 1. Operator Profile
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }} className="grid-cols-1">
@@ -163,9 +159,10 @@ export default function SignupPage() {
                       placeholder="Jane Doe"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      autoComplete="name"
                       required
                     />
-                    <UserPlus size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                    <UserPlus size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
 
@@ -179,9 +176,10 @@ export default function SignupPage() {
                       placeholder="e.g. 08012345678"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      autoComplete="tel"
                       required
                     />
-                    <Phone size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                    <Phone size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
               </div>
@@ -197,9 +195,10 @@ export default function SignupPage() {
                       placeholder="jane@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
                       required
                     />
-                    <Mail size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                    <Mail size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
 
@@ -213,16 +212,17 @@ export default function SignupPage() {
                       placeholder="Min. 8 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="new-password"
                       required
                     />
-                    <Lock size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                    <Lock size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
               </div>
             </div>
 
             <div style={{ marginTop: "0.5rem" }}>
-              <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.875rem", borderBottom: "1px solid var(--color-border)", paddingBottom: "0.375rem" }}>
+              <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.875rem", borderBottom: "1px solid var(--color-border, #334155)", paddingBottom: "0.375rem" }}>
                 2. Business Details
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: "1rem" }} className="grid-cols-1">
@@ -236,9 +236,10 @@ export default function SignupPage() {
                       placeholder="Lekki Cleaners Ltd"
                       value={pspName}
                       onChange={(e) => setPspName(e.target.value)}
+                      autoComplete="organization"
                       required
                     />
-                    <Building size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                    <Building size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
 
@@ -250,6 +251,7 @@ export default function SignupPage() {
                     placeholder="RC-123456"
                     value={rcNumber}
                     onChange={(e) => setRcNumber(e.target.value)}
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -264,9 +266,10 @@ export default function SignupPage() {
                     placeholder="Plot 12, Admiralty Way, Lekki Phase 1, Lagos"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
+                    autoComplete="street-address"
                     required
                   />
-                  <MapPin size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted)" }} />
+                  <MapPin size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                 </div>
               </div>
             </div>
@@ -284,7 +287,7 @@ export default function SignupPage() {
 
           <p className="text-muted" style={{ textAlign: "center", marginTop: "1.5rem" }}>
             Already registered?{" "}
-            <Link href="/login" style={{ color: "var(--color-primary)", fontWeight: 500 }}>
+            <Link href="/login" style={{ color: "var(--color-primary, #2563eb)", fontWeight: 500 }}>
               Sign In
             </Link>
           </p>
