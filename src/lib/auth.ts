@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
+import bcrypt from "bcryptjs";
 
 const authSecret = process.env.BETTER_AUTH_SECRET || "saziate_prod_secret_2026";
 
@@ -25,18 +26,16 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
         verification: verifications,
       },
       usePlural: true,
-      transaction: false, // REQUIRED FOR CLOUDFLARE D1 (D1 does not support nested Drizzle transactions)
+      transaction: false, // REQUIRED FOR CLOUDFLARE D1
     }),
     secret: authSecret,
     emailAndPassword: {
       enabled: true,
       password: {
         hash: async (password: string) => {
-          const bcrypt = await import("bcryptjs");
           return bcrypt.hash(password, 10);
         },
         verify: async ({ password, hash }: { password: string; hash: string }) => {
-          const bcrypt = await import("bcryptjs");
           return bcrypt.compare(password, hash);
         },
       },
