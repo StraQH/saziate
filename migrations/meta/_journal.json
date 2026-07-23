@@ -43,6 +43,13 @@
       "when": 1784490878832,
       "tag": "0005_fresh_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784772849903,
+      "tag": "0006_smooth_tana_nile",
+      "breakpoints": true
     }
   ]
 }
