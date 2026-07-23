@@ -6,7 +6,7 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
+
 
 // Triggered via Cron (e.g. daily for T+1 processing)
 export async function GET(req: Request) {

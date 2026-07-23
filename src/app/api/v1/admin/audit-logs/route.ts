@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

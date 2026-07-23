@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { generateId } from "@/lib/utils";
 
-export const runtime = "edge";
+
 
 export async function PATCH(req: Request) {
   const env = process.env as any;

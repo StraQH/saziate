@@ -3,7 +3,7 @@ import { notificationLogs } from "@/db/schema";
 import { eq, and, gte } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

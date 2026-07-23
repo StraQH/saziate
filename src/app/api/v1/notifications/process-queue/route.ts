@@ -1,6 +1,6 @@
 import { processPendingRetries } from "@/lib/notifications";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

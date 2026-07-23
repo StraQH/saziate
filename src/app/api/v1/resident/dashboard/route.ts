@@ -5,7 +5,7 @@ import { users, residentProfiles, psps, invoices, routes, routeResidents } from 
 import { eq, and } from "drizzle-orm";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

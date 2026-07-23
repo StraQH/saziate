@@ -5,7 +5,7 @@ import { eq, like } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

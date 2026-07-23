@@ -8,7 +8,7 @@ import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 import { users } from "@/db/schema";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

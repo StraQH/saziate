@@ -4,7 +4,7 @@ import { psps } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

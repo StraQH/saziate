@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
 
 import { psps, routes, routeResidents } from "@/db/schema";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

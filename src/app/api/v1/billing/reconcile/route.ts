@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { generateId } from "@/lib/utils";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

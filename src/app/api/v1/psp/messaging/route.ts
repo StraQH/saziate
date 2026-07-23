@@ -7,7 +7,7 @@ import { sendNotificationWithFallback } from "@/lib/notifications";
 import { config } from "@/lib/config";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

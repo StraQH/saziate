@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

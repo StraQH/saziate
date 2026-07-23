@@ -5,7 +5,7 @@ import { collectionLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

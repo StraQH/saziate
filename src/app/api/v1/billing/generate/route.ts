@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { getActivePspId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
 
-export const runtime = "edge";
+
 
 /**
  * Trigger batch invoice generation for a specific month.

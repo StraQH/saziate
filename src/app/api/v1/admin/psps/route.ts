@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { psps } from "@/db/schema";
 import { generateId } from "@/lib/utils";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

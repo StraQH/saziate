@@ -11,7 +11,7 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { MOCK_PSP_ID, MOCK_ROUTE_NAME, MOCK_WARD } from "@/lib/mockdata";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const env = process.env as any;

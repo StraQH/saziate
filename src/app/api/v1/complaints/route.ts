@@ -5,7 +5,7 @@ import { complaints, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

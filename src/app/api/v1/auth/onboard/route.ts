@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth";
 
 import { checkRateLimit } from "@/lib/rate-limit";
 
-export const runtime = "edge";
+
 
 export async function POST(req: Request) {
   const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";

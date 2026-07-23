@@ -7,7 +7,7 @@ import { sendNotificationWithFallback } from "@/lib/notifications";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
+
 
 // Secure this endpoint in production (e.g. using a secret cron token)
 export async function GET(req: Request) {

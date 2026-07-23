@@ -10,7 +10,7 @@ import { sendNotificationWithFallback } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
-export const runtime = "edge";
+
 
 export async function GET(req: Request) {
   const env = process.env as any;

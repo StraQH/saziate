@@ -5,7 +5,6 @@ import { users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { normalizePhoneNumber } from "@/lib/utils";
 
-export const runtime = "edge";
 
 async function handleAuthRequest(request: Request) {
   const env = process.env as any;
