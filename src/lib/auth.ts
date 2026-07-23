@@ -44,3 +44,5 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
     },
   });
 };
+
+export const auth = getAuth;
