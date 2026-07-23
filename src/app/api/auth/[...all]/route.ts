@@ -15,7 +15,7 @@ async function handleAuthRequest(request: Request) {
     console.error("[AUTH_ERROR] D1 DB binding 'DB' is undefined");
     return new Response(
       JSON.stringify({ error: "Database binding missing" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, statusText: "DB_BINDING_MISSING", headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     const details = error instanceof Error ? error.message : String(error);
     return new Response(
       JSON.stringify({ error: "Authentication failed", details }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, statusText: "AUTH_HANDLER_ERROR", headers: { "Content-Type": "application/json" } }
     );
   }
 }
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
     const details = error instanceof Error ? error.message : String(error);
     return new Response(
       JSON.stringify({ error: "Authentication failed", details }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, statusText: "AUTH_HANDLER_ERROR", headers: { "Content-Type": "application/json" } }
     );
   }
 }
