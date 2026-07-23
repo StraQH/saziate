@@ -1,15 +1,15 @@
 // src/app/api/auth/[...all]/route.ts
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 
 export const runtime = "edge";
 
 async function handleAuthRequest(request: Request) {
-  const { env } = await getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   const dbBinding = (env as Record<string, unknown>)?.DB as D1Database;
 
   if (!dbBinding) {
-    console.error("[AUTH_ERROR] D1 Database binding 'DB' is undefined!");
+    console.error("[AUTH_ERROR] D1 DB binding 'DB' is undefined");
     return new Response(
       JSON.stringify({ error: "Database binding missing" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -17,7 +17,7 @@ async function handleAuthRequest(request: Request) {
   }
 
   const url = new URL(request.url);
-  const authInstance = auth(dbBinding, url.origin);
+  const authInstance = getAuth(dbBinding, url.origin);
 
   return authInstance.handler(request);
 }
@@ -25,10 +25,11 @@ async function handleAuthRequest(request: Request) {
 export async function POST(request: Request) {
   try {
     return await handleAuthRequest(request);
-  } catch (error: any) {
-    console.error("[AUTH_POST_ERROR]", error?.stack || error);
+  } catch (error: unknown) {
+    console.error("[AUTH_POST_ERROR]", error instanceof Error ? error.stack : error);
+    const details = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: "Authentication failed", details: String(error?.message || error) }),
+      JSON.stringify({ error: "Authentication failed", details }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -37,10 +38,11 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     return await handleAuthRequest(request);
-  } catch (error: any) {
-    console.error("[AUTH_GET_ERROR]", error?.stack || error);
+  } catch (error: unknown) {
+    console.error("[AUTH_GET_ERROR]", error instanceof Error ? error.stack : error);
+    const details = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: "Authentication failed", details: String(error?.message || error) }),
+      JSON.stringify({ error: "Authentication failed", details }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

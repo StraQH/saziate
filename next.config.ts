@@ -37,6 +37,8 @@ fs.promises.copyFile = async function (src, dest, flags) {
   }
 };
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  serverExternalPackages: ["drizzle-kit"],
+};
 
 export default nextConfig;
