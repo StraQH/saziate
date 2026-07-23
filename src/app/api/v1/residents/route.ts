@@ -2,7 +2,7 @@ import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, like } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";

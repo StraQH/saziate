@@ -21,8 +21,12 @@ export default function AgentRoutePage() {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.pspId!);
-    const data = await repo.getCollections();
-    setCollections(data);
+    const res = await repo.getCollections();
+    if (Array.isArray(res)) {
+      setCollections(res);
+    } else {
+      setCollections(res.data);
+    }
     setLoading(false);
   };
 

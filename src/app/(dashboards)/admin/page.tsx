@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { Badge } from "@/components/ui/Badge";
-import { Landmark, ArrowRight, UserPlus, CheckCircle } from "lucide-react";
+import { Landmark, ArrowRight, UserPlus, CheckCircle, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { config } from "@/lib/config";
 
 // --- Types ---
@@ -56,6 +56,43 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState<"operators" | "audit">("operators");
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
+  // Audit Log Pagination
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditLimit, setAuditLimit] = useState(50);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditTotalCount, setAuditTotalCount] = useState(0);
+  const [auditSearch, setAuditSearch] = useState("");
+  const [debouncedAuditSearch, setDebouncedAuditSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAuditSearch(auditSearch);
+      setAuditPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [auditSearch]);
+
+  // New PSP fields|  const [psps, setPsps] = useState<OnboardedPSP[]>(config.isMockMode ? INITIAL_PSPS : []);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<"operators" | "audit">("operators");
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  // Audit Log Pagination
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditLimit, setAuditLimit] = useState(50);
+  const [auditTotalPages, setAuditTotalPages] = useState(1);
+  const [auditTotalCount, setAuditTotalCount] = useState(0);
+  const [auditSearch, setAuditSearch] = useState("");
+  const [debouncedAuditSearch, setDebouncedAuditSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAuditSearch(auditSearch);
+      setAuditPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [auditSearch]);
+
   // New PSP fields
   const [name, setName] = useState("");
   const [rcNumber, setRcNumber] = useState("");
@@ -88,10 +125,16 @@ export default function AdminDashboardPage() {
   const fetchAuditLogs = async () => {
     if (config.isMockMode) return;
     try {
-      const res = await fetch("/api/v1/admin/audit-logs");
+      const res = await fetch(`/api/v1/admin/audit-logs?page=${auditPage}&limit=${auditLimit}&search=${encodeURIComponent(debouncedAuditSearch)}`);
       if (res.ok) {
         const data = await res.json();
-        setAuditLogs(data as AuditLog[]);
+        if (Array.isArray(data)) {
+           setAuditLogs(data as AuditLog[]);
+        } else {
+           setAuditLogs(data.data as AuditLog[]);
+           setAuditTotalPages(data.totalPages);
+           setAuditTotalCount(data.totalCount);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -100,10 +143,13 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchPSPs();
+  }, []);
+
+  useEffect(() => {
     if (activeTab === "audit") {
       fetchAuditLogs();
     }
-  }, [activeTab]);
+  }, [activeTab, auditPage, auditLimit, debouncedAuditSearch]);
 
   const handleCreatePSP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,7 +382,20 @@ export default function AdminDashboardPage() {
         </>
       ) : (
         <div className="card">
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.25rem" }}>System Audit Logs</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>System Audit Logs</h2>
+            <div style={{ position: "relative" }}>
+              <Search size={16} className="text-muted" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
+              <input 
+                type="text" 
+                placeholder="Search action..." 
+                value={auditSearch}
+                onChange={(e) => setAuditSearch(e.target.value)}
+                className="input"
+                style={{ paddingLeft: "32px", width: "250px", height: "36px" }}
+              />
+            </div>
+          </div>
           <div className="table-wrapper">
             <table className="table">
               <thead>
@@ -383,6 +442,30 @@ export default function AdminDashboardPage() {
               </tbody>
             </table>
           </div>
+          
+          {auditLogs.length > 0 && (
+            <div className="flex items-center justify-between" style={{ padding: "1rem", marginTop: "1rem", borderTop: "1px solid var(--border-color)" }}>
+              <p className="text-sm text-muted">
+                Showing {(auditPage - 1) * auditLimit + 1} to {Math.min(auditPage * auditLimit, auditTotalCount)} of {auditTotalCount} logs
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  disabled={auditPage === 1}
+                  onClick={() => setAuditPage(p => p - 1)}
+                >
+                  <ChevronLeft size={16} /> Prev
+                </button>
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  disabled={auditPage === auditTotalPages}
+                  onClick={() => setAuditPage(p => p + 1)}
+                >
+                  Next <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

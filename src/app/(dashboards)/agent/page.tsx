@@ -18,8 +18,12 @@ export default function AgentDashboardPage() {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.pspId!);
-    const data = await repo.getCollections();
-    setLogs(data);
+    const res = await repo.getCollections();
+    if (Array.isArray(res)) {
+      setLogs(res);
+    } else {
+      setLogs(res.data);
+    }
     setLoading(false);
   };
 

@@ -1,42 +1,86 @@
-import { getAppEnv } from "@/lib/env";
+﻿import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { createComplaintSchema, updateComplaintSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { complaints, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, like } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
-
-
 
 export async function GET(req: Request) {
   const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
-    // Both residents and PSPs can view complaints
     const sessionResponse = await requireRole(req, env.DB, ["resident", "psp_operator"]);
     const sessionUser = sessionResponse.user as any;
     const userRole = sessionUser.role;
     const userId = sessionUser.id;
 
-    let list;
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+    const search = url.searchParams.get("search") || "";
+    
+    const offset = (page - 1) * limit;
+
+    let baseQuery;
+    let countQuery;
+
     if (userRole === "resident") {
-      list = await db
+      baseQuery = db
         .select()
         .from(complaints)
-        .where(eq(complaints.residentId, userId));
+        .where(
+          and(
+            eq(complaints.residentId, userId),
+            search ? like(complaints.description, `%${search}%`) : undefined
+          )
+        );
+      countQuery = db
+        .select({ count: sql`COUNT(*)` })
+        .from(complaints)
+        .where(
+          and(
+            eq(complaints.residentId, userId),
+            search ? like(complaints.description, `%${search}%`) : undefined
+          )
+        );
     } else {
       const pspId = sessionUser.pspId;
       if (!pspId) {
         return new Response("Unauthorized.", { status: 401 });
       }
-      list = await db
+      baseQuery = db
         .select()
         .from(complaints)
-        .where(eq(complaints.pspId, pspId));
+        .where(
+          and(
+            eq(complaints.pspId, pspId),
+            search ? like(complaints.description, `%${search}%`) : undefined
+          )
+        );
+      countQuery = db
+        .select({ count: sql`COUNT(*)` })
+        .from(complaints)
+        .where(
+          and(
+            eq(complaints.pspId, pspId),
+            search ? like(complaints.description, `%${search}%`) : undefined
+          )
+        );
     }
 
-    return new Response(JSON.stringify(list), { status: 200, headers: { "Content-Type": "application/json" } });
+    const list = await baseQuery.limit(limit).offset(offset);
+    const countResult = await countQuery.get();
+    const totalCount = Number(countResult?.count || 0);
+
+    return new Response(JSON.stringify({
+      data: list,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      page,
+      limit
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
@@ -119,3 +163,4 @@ export async function PATCH(req: Request) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
+

@@ -1,13 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MessageSquare, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import { MessageSquare, AlertCircle, Clock, CheckCircle, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { config } from "@/lib/config";
 
 export default function PSPComplaintsPage() {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchComplaints = async () => {
     setLoading(true);
@@ -16,15 +31,23 @@ export default function PSPComplaintsPage() {
         { id: "comp_1", description: "Waste wasn't collected this week.", status: "submitted", date: "2023-11-20", residentId: "res_123" },
         { id: "comp_2", description: "Bin was damaged during pickup.", status: "investigating", date: "2023-10-15", residentId: "res_456" }
       ]);
+      setTotalPages(1);
+      setTotalCount(2);
       setLoading(false);
       return;
     }
 
     try {
-      const res = await fetch("/api/v1/complaints");
+      const res = await fetch(`/api/v1/complaints?page=${page}&limit=${limit}&search=${encodeURIComponent(debouncedSearch)}`);
       if (res.ok) {
         const data = await res.json();
-        setComplaints(data as any);
+        if (Array.isArray(data)) {
+           setComplaints(data);
+        } else {
+           setComplaints(data.data);
+           setTotalPages(data.totalPages);
+           setTotalCount(data.totalCount);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -35,7 +58,7 @@ export default function PSPComplaintsPage() {
 
   useEffect(() => {
     fetchComplaints();
-  }, []);
+  }, [page, limit, debouncedSearch]);
 
   const handleUpdateStatus = async (complaintId: string, newStatus: string) => {
     if (config.isMockMode) {
@@ -71,6 +94,23 @@ export default function PSPComplaintsPage() {
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
             Manage and resolve support tickets from residents.
           </p>
+        </div>
+        <div className="flex gap-3 items-center">
+          <div style={{ position: "relative" }}>
+            <Search size={16} className="text-muted" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
+            <input 
+              type="text" 
+              placeholder="Search complaints..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input"
+              style={{ paddingLeft: "32px", width: "250px", height: "36px" }}
+            />
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={fetchComplaints}>
+            <RefreshCw size={16} />
+            Refresh
+          </button>
         </div>
       </div>
 
@@ -122,6 +162,30 @@ export default function PSPComplaintsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!loading && complaints.length > 0 && (
+        <div className="flex items-center justify-between" style={{ padding: "1rem", marginTop: "1rem", background: "var(--color-bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }}>
+          <p className="text-sm text-muted">
+            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalCount)} of {totalCount} complaints
+          </p>
+          <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary btn-sm" 
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+            >
+              <ChevronLeft size={16} /> Prev
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              disabled={page === totalPages}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
     </div>
