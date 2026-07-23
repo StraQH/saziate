@@ -8,18 +8,18 @@ import { normalizePhoneNumber } from "@/lib/utils";
 
 async function handleAuthRequest(request: Request) {
   let env: any = process.env;
+  let debugError = "";
   try {
     const { getCloudflareContext } = require("@opennextjs/cloudflare");
     env = getCloudflareContext().env || process.env;
-  } catch (e) {
-    console.error("No cloudflare context");
+  } catch (e: any) {
+    debugError = e.message;
   }
   const dbBinding = env?.DB as D1Database;
 
   if (!dbBinding) {
-    console.error("[AUTH_ERROR] D1 DB binding 'DB' is undefined");
     return new Response(
-      JSON.stringify({ error: "Database binding missing" }),
+      JSON.stringify({ error: "Database binding missing", debugError, keys: Object.keys(env) }),
       { status: 500, statusText: "DB_BINDING_MISSING", headers: { "Content-Type": "application/json" } }
     );
   }
