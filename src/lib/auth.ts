@@ -30,6 +30,16 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
     secret: authSecret,
     emailAndPassword: {
       enabled: true,
+      password: {
+        hash: async (password: string) => {
+          const bcrypt = await import("bcryptjs");
+          return bcrypt.hash(password, 10);
+        },
+        verify: async ({ password, hash }: { password: string; hash: string }) => {
+          const bcrypt = await import("bcryptjs");
+          return bcrypt.compare(password, hash);
+        },
+      },
     },
     trustedOrigins: [
       "http://localhost:3000",
