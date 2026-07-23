@@ -6,8 +6,6 @@ import { eq, and } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 
-
-
 export async function GET(req: Request) {
   const env = getAppEnv() as any;
   const db = getDb(env.DB);

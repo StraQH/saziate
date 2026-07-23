@@ -72,27 +72,6 @@ export default function AdminDashboardPage() {
     return () => clearTimeout(timer);
   }, [auditSearch]);
 
-  // New PSP fields|  const [psps, setPsps] = useState<OnboardedPSP[]>(config.isMockMode ? INITIAL_PSPS : []);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"operators" | "audit">("operators");
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-
-  // Audit Log Pagination
-  const [auditPage, setAuditPage] = useState(1);
-  const [auditLimit, setAuditLimit] = useState(50);
-  const [auditTotalPages, setAuditTotalPages] = useState(1);
-  const [auditTotalCount, setAuditTotalCount] = useState(0);
-  const [auditSearch, setAuditSearch] = useState("");
-  const [debouncedAuditSearch, setDebouncedAuditSearch] = useState("");
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedAuditSearch(auditSearch);
-      setAuditPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [auditSearch]);
-
   // New PSP fields
   const [name, setName] = useState("");
   const [rcNumber, setRcNumber] = useState("");
