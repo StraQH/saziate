@@ -5,11 +5,11 @@ import { auth } from "@/lib/auth";
 export const runtime = "edge";
 
 async function handleAuthRequest(request: Request) {
-  const { env } = await getCloudflareContext();
+  const { env, ctx } = await getCloudflareContext();
   const dbBinding = (env as Record<string, unknown>)?.DB as D1Database;
 
   if (!dbBinding) {
-    console.error("[AUTH_ERROR] D1 DB binding 'DB' is undefined");
+    console.error("[AUTH_ERROR] D1 Database binding 'DB' is undefined!");
     return new Response(
       JSON.stringify({ error: "Database binding missing" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -19,6 +19,7 @@ async function handleAuthRequest(request: Request) {
   const url = new URL(request.url);
   const authInstance = auth(dbBinding, url.origin);
 
+  // Execute handler cleanly
   return authInstance.handler(request);
 }
 
