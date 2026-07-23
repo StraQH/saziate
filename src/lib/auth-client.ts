@@ -1,8 +1,7 @@
+// src/lib/auth-client.ts
 import { createAuthClient } from "better-auth/react";
 
 /**
- * Better Auth client configuration for front-end sessions.
+ * Better Auth client instance for React components and hooks.
  */
-export const authClient = createAuthClient({
-  baseURL: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
-});
+export const authClient = createAuthClient();
