@@ -1,12 +1,15 @@
 // src/app/api/auth/[...all]/route.ts
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getAuth } from "@/lib/auth";
+import { getDb } from "@/db";
+import { users } from "@/db/schema";
+import { eq, or } from "drizzle-orm";
+import { normalizePhoneNumber } from "@/lib/utils";
 
 export const runtime = "edge";
 
 async function handleAuthRequest(request: Request) {
-  const { env } = await getCloudflareContext({ async: true });
-  const dbBinding = (env as Record<string, unknown>)?.DB as D1Database;
+  const env = process.env as any;
+  const dbBinding = env?.DB as D1Database;
 
   if (!dbBinding) {
     console.error("[AUTH_ERROR] D1 DB binding 'DB' is undefined");
@@ -18,6 +21,73 @@ async function handleAuthRequest(request: Request) {
 
   const url = new URL(request.url);
   const authInstance = getAuth(dbBinding, url.origin);
+
+  // Intercept sign-in request to allow email OR phone number login
+  if (request.method === "POST" && url.pathname.endsWith("/api/auth/sign-in/email")) {
+    try {
+      const clonedRequest = request.clone();
+      const body = await clonedRequest.json() as { email?: string; password?: string };
+      const emailInput = body.email ? body.email.toLowerCase().trim() : "";
+
+      if (emailInput) {
+        const db = getDb(dbBinding);
+        let userRecord = null;
+
+        if (emailInput.endsWith("@saziate.com")) {
+          // Dummy email mapped from phone number in client: e.g. +2348012345678@saziate.com
+          const phone = emailInput.split("@")[0];
+          userRecord = await db
+            .select()
+            .from(users)
+            .where(
+              or(
+                eq(users.phone, phone),
+                eq(users.email, emailInput)
+              )
+            )
+            .get();
+        } else if (!emailInput.includes("@")) {
+          // Raw phone number input
+          const phone = normalizePhoneNumber(emailInput);
+          userRecord = await db
+            .select()
+            .from(users)
+            .where(
+              or(
+                eq(users.phone, phone),
+                eq(users.email, emailInput)
+              )
+            )
+            .get();
+        } else {
+          // Normal email address
+          userRecord = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, emailInput))
+            .get();
+        }
+
+        if (userRecord && userRecord.email && userRecord.email !== body.email) {
+          console.log(`[AUTH_INTERCEPT] Mapping identifier '${body.email}' to actual email '${userRecord.email}' for user '${userRecord.id}'`);
+          const modifiedBody = { ...body, email: userRecord.email };
+          const newHeaders = new Headers(request.headers);
+          newHeaders.delete("content-length");
+
+          const newRequest = new Request(request.url, {
+            method: request.method,
+            headers: newHeaders,
+            body: JSON.stringify(modifiedBody),
+            duplex: "half",
+          } as RequestInit);
+
+          return authInstance.handler(newRequest);
+        }
+      }
+    } catch (err) {
+      console.error("[AUTH_INTERCEPT_ERROR] Failed to map login identifier:", err);
+    }
+  }
 
   return authInstance.handler(request);
 }

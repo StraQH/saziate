@@ -41,9 +41,8 @@ export const createResidentSchema = z.object({
 
 export const importResidentsSchema = z.object({
   residents: z.array(z.object({
-    firstName: z.string().min(2),
-    lastName: z.string().min(2),
-    email: z.string().email("A valid email is required"),
+    name: z.string().min(2),
+    email: z.string().email("A valid email is required").optional().or(z.literal("")),
     phone: z.string(),
     address: z.string(),
     billingCategory: z.enum(["commercial", "residential", "industrial", "health"]).optional(),
