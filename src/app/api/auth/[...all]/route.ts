@@ -7,7 +7,13 @@ import { normalizePhoneNumber } from "@/lib/utils";
 
 
 async function handleAuthRequest(request: Request) {
-  const env = process.env as any;
+  let env: any = process.env;
+  try {
+    const { getCloudflareContext } = require("@opennextjs/cloudflare");
+    env = getCloudflareContext().env || process.env;
+  } catch (e) {
+    console.error("No cloudflare context");
+  }
   const dbBinding = env?.DB as D1Database;
 
   if (!dbBinding) {
