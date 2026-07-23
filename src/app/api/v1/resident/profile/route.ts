@@ -161,8 +161,8 @@ export async function PATCH(req: Request) {
 
     // Handle password update if provided
     if (newPassword) {
-      const bcrypt = await import("bcryptjs");
-      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      const { hashPassword } = await import("better-auth/crypto");
+      const hashedPassword = await hashPassword(newPassword);
       
       await db
         .update(accounts)

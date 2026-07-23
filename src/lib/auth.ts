@@ -3,7 +3,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
-import bcrypt from "bcryptjs";
+
 
 const authSecret = process.env.BETTER_AUTH_SECRET || "saziate_prod_secret_2026";
 
@@ -31,14 +31,6 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
     secret: authSecret,
     emailAndPassword: {
       enabled: true,
-      password: {
-        hash: async (password: string) => {
-          return bcrypt.hash(password, 10);
-        },
-        verify: async ({ password, hash }: { password: string; hash: string }) => {
-          return bcrypt.compare(password, hash);
-        },
-      },
     },
     trustedOrigins: [
       "http://localhost:3000",

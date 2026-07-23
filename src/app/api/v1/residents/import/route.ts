@@ -94,7 +94,7 @@ export async function POST(req: Request) {
 
 
       // Create credentials account link
-      const hashedPassword = await import("bcryptjs").then(bcrypt => bcrypt.hashSync(tempPassword, 10));
+      const hashedPassword = await import("better-auth/crypto").then(c => c.hashPassword(tempPassword));
       await db.insert(accounts).values({
         id: generateId(),
         accountId: userId,
