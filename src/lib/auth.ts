@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import * as schema from "@/db/schema";
 
 const authSecret = process.env.BETTER_AUTH_SECRET || "mock_secret";
+const isDemo = process.env.NEXT_PUBLIC_MOCK_MODE === "true";
 
 /**
  * Configure Better Auth instance with Drizzle ORM Adapter for SQLite.
@@ -26,8 +27,9 @@ export const auth = (dbBinding: D1Database) => {
       "https://demo.saziate.com"
     ],
     advanced: {
-      crossSubDomainCookies: {
-        enabled: false, // CRITICAL: Disabled to prevent session bleed between app.saziate.com and demo.saziate.com
+      cookiePrefix: isDemo ? "saziate_demo" : "saziate_prod",
+      crossSubdomainCookies: {
+        enabled: false,
       },
       disableCSRFCheck: false,
     },

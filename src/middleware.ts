@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { config as appConfig } from "@/lib/config";
 
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  const isDemo = process.env.NEXT_PUBLIC_MOCK_MODE === "true" || request.nextUrl.hostname.includes("demo.");
 
-  // 1. Bypass authentication filters completely in Mock Mode for easy testing
-  if (appConfig.isMockMode || request.nextUrl.hostname.includes("demo.")) {
+  // 1. Bypass authentication filters completely in Mock Mode / Demo
+  if (isDemo) {
     return NextResponse.next();
   }
 
@@ -18,8 +18,10 @@ export function middleware(request: NextRequest) {
     path.startsWith("/resident");
 
   if (isProtectedPath) {
-    // Better Auth default session cookie name
-    const sessionCookie = request.cookies.get("better-auth.session_token");
+    // Check both environment-prefixed cookies
+    const sessionCookie = 
+      request.cookies.get("saziate_prod.session_token") || 
+      request.cookies.get("saziate_demo.session_token");
 
     if (!sessionCookie) {
       const loginUrl = new URL("/login", request.url);
@@ -29,8 +31,12 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
 
-  // 3. Add CORS headers to all responses
-  response.headers.set("Access-Control-Allow-Origin", "*");
+  // 3. Add origin-safe CORS headers
+  const origin = request.headers.get("origin") || "";
+  if (origin) {
+    response.headers.set("Access-Control-Allow-Origin", origin);
+    response.headers.set("Access-Control-Allow-Credentials", "true");
+  }
   response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
 

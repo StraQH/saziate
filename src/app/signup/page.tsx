@@ -123,7 +123,7 @@ export default function SignupPage() {
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
             <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text)" }}>Get Started</h2>
             <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-              Register your PSP waste operator account on WasteOS
+              Register your PSP waste operator account on Saziate
             </p>
           </div>
 

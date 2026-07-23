@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { template: "%s | Saziate", default: "Saziate" },
-  description: "Operational software for waste service providers",
+  description: "Operational software platform",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Saziate" },
 };

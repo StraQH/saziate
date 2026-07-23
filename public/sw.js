@@ -1,10 +1,11 @@
-const CACHE_NAME = "saziate-cache-v1";
+const CACHE_NAME = "saziate-cache-v2";
+
+// ONLY cache static assets that never return HTTP 307/302 redirects
 const ASSETS_TO_CACHE = [
-  "/",
-  "/login",
   "/manifest.json",
   "/next.svg",
-  "/globe.svg"
+  "/globe.svg",
+  "/logo.png"
 ];
 
 // Install Event
@@ -35,8 +36,12 @@ self.addEventListener("activate", (e) => {
 
 // Fetch Event
 self.addEventListener("fetch", (e) => {
-  // Let Next.js handle API and dashboard page loads natively
-  if (e.request.url.includes("/api/") || e.request.url.includes("/_next/")) {
+  // Let Next.js handle API, static bundles, and navigation requests natively
+  if (
+    e.request.url.includes("/api/") || 
+    e.request.url.includes("/_next/") ||
+    e.request.mode === "navigate"
+  ) {
     return;
   }
 
@@ -45,10 +50,7 @@ self.addEventListener("fetch", (e) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(e.request).catch(() => {
-        // Fallback offline experience
-        return caches.match("/");
-      });
+      return fetch(e.request);
     })
   );
 });
@@ -62,7 +64,6 @@ self.addEventListener("sync", (e) => {
 
 // Sync handler that reads from IndexedDB and dispatches back to server
 async function syncPendingCollections() {
-  // Opening indexedDB inside service worker
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("saziate-offline-db", 1);
     
@@ -89,7 +90,6 @@ async function syncPendingCollections() {
             });
 
             if (res.ok) {
-              // Delete from indexedDB on success
               const deleteTx = db.transaction(["pending-logs"], "readwrite");
               deleteTx.objectStore("pending-logs").delete(log.id);
             }
