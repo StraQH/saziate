@@ -40,7 +40,7 @@ export default function ResidentSupportPage() {
     try {
       const res = await fetch(`/api/v1/complaints?page=${page}&limit=${limit}&search=${encodeURIComponent(debouncedSearch)}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as any;
         if (Array.isArray(data)) {
            setComplaints(data);
         } else {

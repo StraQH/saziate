@@ -106,7 +106,7 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch(`/api/v1/admin/audit-logs?page=${auditPage}&limit=${auditLimit}&search=${encodeURIComponent(debouncedAuditSearch)}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as any;
         if (Array.isArray(data)) {
            setAuditLogs(data as AuditLog[]);
         } else {
