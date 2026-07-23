@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { importResidentsSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
@@ -14,7 +15,7 @@ import { MOCK_PSP_ID, MOCK_ROUTE_NAME, MOCK_WARD } from "@/lib/mockdata";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
   const logger = new SaziateLogger(env.DB);
 

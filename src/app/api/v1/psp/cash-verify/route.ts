@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole, getActivePspId } from "@/lib/session";
 import { getDb } from "@/db";
 import { transactions, invoices, residentProfiles, auditLogs } from "@/db/schema";
@@ -12,7 +13,7 @@ import { emailTemplates } from "@/lib/email-templates";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
@@ -13,7 +14,7 @@ import { emailTemplates } from "@/lib/email-templates";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
@@ -46,7 +47,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
@@ -209,7 +210,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

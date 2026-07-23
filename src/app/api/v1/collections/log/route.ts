@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { MOCK_AGENT_ID } from "@/lib/mockdata";
 import { requireRole } from "@/lib/session";
 import { collectionLogSchema } from "@/lib/validators";
@@ -11,7 +12,7 @@ import { config } from "@/lib/config";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

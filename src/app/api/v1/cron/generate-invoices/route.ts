@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { users, residentProfiles, invoices, psps, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -11,7 +12,7 @@ import { config } from "@/lib/config";
 
 // Secure this endpoint in production (e.g. using a secret cron token)
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   
   // Basic security: require a CRON_SECRET token
   const authHeader = req.headers.get("Authorization");

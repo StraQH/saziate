@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
 import { invoices, transactions, auditLogs, residentProfiles } from "@/db/schema";
@@ -8,7 +9,7 @@ import { generateId } from "@/lib/utils";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

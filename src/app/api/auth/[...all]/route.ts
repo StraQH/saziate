@@ -1,25 +1,18 @@
-// src/app/api/auth/[...all]/route.ts
 import { getAuth } from "@/lib/auth";
 import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { normalizePhoneNumber } from "@/lib/utils";
+import { getAppEnv } from "@/lib/env";
 
 
 async function handleAuthRequest(request: Request) {
-  let env: any = process.env;
-  let debugError = "";
-  try {
-    const { getCloudflareContext } = require("@opennextjs/cloudflare");
-    env = getCloudflareContext().env || process.env;
-  } catch (e: any) {
-    debugError = e.message;
-  }
+  const env = getAppEnv();
   const dbBinding = env?.DB as D1Database;
 
   if (!dbBinding) {
     return new Response(
-      JSON.stringify({ error: "Database binding missing", debugError, keys: Object.keys(env) }),
+      JSON.stringify({ error: "Database binding missing" }),
       { status: 500, statusText: "DB_BINDING_MISSING", headers: { "Content-Type": "application/json" } }
     );
   }

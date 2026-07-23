@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices } from "@/db/schema";
 import { and, lt, eq } from "drizzle-orm";
@@ -6,7 +7,7 @@ import { config } from "@/lib/config";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

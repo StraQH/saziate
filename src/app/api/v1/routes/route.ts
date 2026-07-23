@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { createRouteSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { routes, routeBillingRates, users } from "@/db/schema";
@@ -8,7 +9,7 @@ import { getActivePspId, requireRole } from "@/lib/session";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

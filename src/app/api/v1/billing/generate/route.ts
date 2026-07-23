@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { generateBillingSchema } from "@/lib/validators";
 import { getDb } from "@/db";
@@ -13,7 +14,7 @@ import { generateId, generateSecureReference } from "@/lib/utils";
  * Computes base rate + Saziate 5% markup, and records into the D1 DB.
  */
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

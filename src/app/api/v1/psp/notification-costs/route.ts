@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { notificationLogs } from "@/db/schema";
 import { eq, and, gte } from "drizzle-orm";
@@ -6,7 +7,7 @@ import { getActivePspId, requireRole } from "@/lib/session";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

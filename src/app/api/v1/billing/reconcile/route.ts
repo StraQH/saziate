@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { reconcileInvoiceSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { invoices, transactions, users, residentProfiles, auditLogs } from "@/db/schema";
@@ -9,7 +10,7 @@ import { generateId } from "@/lib/utils";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

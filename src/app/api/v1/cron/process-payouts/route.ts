@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { psps, invoices, transactions, auditLogs, notificationLogs, users } from "@/db/schema";
 import { eq, and, like, inArray } from "drizzle-orm";
@@ -10,7 +11,7 @@ import { config } from "@/lib/config";
 
 // Triggered via Cron (e.g. daily for T+1 processing)
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
 
   // Basic security: require a CRON_SECRET token
   const authHeader = req.headers.get("Authorization");

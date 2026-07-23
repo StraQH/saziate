@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, users, transactions, residentProfiles } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
@@ -32,7 +33,7 @@ async function verifyPaystackSignature(
 }
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   try {
     const signature = req.headers.get("x-paystack-signature");
     if (!signature) {

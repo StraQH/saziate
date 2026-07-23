@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole, getActivePspId } from "@/lib/session";
 import { getDb } from "@/db";
 import { agentInvitations, psps } from "@/db/schema";
@@ -10,7 +11,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

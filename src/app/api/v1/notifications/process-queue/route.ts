@@ -1,9 +1,10 @@
+import { getAppEnv } from "@/lib/env";
 import { processPendingRetries } from "@/lib/notifications";
 
 
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
 
   try {
     const termiiKey = env.TERMII_API_KEY;

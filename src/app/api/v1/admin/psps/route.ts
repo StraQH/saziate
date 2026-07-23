@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { registerPspSchema } from "@/lib/validators";
 import { getDb } from "@/db";
@@ -7,7 +8,7 @@ import { generateId } from "@/lib/utils";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

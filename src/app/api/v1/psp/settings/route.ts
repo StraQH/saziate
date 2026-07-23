@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { pspSettingsSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { psps } from "@/db/schema";
@@ -7,7 +8,7 @@ import { getActivePspId, requireRole } from "@/lib/session";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

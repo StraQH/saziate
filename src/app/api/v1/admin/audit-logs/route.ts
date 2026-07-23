@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
 import { auditLogs, users } from "@/db/schema";
@@ -6,7 +7,7 @@ import { desc, eq } from "drizzle-orm";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { onboardSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, psps, agentInvitations } from "@/db/schema";
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), { status: 429, headers: { "Content-Type": "application/json" } });
   }
 
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
   const logger = new SaziateLogger(env.DB);
 

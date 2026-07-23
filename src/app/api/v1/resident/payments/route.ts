@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
@@ -8,7 +9,7 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = process.env as any;
+  const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {

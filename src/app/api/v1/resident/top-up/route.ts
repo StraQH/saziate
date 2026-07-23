@@ -1,3 +1,4 @@
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { users, residentProfiles, transactions, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     const { residentId, amount } = parsed.data;
 
     // Use environment DB
-    const env = process.env as any;
+    const env = getAppEnv() as any;
     
     // Authenticate resident session
     await requireRole(req, env.DB, ["resident"]);
