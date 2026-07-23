@@ -19,7 +19,8 @@ export const auth = (dbBinding: D1Database, requestOrigin?: string) => {
     database: drizzleAdapter(db, {
       provider: "sqlite",
       schema,
-      usePlural: true, // Directly maps users, sessions, accounts, verifications correctly
+      usePlural: true,
+      transaction: false, // REQUIRED FOR CLOUDFLARE D1 (D1 does not support nested Drizzle transactions)
     }),
     secret: authSecret,
     emailAndPassword: {

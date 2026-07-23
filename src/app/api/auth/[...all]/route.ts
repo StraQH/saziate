@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 export const runtime = "edge";
 
 async function handleAuthRequest(request: Request) {
-  const { env, ctx } = await getCloudflareContext();
+  const { env } = await getCloudflareContext();
   const dbBinding = (env as Record<string, unknown>)?.DB as D1Database;
 
   if (!dbBinding) {
@@ -19,17 +19,16 @@ async function handleAuthRequest(request: Request) {
   const url = new URL(request.url);
   const authInstance = auth(dbBinding, url.origin);
 
-  // Execute handler cleanly
   return authInstance.handler(request);
 }
 
 export async function POST(request: Request) {
   try {
     return await handleAuthRequest(request);
-  } catch (error) {
-    console.error("[AUTH_POST_ERROR]", error);
+  } catch (error: any) {
+    console.error("[AUTH_POST_ERROR]", error?.stack || error);
     return new Response(
-      JSON.stringify({ error: "Authentication failed", details: String(error) }),
+      JSON.stringify({ error: "Authentication failed", details: String(error?.message || error) }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -38,10 +37,10 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     return await handleAuthRequest(request);
-  } catch (error) {
-    console.error("[AUTH_GET_ERROR]", error);
+  } catch (error: any) {
+    console.error("[AUTH_GET_ERROR]", error?.stack || error);
     return new Response(
-      JSON.stringify({ error: "Authentication failed", details: String(error) }),
+      JSON.stringify({ error: "Authentication failed", details: String(error?.message || error) }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
