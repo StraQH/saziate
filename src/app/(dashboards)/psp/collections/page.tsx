@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Truck, Check, MapPin, AlertTriangle, RefreshCw } from "lucide-react";
+import { Truck, Check, MapPin, AlertTriangle, RefreshCw, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { MOCK_COLLECTIONS, type CollectionRun, MOCK_PSP_ID } from "@/lib/mockdata";
 import { SaziateRepository } from "@/lib/repository";
@@ -15,18 +15,40 @@ export default function PSPCollectionsPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchCollections = async () => {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.pspId!);
-    const data = await repo.getCollections();
-    setCollections(data);
+    const res = await repo.getCollections(page, limit, debouncedSearch);
+    
+    if (Array.isArray(res)) {
+      setCollections(res);
+    } else {
+      setCollections(res.data);
+      setTotalPages(res.totalPages);
+      setTotalCount(res.totalCount);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchCollections();
-  }, [user]);
+  }, [user, page, limit, debouncedSearch]);
 
   const filteredCollections = collections.filter((c) => {
     if (filterStatus === "all") return true;
@@ -46,10 +68,23 @@ export default function PSPCollectionsPage() {
             Track real-time waste collection status logged by field agents.
           </p>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={fetchCollections}>
-          <RefreshCw size={16} />
-          Refresh Feed
-        </button>
+        <div className="flex gap-3 items-center">
+          <div style={{ position: "relative" }}>
+            <Search size={16} className="text-muted" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
+            <input 
+              type="text" 
+              placeholder="Search collections..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input"
+              style={{ paddingLeft: "32px", width: "250px", height: "36px" }}
+            />
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={fetchCollections}>
+            <RefreshCw size={16} />
+            Refresh Feed
+          </button>
+        </div>
       </div>
 
       {/* Summary Row */}
@@ -141,6 +176,30 @@ export default function PSPCollectionsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!loading && filteredCollections.length > 0 && (
+        <div className="flex items-center justify-between" style={{ padding: "1rem", marginTop: "1rem", background: "var(--color-bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }}>
+          <p className="text-sm text-muted">
+            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalCount)} of {totalCount} logs
+          </p>
+          <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary btn-sm" 
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+            >
+              <ChevronLeft size={16} /> Prev
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              disabled={page === totalPages}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
     </div>

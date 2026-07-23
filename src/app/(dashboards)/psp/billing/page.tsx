@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { formatNaira } from "@/lib/utils";
-import { FileText, Download, Check, AlertCircle, DollarSign, RefreshCw, Wallet } from "lucide-react";
+import { FileText, Download, Check, AlertCircle, DollarSign, RefreshCw, Wallet, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { MOCK_INVOICES, type Invoice, MOCK_PSP_ID } from "@/lib/mockdata";
 import { SaziateRepository } from "@/lib/repository";
@@ -20,12 +20,35 @@ export default function PSPBillingPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchInvoices = async () => {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.pspId!);
-    const data = await repo.getInvoices();
-    setInvoices(data);
+    const res = await repo.getInvoices(page, limit, debouncedSearch);
+    
+    // Support either old array format or new paginated object format
+    if (Array.isArray(res)) {
+      setInvoices(res);
+    } else {
+      setInvoices(res.data);
+      setTotalPages(res.totalPages);
+      setTotalCount(res.totalCount);
+    }
 
     if (config.isMockMode) {
       setNotificationCosts(480.00); // Mock cost
@@ -122,7 +145,7 @@ export default function PSPBillingPage() {
 
   useEffect(() => {
     fetchInvoices();
-  }, [user]);
+  }, [user, page, limit, debouncedSearch]);
 
   const filteredInvoices = invoices.filter((inv) => {
     if (filterStatus === "all") return true;
@@ -274,6 +297,27 @@ export default function PSPBillingPage() {
                 ))}
               </tbody>
             </table>
+            <div className="flex items-center justify-between" style={{ padding: "1rem", borderTop: "1px solid var(--color-border)" }}>
+              <p className="text-sm text-muted">
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalCount)} of {totalCount} invoices
+              </p>
+              <div className="flex gap-2">
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  disabled={page === 1}
+                  onClick={() => setPage(p => p - 1)}
+                >
+                  <ChevronLeft size={16} /> Prev
+                </button>
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  disabled={page === totalPages}
+                  onClick={() => setPage(p => p + 1)}
+                >
+                  Next <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

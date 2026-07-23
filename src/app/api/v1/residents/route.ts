@@ -24,7 +24,14 @@ export async function GET(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const profiles = await db
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+    const search = url.searchParams.get("search") || "";
+    
+    const offset = (page - 1) * limit;
+
+    let baseQuery = db
       .select({
         id: users.id,
         name: users.name,
@@ -35,9 +42,37 @@ export async function GET(req: Request) {
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
-      .where(eq(users.pspId, pspId));
+      .where(
+        and(
+          eq(users.pspId, pspId),
+          search ? like(users.name, `%${search}%`) : undefined
+        )
+      );
 
-    return new Response(JSON.stringify(profiles), {
+    const profiles = await baseQuery.limit(limit).offset(offset);
+    
+    // We also need total count for pagination UI
+    const countResult = await db
+      .select({ count: sql`COUNT(*)` })
+      .from(residentProfiles)
+      .innerJoin(users, eq(residentProfiles.userId, users.id))
+      .where(
+        and(
+          eq(users.pspId, pspId),
+          search ? like(users.name, `%${search}%`) : undefined
+        )
+      )
+      .get();
+      
+    const totalCount = Number(countResult?.count || 0);
+
+    return new Response(JSON.stringify({
+      data: profiles,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      page,
+      limit
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

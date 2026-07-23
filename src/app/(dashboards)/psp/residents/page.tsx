@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Users, PlusCircle, Upload, MessageSquare } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Users, PlusCircle, Upload, MessageSquare, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { formatNaira, calculateResidentBill } from "@/lib/utils";
@@ -30,14 +30,32 @@ export default function PSPResidentsPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showSMSModal, setShowSMSModal] = useState(false);
   const [selectedResidents, setSelectedResidents] = useState<string[]>([]);
+  
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset to page 1 on new search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setLoading(true);
     const repo = new SaziateRepository(MOCK_PSP_ID);
-    repo.getResidents().then((data) => {
-      setResidents(data);
+    repo.getResidents(page, limit, debouncedSearch).then((res) => {
+      setResidents(res.data);
+      setTotalPages(res.totalPages);
+      setTotalCount(res.totalCount);
       setLoading(false);
     });
-  }, []);
+  }, [page, limit, debouncedSearch]);
 
   const handleAddResident = (newResident: Resident) => {
     setResidents((prev) => [newResident, ...prev]);
@@ -95,10 +113,21 @@ export default function PSPResidentsPage() {
         <div>
           <h1>Residents</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            {residents.length} resident{residents.length !== 1 ? "s" : ""} registered
+            {totalCount} resident{totalCount !== 1 ? "s" : ""} registered
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <div style={{ position: "relative" }}>
+            <Search size={16} className="text-muted" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
+            <input 
+              type="text" 
+              placeholder="Search residents..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input"
+              style={{ paddingLeft: "32px", width: "250px", height: "36px" }}
+            />
+          </div>
           {selectedResidents.length > 0 && (
             <button className="btn btn-primary btn-sm" onClick={() => setShowSMSModal(true)} style={{ backgroundColor: "var(--color-primary-dark)" }}>
               <MessageSquare size={16} />
@@ -211,6 +240,27 @@ export default function PSPResidentsPage() {
               })}
             </tbody>
           </table>
+          <div className="flex items-center justify-between" style={{ padding: "1rem" }}>
+            <p className="text-sm text-muted">
+              Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalCount)} of {totalCount} residents
+            </p>
+            <div className="flex gap-2">
+              <button 
+                className="btn btn-secondary btn-sm" 
+                disabled={page === 1}
+                onClick={() => setPage(p => p - 1)}
+              >
+                <ChevronLeft size={16} /> Prev
+              </button>
+              <button 
+                className="btn btn-secondary btn-sm" 
+                disabled={page === totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
