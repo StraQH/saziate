@@ -18,7 +18,7 @@
 /out/
 
 # OpenNext build outputs
-.open-next
+/.open-next
 
 # Cloudflare Wrangler local state & dev caches
 .wrangler
