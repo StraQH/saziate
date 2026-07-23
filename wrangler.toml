@@ -1,4 +1,4 @@
-name = "saziate"
+name = "saziate-demo"
 main = ".open-next/worker.js"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
