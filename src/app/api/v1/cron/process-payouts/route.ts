@@ -35,18 +35,16 @@ export async function GET(req: Request) {
 
     let processedCount = 0;
 
+    const newTransactions: any[] = [];
+    const newAuditLogs: any[] = [];
+    const notificationPromises: Promise<any>[] = [];
+
     for (const psp of allPsps) {
       // Find all paid invoices that haven't been settled yet
       // To properly track this in a real system, we'd need a 'settlementId' on invoices or a separate ledger table.
       // For now, we simulate settlement calculation by fetching all paid invoices without a payout transaction.
       // Since transactions table already tracks payouts, we can sum all paid invoices minus sum of all payouts.
 
-      // 1. Optimistic Lock: Insert the payout transaction FIRST with status "initiated"
-      // We will assume a large payout for the lock amount to be safe, or we can calculate first, 
-      // but wait, if we calculate first, we have the race condition!
-      // Better: we can calculate `currentAvailable` with the existing function, then insert it as "initiated", 
-      // then recalculate `currentAvailable` to verify we didn't overdraft!
-      
       // Calculate initial estimate
       const digitalTxs = await db
         .select({ amount: transactions.amount })
@@ -125,7 +123,7 @@ export async function GET(req: Request) {
         // 3. Process the payout (simulated via API in real app)
         await db.update(transactions).set({ status: "success" }).where(eq(transactions.id, txId));
 
-        await db.insert(auditLogs).values({
+        newAuditLogs.push({
           id: generateId(),
           actorId: "system",
           action: "payout.automated",
@@ -139,13 +137,31 @@ export async function GET(req: Request) {
         // Send Email Confirmation
         if (psp.contactEmail && psp.settlementAccountNumber) {
           const accountMask = psp.settlementAccountNumber.slice(-4);
-          await sendEmail({
+          notificationPromises.push(sendEmail({
             to: psp.contactEmail,
             subject: "Saziate Payout Initiated",
             html: emailTemplates.payoutConfirmation(psp.name, estimatedAvailable, accountMask),
-          });
+          }));
         }
       }
+    }
+
+    // Execute Batched Database Inserts (Chunked)
+    const chunkSize = 500;
+    
+    // Chunked Audit Logs
+    for (let i = 0; i < newAuditLogs.length; i += chunkSize) {
+      const chunk = newAuditLogs.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        await db.insert(auditLogs).values(chunk);
+      }
+    }
+
+    // Concurrent Notification Dispatch (Chunked to prevent external API rate limiting)
+    const concurrentLimit = 50;
+    for (let i = 0; i < notificationPromises.length; i += concurrentLimit) {
+      const chunk = notificationPromises.slice(i, i + concurrentLimit);
+      await Promise.allSettled(chunk);
     }
 
     return new Response(JSON.stringify({ 

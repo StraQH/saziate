@@ -8,8 +8,6 @@ import { sendNotificationWithFallback } from "@/lib/notifications";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
-
-
 // Secure this endpoint in production (e.g. using a secret cron token)
 export async function GET(req: Request) {
   const env = getAppEnv() as any;
@@ -64,7 +62,14 @@ export async function GET(req: Request) {
     let generatedCount = 0;
     let emailCount = 0;
 
-    // 2. Generate Invoices
+    const newInvoices: any[] = [];
+    const newTransactions: any[] = [];
+    const notificationPromises: Promise<any>[] = [];
+
+    // Arrays to hold profile updates (using sequential execution later or batched queries if available)
+    const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
+
+    // 2. Prepare Invoices & Transactions in memory
     for (const resident of activeResidents) {
       if (!resident.pspId) continue;
       
@@ -92,30 +97,24 @@ export async function GET(req: Request) {
         invoiceStatus = "paid";
         isFullySettled = true;
         amountSettledFromAdvance = totalAmount;
-        
-        await db.update(residentProfiles)
-          .set({ advancePaymentBalance: advanceBalance - totalAmount })
-          .where(eq(residentProfiles.userId, resident.userId));
+        profileUpdates.push({ userId: resident.userId, advancePaymentBalance: advanceBalance - totalAmount });
       } else if (advanceBalance > 0) {
         // Partial Settlement
         finalAmount = totalAmount - advanceBalance;
         invoiceStatus = "pending";
         isPartiallySettled = true;
         amountSettledFromAdvance = advanceBalance;
-
-        await db.update(residentProfiles)
-          .set({ advancePaymentBalance: 0 })
-          .where(eq(residentProfiles.userId, resident.userId));
+        profileUpdates.push({ userId: resident.userId, advancePaymentBalance: 0 });
       }
       
-      await db.insert(invoices).values({
+      newInvoices.push({
         id: invoiceId,
         pspId: resident.pspId,
         residentId: resident.userId,
         paymentReference,
         baseAmount,
         platformFee,
-        totalAmount: finalAmount, // Updated to reflect any partial reduction
+        totalAmount: finalAmount,
         status: invoiceStatus,
         dueDate: dueDate,
         billingPeriodStart: currentMonthStart,
@@ -123,12 +122,11 @@ export async function GET(req: Request) {
       });
 
       if (isFullySettled || isPartiallySettled) {
-        // Log transaction for the amount settled from advance
-        await db.insert(transactions).values({
+        newTransactions.push({
           id: generateId(),
           invoiceId,
           residentId: resident.userId,
-          reference: `ADV-SETTLE-${Date.now()}`,
+          reference: `ADV-SETTLE-${Date.now()}-${generateId().substring(0,4)}`,
           amount: amountSettledFromAdvance,
           paymentMethod: "advance_balance",
           cashStatus: "settled",
@@ -137,25 +135,25 @@ export async function GET(req: Request) {
 
       generatedCount++;
 
-      // 3. Dispatch Emails or SMS fallback
+      // 3. Prepare Dispatch Promises (Emails or SMS fallback)
       const hasRealEmail = resident.email && resident.email.includes("@") && !resident.email.endsWith("@saziate.com");
       const firstName = resident.firstName || resident.name.split(" ")[0];
 
       if (hasRealEmail) {
         if (isFullySettled) {
-          await sendEmail({
+          notificationPromises.push(sendEmail({
             to: resident.email!,
             subject: "Your Monthly Bill is Settled!",
             html: emailTemplates.advanceBillSettled(firstName, totalAmount, advanceBalance - totalAmount),
-          });
+          }));
         } else if (isPartiallySettled) {
-          await sendEmail({
+          notificationPromises.push(sendEmail({
             to: resident.email!,
             subject: "Partial Advance Payment Applied",
             html: emailTemplates.partialAdvanceSettled(firstName, amountSettledFromAdvance, finalAmount),
-          });
+          }));
         } else {
-          await sendEmail({
+          notificationPromises.push(sendEmail({
             to: resident.email!,
             subject: "Your Monthly Waste Bill is Ready",
             html: emailTemplates.monthlyBill(
@@ -164,7 +162,7 @@ export async function GET(req: Request) {
               totalAmount, 
               dueDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
             ),
-          });
+          }));
         }
         emailCount++;
       } else if (resident.phone) {
@@ -177,17 +175,51 @@ export async function GET(req: Request) {
           msg = `Hello ${firstName}, your monthly bill of ₦${totalAmount} is due on ${dueDate.toLocaleDateString("en-GB")}. Reference: ${paymentReference}.`;
         }
 
-        await sendNotificationWithFallback({
+        notificationPromises.push(sendNotificationWithFallback({
           dbBinding: env.DB,
           termiiApiKey: env.TERMII_API_KEY || "",
           pspId: resident.pspId,
           residentId: resident.userId,
           phone: resident.phone,
           messageText: msg,
-          messageType: "due_invoice", // free system notification
+          messageType: "due_invoice",
           channel: "sms",
-        });
+        }));
       }
+    }
+
+    // 4. Execute Batched Database Inserts (Chunked)
+    const chunkSize = 500;
+    
+    // Chunked Invoices
+    for (let i = 0; i < newInvoices.length; i += chunkSize) {
+      const chunk = newInvoices.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        await db.insert(invoices).values(chunk);
+      }
+    }
+
+    // Chunked Transactions
+    for (let i = 0; i < newTransactions.length; i += chunkSize) {
+      const chunk = newTransactions.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        await db.insert(transactions).values(chunk);
+      }
+    }
+
+    // Process profile updates (Advance balance deduction)
+    // Cloudflare D1 supports db.batch, but we will chunk them sequentially just in case to avoid query limits
+    for (const update of profileUpdates) {
+      await db.update(residentProfiles)
+        .set({ advancePaymentBalance: update.advancePaymentBalance })
+        .where(eq(residentProfiles.userId, update.userId));
+    }
+
+    // 5. Concurrent Notification Dispatch (Chunked to prevent external API rate limiting)
+    const concurrentLimit = 50;
+    for (let i = 0; i < notificationPromises.length; i += concurrentLimit) {
+      const chunk = notificationPromises.slice(i, i + concurrentLimit);
+      await Promise.allSettled(chunk);
     }
 
     return new Response(JSON.stringify({ 

@@ -1,13 +1,10 @@
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
-import { generateBillingSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { invoices, residentProfiles, users, routeResidents, routeBillingRates, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getActivePspId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
-
-
 
 /**
  * Trigger batch invoice generation for a specific month.
@@ -71,6 +68,9 @@ export async function POST(req: Request) {
     const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
 
     const generatedInvoices = [];
+    const newInvoices: any[] = [];
+    const newTransactions: any[] = [];
+    const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
 
     for (const profile of profiles) {
       // Prevent double billing
@@ -95,20 +95,14 @@ export async function POST(req: Request) {
         invoiceStatus = "paid";
         isFullySettled = true;
         amountSettledFromAdvance = totalAmount;
-        
-        await db.update(residentProfiles)
-          .set({ advancePaymentBalance: advanceBalance - totalAmount })
-          .where(eq(residentProfiles.userId, profile.userId));
+        profileUpdates.push({ userId: profile.userId, advancePaymentBalance: advanceBalance - totalAmount });
       } else if (advanceBalance > 0) {
         // Partial Settlement
         finalAmount = totalAmount - advanceBalance;
         invoiceStatus = "pending";
         isPartiallySettled = true;
         amountSettledFromAdvance = advanceBalance;
-
-        await db.update(residentProfiles)
-          .set({ advancePaymentBalance: 0 })
-          .where(eq(residentProfiles.userId, profile.userId));
+        profileUpdates.push({ userId: profile.userId, advancePaymentBalance: 0 });
       }
 
       const invoiceId = generateId();
@@ -119,7 +113,7 @@ export async function POST(req: Request) {
       dueDate.setMonth(month - 1); // Current billing month
       dueDate.setDate(7); // Standardized to the 7th
 
-      await db.insert(invoices).values({
+      newInvoices.push({
         id: invoiceId,
         residentId: profile.userId,
         pspId: profile.pspId!,
@@ -134,7 +128,7 @@ export async function POST(req: Request) {
       });
 
       if (isFullySettled || isPartiallySettled) {
-        await db.insert(transactions).values({
+        newTransactions.push({
           id: generateId(),
           invoiceId,
           residentId: profile.userId,
@@ -146,6 +140,32 @@ export async function POST(req: Request) {
       }
 
       generatedInvoices.push(invoiceId);
+    }
+
+    // Execute Batched Database Inserts (Chunked)
+    const chunkSize = 500;
+    
+    // Chunked Invoices
+    for (let i = 0; i < newInvoices.length; i += chunkSize) {
+      const chunk = newInvoices.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        await db.insert(invoices).values(chunk);
+      }
+    }
+
+    // Chunked Transactions
+    for (let i = 0; i < newTransactions.length; i += chunkSize) {
+      const chunk = newTransactions.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        await db.insert(transactions).values(chunk);
+      }
+    }
+
+    // Process profile updates (Advance balance deduction)
+    for (const update of profileUpdates) {
+      await db.update(residentProfiles)
+        .set({ advancePaymentBalance: update.advancePaymentBalance })
+        .where(eq(residentProfiles.userId, update.userId));
     }
 
     return new Response(
