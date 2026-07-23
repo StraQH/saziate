@@ -3,8 +3,8 @@ import { requireRole } from "@/lib/session";
 import { collectionLogSchema } from "@/lib/validators";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
-import { collectionLogs, users, routes } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { collectionLogs, users, routes, routeResidents } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
 
@@ -56,6 +56,17 @@ export async function POST(req: Request) {
 
     if (route.assignedAgentId !== actorId) {
       return new Response("Unauthorized to log collections for this route.", { status: 403 });
+    }
+
+    // Ensure the resident is actually assigned to this route
+    const residentMapping = await db
+      .select()
+      .from(routeResidents)
+      .where(and(eq(routeResidents.routeId, routeId), eq(routeResidents.residentId, residentId)))
+      .get();
+
+    if (!residentMapping) {
+      return new Response("Resident is not assigned to this route.", { status: 403 });
     }
 
     const logId = generateId();

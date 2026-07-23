@@ -5,6 +5,7 @@ import { inArray, eq, and } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { config } from "@/lib/config";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "edge";
 
@@ -13,6 +14,11 @@ export async function POST(req: Request) {
   const db = getDb(env.DB);
 
   try {
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!checkRateLimit(ip)) {
+      return new Response("Too Many Requests", { status: 429 });
+    }
+
     const sessionResponse = await requireRole(req, env.DB, ["psp_operator"]);
     const pspId = (sessionResponse.user as any).pspId;
 

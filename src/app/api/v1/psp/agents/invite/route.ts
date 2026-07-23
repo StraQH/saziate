@@ -5,6 +5,7 @@ import { generateId } from "@/lib/utils";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "edge";
 
@@ -13,8 +14,14 @@ export async function POST(req: Request) {
   const db = getDb(env.DB);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!checkRateLimit(ip)) {
+      return new Response("Too Many Requests", { status: 429 });
+    }
+
+    const sessionResponse = await requireRole(req, env.DB, ["psp_operator"]);
+    const pspId = (sessionResponse.user as any).pspId;
+
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }

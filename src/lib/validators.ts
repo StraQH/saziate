@@ -24,6 +24,8 @@ export const onboardSchema = z.object({
   rcNumber: z.string().optional(),
   address: z.string().optional(),
   inviteToken: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 // Residents

@@ -64,6 +64,7 @@ export async function POST(req: Request) {
         residentId,
         reference: `PAYSTACK-TOPUP-${generateSecureReference(10)}`,
         amount,
+        status: "success",
         paymentMethod: "bank_transfer",
         cashStatus: "settled",
       });

@@ -138,11 +138,21 @@ export async function PATCH(req: Request) {
       });
     }
 
+    let firstName: string | undefined = undefined;
+    let lastName: string | undefined = undefined;
+    if (name) {
+      const parts = name.trim().split(/\s+/);
+      firstName = parts[0] || "Unknown";
+      lastName = parts.slice(1).join(" ") || "";
+    }
+
     // Update user details
     await db
       .update(users)
       .set({
         name: name || undefined,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
         email: email || undefined,
         updatedAt: new Date(),
       })

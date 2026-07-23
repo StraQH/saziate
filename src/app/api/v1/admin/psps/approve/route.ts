@@ -30,6 +30,10 @@ export async function POST(req: Request) {
       return new Response("PSP record not found.", { status: 404 });
     }
 
+    if (psp.dvaAccountNumber) {
+      return new Response("PSP is already approved and has an active Dedicated Virtual Account.", { status: 400 });
+    }
+
     // Provision Dedicated Virtual Account (DVA)
     let dvaBankName = "";
     let dvaAccountNumber = "";

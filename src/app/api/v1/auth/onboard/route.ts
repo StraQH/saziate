@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { userId, phone, role, pspName, rcNumber, address, inviteToken } = body;
+    const { userId, phone, role, pspName, rcNumber, address, inviteToken, firstName, lastName } = body;
 
     if (!userId || !role) {
       return new Response("Missing required onboarding parameters.", { status: 400 });
@@ -117,11 +117,21 @@ export async function POST(req: Request) {
         .where(eq(agentInvitations.token, inviteToken));
     }
 
-    // Update user profile fields with role and associated pspId
+    let splitFirstName: string | null = null;
+    let splitLastName: string | null = null;
+    if (userRecord.name) {
+      const parts = userRecord.name.trim().split(/\s+/);
+      splitFirstName = parts[0] || "Unknown";
+      splitLastName = parts.slice(1).join(" ") || "";
+    }
+
+    // Update user profile fields with role, associated pspId, and names
     await db
       .update(users)
       .set({
         role,
+        firstName: firstName || splitFirstName,
+        lastName: lastName || splitLastName,
         phone: phone || null,
         pspId,
         updatedAt: new Date(),

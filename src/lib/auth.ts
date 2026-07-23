@@ -24,6 +24,8 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
         account: accounts,
         verification: verifications,
       },
+      usePlural: true,
+      transaction: false, // REQUIRED FOR CLOUDFLARE D1 (D1 does not support nested Drizzle transactions)
     }),
     secret: authSecret,
     emailAndPassword: {

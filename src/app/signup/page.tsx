@@ -11,7 +11,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -26,10 +27,11 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      const fullName = `${firstName} ${lastName}`;
       const { data, error: signUpError } = await authClient.signUp.email({
         email,
         password,
-        name,
+        name: fullName,
       });
 
       if (signUpError || !data?.user) {
@@ -46,6 +48,8 @@ export default function SignupPage() {
           pspName,
           rcNumber,
           address,
+          firstName,
+          lastName,
         }),
       });
 
@@ -150,22 +154,41 @@ export default function SignupPage() {
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }} className="grid-cols-1">
                 <div className="form-group">
-                  <label className="label">Full Name</label>
+                  <label className="label">First Name</label>
                   <div style={{ position: "relative" }}>
                     <input
                       type="text"
                       className="input"
                       style={{ paddingLeft: "2.5rem" }}
-                      placeholder="Jane Doe"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      autoComplete="name"
+                      placeholder="Jane"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      autoComplete="given-name"
                       required
                     />
                     <UserPlus size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
 
+                <div className="form-group">
+                  <label className="label">Last Name</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="text"
+                      className="input"
+                      style={{ paddingLeft: "2.5rem" }}
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      autoComplete="family-name"
+                      required
+                    />
+                    <UserPlus size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }} className="grid-cols-1">
                 <div className="form-group">
                   <label className="label">Phone Number</label>
                   <div style={{ position: "relative" }}>
@@ -182,9 +205,7 @@ export default function SignupPage() {
                     <Phone size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }} className="grid-cols-1">
                 <div className="form-group">
                   <label className="label">Email Address</label>
                   <div style={{ position: "relative" }}>
@@ -201,22 +222,22 @@ export default function SignupPage() {
                     <Mail size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                   </div>
                 </div>
+              </div>
 
-                <div className="form-group">
-                  <label className="label">Password</label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="password"
-                      className="input"
-                      style={{ paddingLeft: "2.5rem" }}
-                      placeholder="Min. 8 characters"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
-                    <Lock size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
-                  </div>
+              <div className="form-group" style={{ marginTop: "1rem" }}>
+                <label className="label">Password</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="password"
+                    className="input"
+                    style={{ paddingLeft: "2.5rem" }}
+                    placeholder="Min. 8 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                  <Lock size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                 </div>
               </div>
             </div>

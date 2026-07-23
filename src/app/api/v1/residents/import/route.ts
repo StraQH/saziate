@@ -1,7 +1,7 @@
 import { importResidentsSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, routeResidents } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
+import { eq, inArray, sql } from "drizzle-orm";
 import { generateId, generateSecurePassword, normalizePhoneNumber } from "@/lib/utils";
 import { SaziateLogger } from "@/lib/logger";
 import { getActivePspId, requireRole } from "@/lib/session";
@@ -38,6 +38,24 @@ export async function POST(req: Request) {
       return new Response("Missing or invalid residents array.", { status: 400 });
     }
 
+    // Verify Route Ownership for all imported residents
+    const routeIds = [...new Set(residents.map((r: any) => r.route).filter(Boolean))] as string[];
+    if (routeIds.length > 0) {
+      const validRoutes = await db
+        .select()
+        .from(routes)
+        .where(inArray(routes.id, routeIds));
+      
+      const validRouteMap = new Map<string, any>(validRoutes.map((r: any) => [r.id, r]));
+      
+      for (const routeId of routeIds) {
+        const route = validRouteMap.get(routeId);
+        if (!route || route.pspId !== pspId) {
+          return new Response(`Invalid route ID (${routeId}) or unauthorized to assign to this route.`, { status: 403 });
+        }
+      }
+    }
+
     const insertedCount = [];
 
     // Process all profiles in D1
@@ -47,10 +65,16 @@ export async function POST(req: Request) {
       const normalizedPhone = normalizePhoneNumber(res.phone);
       const finalEmail = res.email || `${normalizedPhone}@saziate.com`;
 
+      const nameParts = res.name.trim().split(/\s+/);
+      const firstName = nameParts[0] || "Unknown";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       // Create User
       await db.insert(users).values({
         id: userId,
         name: res.name,
+        firstName,
+        lastName,
         phone: normalizedPhone || null,
         email: finalEmail,
         role: "resident",

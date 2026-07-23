@@ -38,7 +38,21 @@ export async function POST(req: Request) {
       return new Response("Settlement account details not configured.", { status: 400 });
     }
 
-    // Verify manual payout balance via Master Ledger Equation
+    // 1. Optimistic Lock: Insert the payout transaction FIRST with status "initiated"
+    const txId = generateId();
+    await db.insert(transactions).values({
+      id: txId,
+      residentId: psp.id, // HACK: reusing residentId for pspId in payouts
+      reference: `PAYOUT-MANUAL-${generateSecureReference(10)}`,
+      amount,
+      paymentMethod: "bank_transfer",
+      status: "initiated",
+      cashStatus: "settled",
+      paidAt: new Date(),
+    });
+
+    // 2. Verify manual payout balance via Master Ledger Equation
+    // Because we just inserted the "initiated" transaction, it will naturally be included in `totalPaidOut`!
     const digitalTxs = await db
       .select({ amount: transactions.amount })
       .from(transactions)
@@ -79,73 +93,71 @@ export async function POST(req: Request) {
       .where(eq(notificationLogs.pspId, psp.id));
     const totalNotificationCosts = notificationCosts.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
 
+    // 3. The current available balance AFTER optimistic deduction
     const currentAvailable = pspDigitalEntitlement - saziateCashFee - totalPaidOut - totalNotificationCosts;
 
-    if (amount > currentAvailable) {
-      return new Response(`Insufficient balance. Available: ₦${currentAvailable.toLocaleString("en-NG")}`, { status: 400 });
+    if (currentAvailable < 0) {
+      // 4. Overdraft Detected (Concurrent Double-Spend Exploit Attempt)
+      // Immediately fail the transaction to release the lock
+      await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));
+      return new Response(`Insufficient balance. Transaction aborted.`, { status: 400 });
     }
 
-    // In a real app, we would verify the PSP's available balance here from Paystack or internal ledger
-    // For now, we simulate a successful transfer request to Paystack
-
+    // 5. Proceed with Paystack Transfer
     if (!config.isMockMode && process.env.NODE_ENV !== "development") {
       if (!env.PAYSTACK_SECRET_KEY) {
+        await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));
         return new Response("Payment provider not configured.", { status: 500 });
       }
-      // Create transfer recipient
-      const recipientRes = await fetch("https://api.paystack.co/transferrecipient", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: "nuban",
-          name: psp.settlementAccountName || psp.name,
-          account_number: psp.settlementAccountNumber,
-          bank_code: psp.settlementBankCode,
-          currency: "NGN",
-        }),
-      });
+      
+      try {
+        const recipientRes = await fetch("https://api.paystack.co/transferrecipient", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "nuban",
+            name: psp.settlementAccountName || psp.name,
+            account_number: psp.settlementAccountNumber,
+            bank_code: psp.settlementBankCode,
+            currency: "NGN",
+          }),
+        });
 
-      if (!recipientRes.ok) {
-        throw new Error("Failed to create transfer recipient on Paystack.");
+        if (!recipientRes.ok) throw new Error("Failed to create transfer recipient on Paystack.");
+
+        const recipientData = await recipientRes.json() as any;
+        const recipientCode = recipientData.data.recipient_code;
+
+        const transferRes = await fetch("https://api.paystack.co/transfer", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            source: "balance",
+            amount: Math.round(amount * 100),
+            recipient: recipientCode,
+            reason: "Saziate Settlement Payout",
+          }),
+        });
+
+        if (!transferRes.ok) throw new Error("Failed to initiate transfer on Paystack.");
+        
+        // 6a. Paystack API succeeded, lock finalized
+        await db.update(transactions).set({ status: "success" }).where(eq(transactions.id, txId));
+      } catch (err: any) {
+        // 6b. Paystack API failed, release the lock
+        await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));
+        throw err;
       }
-
-      const recipientData = await recipientRes.json() as any;
-      const recipientCode = recipientData.data.recipient_code;
-
-      // Initiate transfer
-      const transferRes = await fetch("https://api.paystack.co/transfer", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          source: "balance",
-          amount: Math.round(amount * 100), // kobo
-          recipient: recipientCode,
-          reason: "Saziate Settlement Payout",
-        }),
-      });
-
-      if (!transferRes.ok) {
-        throw new Error("Failed to initiate transfer on Paystack.");
-      }
+    } else {
+        // In mock mode, just succeed
+        await db.update(transactions).set({ status: "success" }).where(eq(transactions.id, txId));
     }
-
-    // Ensure the payout is logged to the ledger to deduct balance!
-    const txId = generateId();
-    await db.insert(transactions).values({
-      id: txId,
-      residentId: psp.id, // HACK: reusing residentId for pspId in payouts
-      reference: `PAYOUT-MANUAL-${generateSecureReference(10)}`,
-      amount,
-      paymentMethod: "bank_transfer",
-      cashStatus: "settled",
-      paidAt: new Date(),
-    });
 
     await db.insert(auditLogs).values({
       id: generateId(),

@@ -23,6 +23,14 @@ export async function POST(req: Request) {
       return new Response("Missing year or month parameters.", { status: 400 });
     }
 
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-indexed
+
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      return new Response("Cannot generate invoices for future billing periods.", { status: 400 });
+    }
+
     const pspId = await getActivePspId(req, env.DB);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });

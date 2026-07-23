@@ -22,31 +22,6 @@ export function OfflineSyncBanner() {
     setUnsyncedCount(logs.length);
   };
 
-  useEffect(() => {
-    checkStatus();
-    
-    const handleOnline = () => {
-      setIsOnline(true);
-      triggerBackgroundSync();
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    // Poll IndexedDB every 5 seconds to check for offline queue changes
-    const interval = setInterval(checkStatus, 5000);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-      clearInterval(interval);
-    };
-  }, []);
-
   const triggerBackgroundSync = async () => {
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       setSyncing(true);
@@ -89,6 +64,31 @@ export function OfflineSyncBanner() {
       }
     }
   };
+
+  useEffect(() => {
+    checkStatus();
+    
+    const handleOnline = () => {
+      setIsOnline(true);
+      triggerBackgroundSync();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Poll IndexedDB every 5 seconds to check for offline queue changes
+    const interval = setInterval(checkStatus, 5000);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      clearInterval(interval);
+    };
+  }, []);
 
   if (isOnline && unsyncedCount === 0 && !showSuccess) {
     return null;

@@ -203,11 +203,12 @@ export async function POST(req: Request) {
 
       // Dispatch real-time payment confirmation receipt to resident via Email
       if (residentUser?.email) {
+        const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
         await sendEmail({
           to: residentUser.email,
           subject: "Saziate Payment Receipt",
           html: emailTemplates.invoiceReceipt(
-            residentUser.name.split(" ")[0],
+            firstName,
             amountInNaira,
             invoice.paymentReference || invoice.id,
             reference
@@ -222,7 +223,7 @@ export async function POST(req: Request) {
         .where(eq(residentProfiles.userId, profile.userId));
 
       if (residentUser?.email) {
-        const firstName = residentUser.name.split(" ")[0];
+        const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
         await sendEmail({
           to: residentUser.email,
           subject: "Advance Payment Received!",

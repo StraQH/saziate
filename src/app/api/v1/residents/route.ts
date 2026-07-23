@@ -1,6 +1,6 @@
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, routeResidents } from "@/db/schema";
+import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
@@ -72,6 +72,17 @@ export async function POST(req: Request) {
     const name = `${firstName} ${lastName}`;
     const finalEmail = email || `${phone}@saziate.com`;
 
+    // Verify Route Ownership
+    const routeRecord = await db
+      .select()
+      .from(routes)
+      .where(eq(routes.id, route))
+      .get();
+      
+    if (!routeRecord || routeRecord.pspId !== pspId) {
+      return new Response("Invalid route or unauthorized to assign to this route.", { status: 403 });
+    }
+
     // Duplicate phone validation
     const existing = await db
       .select()
@@ -89,6 +100,8 @@ export async function POST(req: Request) {
     await db.insert(users).values({
       id: userId,
       name,
+      firstName,
+      lastName,
       email: finalEmail,
       phone,
       role: "resident",
@@ -227,11 +240,23 @@ export async function DELETE(req: Request) {
       .update(users)
       .set({
         name: "Anonymized Resident",
+        firstName: null,
+        lastName: null,
         phone: null,
         email: `${userId}-deleted@saziate.com`,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
+
+    // Delete resident profile to halt cron billing engine
+    await db
+      .delete(residentProfiles)
+      .where(eq(residentProfiles.userId, userId));
+
+    // Remove from route to stop showing up on field agent schedules
+    await db
+      .delete(routeResidents)
+      .where(eq(routeResidents.residentId, userId));
 
     const session = await auth(env.DB).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
