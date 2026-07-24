@@ -6,6 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 # Assets directory produced by @opennextjs/cloudflare build
 assets = { directory = ".open-next/assets", binding = "ASSETS" }
 
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+
 [[d1_databases]]
 binding = "DB"
 database_name = "saziate-demo-db"
