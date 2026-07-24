@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     }
 
     // Prevent Privilege Escalation & Re-Onboarding
-    if (userRecord.pspId || ["psp_operator", "field_agent", "admin", "resident"].includes(userRecord.role)) {
+    if (userRecord.pspId || ["psp_operator", "field_agent", "admin"].includes(userRecord.role)) {
       return new Response("User has already been onboarded or possesses an immutable role.", { status: 403 });
     }
 
