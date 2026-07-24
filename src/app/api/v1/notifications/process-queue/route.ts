@@ -2,7 +2,6 @@ import { getAppEnv } from "@/lib/env";
 import { processPendingRetries } from "@/lib/notifications";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;

@@ -10,7 +10,6 @@ import { emailTemplates } from "@/lib/email-templates";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 
-export const runtime = "edge";
 
 const topUpSchema = z.object({
   residentId: z.string().min(1),

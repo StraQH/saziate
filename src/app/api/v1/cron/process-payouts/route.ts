@@ -7,7 +7,6 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
 
 export async function GET(req: Request) {
   const env = getAppEnv() as any;

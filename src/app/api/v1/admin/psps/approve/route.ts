@@ -8,7 +8,6 @@ import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
-export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;

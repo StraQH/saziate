@@ -10,7 +10,6 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const importResidentsSchema = z.object({
   residents: z.array(z.object({

@@ -7,7 +7,6 @@ import { getActivePspId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const generateBillingSchema = z.object({
   year: z.number().int().min(2000).max(2100),

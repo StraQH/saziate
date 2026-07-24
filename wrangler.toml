@@ -8,8 +8,11 @@ assets = { directory = ".open-next/assets", binding = "ASSETS" }
 
 [[d1_databases]]
 binding = "DB"
-database_name = "saziate-db"
-database_id = "92932312-77ce-422a-8cd7-be1e32472897"   
+database_name = "saziate-demo-db"
+database_id = "d52c8fa6-9567-4dc2-9139-379a12f6093e"  # prod 
+
+# database_name in prod "saziate-db"
+# database_id in prod "92932312-77ce-422a-8cd7-be1e32472897" 
 
 [vars]
 NEXT_PUBLIC_APP_NAME = "Saziate"

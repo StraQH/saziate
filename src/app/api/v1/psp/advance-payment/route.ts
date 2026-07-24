@@ -8,7 +8,6 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { getActivePspId, requireRole } from "@/lib/session";
 
-export const runtime = "edge";
 
 const advancePaymentSchema = z.object({
   residentId: z.string().min(1),

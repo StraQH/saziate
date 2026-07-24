@@ -7,7 +7,6 @@ import { auth } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const verifySchema = z.object({
   reference: z.string().min(1),

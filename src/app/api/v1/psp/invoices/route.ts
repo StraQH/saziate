@@ -1,4 +1,3 @@
-export const runtime = "edge";
 ﻿import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, residentProfiles, users } from "@/db/schema";

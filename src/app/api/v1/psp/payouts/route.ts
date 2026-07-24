@@ -9,7 +9,6 @@ import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const payoutSchema = z.object({
   amount: z.number().positive().transform(val => Math.round(val * 100) / 100),

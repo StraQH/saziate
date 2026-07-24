@@ -9,7 +9,6 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const cashVerifySchema = z.object({
   transactionId: z.string().min(1),

@@ -9,7 +9,6 @@ import { emailTemplates } from "@/lib/email-templates";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const inviteSchema = z.object({
   email: z.string().email(),

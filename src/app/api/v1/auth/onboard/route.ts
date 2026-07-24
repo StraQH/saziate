@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { getAppEnv } from "@/lib/env";
 import { onboardSchema } from "@/lib/validators";
 import { getDb } from "@/db";

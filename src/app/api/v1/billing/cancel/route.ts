@@ -6,7 +6,6 @@ import { getActivePspId, requireRole } from "@/lib/session";
 import { generateId } from "@/lib/utils";
 import { z } from "zod";
 
-export const runtime = "edge";
 
 const cancelInvoiceSchema = z.object({
   invoiceId: z.string().min(1),

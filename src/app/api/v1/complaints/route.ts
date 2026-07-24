@@ -1,4 +1,3 @@
-export const runtime = "edge";
 ﻿import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { createComplaintSchema, updateComplaintSchema } from "@/lib/validators";

@@ -4,7 +4,6 @@ import { invoices } from "@/db/schema";
 import { and, lt, eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 
-export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
