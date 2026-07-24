@@ -1,6 +1,6 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
-import { users, residentProfiles, invoices, psps, transactions } from "@/db/schema";
+import { users, residentProfiles, invoices, psps, transactions, pendingNotifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateId, generateSecureReference, calculateResidentBill } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
 
     const newInvoices: any[] = [];
     const newTransactions: any[] = [];
-    const notificationPromises: Promise<any>[] = [];
+    const pendingNotificationsQueue: any[] = [];
 
     // Arrays to hold profile updates (using sequential execution later or batched queries if available)
     const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
@@ -140,30 +140,34 @@ export async function GET(req: Request) {
       const firstName = resident.firstName || resident.name.split(" ")[0];
 
       if (hasRealEmail) {
+        let subject = "";
+        let html = "";
         if (isFullySettled) {
-          notificationPromises.push(sendEmail({
-            to: resident.email!,
-            subject: "Your Monthly Bill is Settled!",
-            html: emailTemplates.advanceBillSettled(firstName, totalAmount, advanceBalance - totalAmount),
-          }));
+          subject = "Your Monthly Bill is Settled!";
+          html = emailTemplates.advanceBillSettled(firstName, totalAmount, advanceBalance - totalAmount);
         } else if (isPartiallySettled) {
-          notificationPromises.push(sendEmail({
-            to: resident.email!,
-            subject: "Partial Advance Payment Applied",
-            html: emailTemplates.partialAdvanceSettled(firstName, amountSettledFromAdvance, finalAmount),
-          }));
+          subject = "Partial Advance Payment Applied";
+          html = emailTemplates.partialAdvanceSettled(firstName, amountSettledFromAdvance, finalAmount);
         } else {
-          notificationPromises.push(sendEmail({
-            to: resident.email!,
-            subject: "Your Monthly Waste Bill is Ready",
-            html: emailTemplates.monthlyBill(
-              firstName, 
-              paymentReference, 
-              totalAmount, 
-              dueDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-            ),
-          }));
+          subject = "Your Monthly Waste Bill is Ready";
+          html = emailTemplates.monthlyBill(
+            firstName, 
+            paymentReference, 
+            totalAmount, 
+            dueDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+          );
         }
+        
+        pendingNotificationsQueue.push({
+          id: generateId(),
+          pspId: resident.pspId,
+          residentId: resident.userId,
+          channel: "email",
+          messageType: "due_invoice",
+          recipientPhone: resident.email!, // Store email here for email channel
+          messageText: JSON.stringify({ subject, html }),
+        });
+        
         emailCount++;
       } else if (resident.phone) {
         let msg = "";
@@ -175,16 +179,15 @@ export async function GET(req: Request) {
           msg = `Hello ${firstName}, your monthly bill of ₦${totalAmount} is due on ${dueDate.toLocaleDateString("en-GB")}. Reference: ${paymentReference}.`;
         }
 
-        notificationPromises.push(sendNotificationWithFallback({
-          dbBinding: env.DB,
-          termiiApiKey: env.TERMII_API_KEY || "",
+        pendingNotificationsQueue.push({
+          id: generateId(),
           pspId: resident.pspId,
           residentId: resident.userId,
-          phone: resident.phone,
-          messageText: msg,
-          messageType: "due_invoice",
           channel: "sms",
-        }));
+          messageType: "due_invoice",
+          recipientPhone: resident.phone,
+          messageText: msg,
+        });
       }
     }
 
@@ -207,19 +210,22 @@ export async function GET(req: Request) {
       }
     }
 
-    // Process profile updates (Advance balance deduction)
-    // Cloudflare D1 supports db.batch, but we will chunk them sequentially just in case to avoid query limits
-    for (const update of profileUpdates) {
-      await db.update(residentProfiles)
+    // Process profile updates (Advance balance deduction) using db.batch
+    const batchUpdateQueries = profileUpdates.map(update => 
+      db.update(residentProfiles)
         .set({ advancePaymentBalance: update.advancePaymentBalance })
-        .where(eq(residentProfiles.userId, update.userId));
+        .where(eq(residentProfiles.userId, update.userId))
+    );
+    for (let i = 0; i < batchUpdateQueries.length; i += 100) {
+      await db.batch(batchUpdateQueries.slice(i, i + 100) as any);
     }
 
-    // 5. Concurrent Notification Dispatch (Chunked to prevent external API rate limiting)
-    const concurrentLimit = 50;
-    for (let i = 0; i < notificationPromises.length; i += concurrentLimit) {
-      const chunk = notificationPromises.slice(i, i + concurrentLimit);
-      await Promise.allSettled(chunk);
+    // Insert pending SMS notifications into database queue (Chunked)
+    for (let i = 0; i < pendingNotificationsQueue.length; i += chunkSize) {
+      const chunk = pendingNotificationsQueue.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        await db.insert(pendingNotifications).values(chunk);
+      }
     }
 
     return new Response(JSON.stringify({ 

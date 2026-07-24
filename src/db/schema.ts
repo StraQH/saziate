@@ -200,7 +200,7 @@ export const notificationLogs = sqliteTable("notification_logs", {
   id: text("id").primaryKey(),
   pspId: text("psp_id").notNull().references(() => psps.id, { onDelete: "cascade" }),
   residentId: text("resident_id").references(() => users.id, { onDelete: "set null" }),
-  channel: text("channel", { enum: ["sms", "whatsapp"] }).notNull(),
+  channel: text("channel", { enum: ["sms", "whatsapp", "email"] }).notNull(),
   messageType: text("message_type").notNull(), // "setup", "payment_receipt", "reminder", "overdue"
   costNgn: real("cost_ngn").notNull().default(0), // SMS cost vs WhatsApp cost
   termiiMessageId: text("termii_message_id"),
@@ -212,7 +212,7 @@ export const pendingNotifications = sqliteTable("pending_notifications", {
   id: text("id").primaryKey(),
   pspId: text("psp_id").notNull().references(() => psps.id, { onDelete: "cascade" }),
   residentId: text("resident_id").references(() => users.id, { onDelete: "cascade" }),
-  channel: text("channel", { enum: ["sms", "whatsapp"] }).notNull(),
+  channel: text("channel", { enum: ["sms", "whatsapp", "email"] }).notNull(),
   messageType: text("message_type").notNull(),
   recipientPhone: text("recipient_phone").notNull(),
   messageText: text("message_text").notNull(),
