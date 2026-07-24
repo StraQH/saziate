@@ -60,7 +60,7 @@ fs.symlinkSync = function (target: string, p: string, type?: string) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["better-auth", "drizzle-orm", "drizzle-kit"],
+  serverExternalPackages: ["drizzle-orm", "drizzle-kit"],
 };
 
 module.exports = nextConfig;
