@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
@@ -77,7 +78,7 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -240,7 +241,7 @@ export async function POST(req: Request) {
       { status: 201, headers: { "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -309,6 +310,6 @@ export async function DELETE(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

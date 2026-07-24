@@ -1,7 +1,8 @@
-﻿export function getAppEnv() {
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+export function getAppEnv() {
   let env: any = process.env;
   try {
-    const { getCloudflareContext } = require("@opennextjs/cloudflare");
     env = getCloudflareContext().env || process.env;
   } catch (e: any) {
     // Silently fallback for Next.js local development

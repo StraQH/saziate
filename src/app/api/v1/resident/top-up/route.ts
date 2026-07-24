@@ -1,7 +1,7 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { users, residentProfiles, transactions, auditLogs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { config } from "@/lib/config";
@@ -10,12 +10,15 @@ import { emailTemplates } from "@/lib/email-templates";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 
+export const runtime = "edge";
+
 const topUpSchema = z.object({
   residentId: z.string().min(1),
-  amount: z.number().positive(),
+  amount: z.number().positive().transform(val => Math.round(val * 100) / 100),
 });
 
 export async function POST(req: Request) {
+  const env = getAppEnv() as any;
   try {
     const json = await req.json();
     const parsed = topUpSchema.safeParse(json);
@@ -25,9 +28,6 @@ export async function POST(req: Request) {
 
     const { residentId, amount } = parsed.data;
 
-    // Use environment DB
-    const env = getAppEnv() as any;
-    
     // Authenticate resident session
     await requireRole(req, env.DB, ["resident"]);
     const betterAuth = auth(env.DB);
@@ -36,10 +36,6 @@ export async function POST(req: Request) {
     if (!session || !session.user || session.user.id !== residentId) {
       return new Response("Unauthorized.", { status: 401 });
     }
-    
-    // In production, this route would initiate a Paystack transaction and return an authorization_url.
-    // The actual balance update would happen in the webhook (e.g. /api/v1/psp/webhook/paystack).
-    // For this Mock/Demo environment, we will simulate a successful digital payment instantly.
 
     if (config.isMockMode) {
       const db = getDb(env.DB);
@@ -54,38 +50,47 @@ export async function POST(req: Request) {
         return new Response("Resident profile not found.", { status: 404 });
       }
 
-      // Update balance directly (simulating successful webhook)
-      await db.update(residentProfiles)
-        .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + amount })
-        .where(eq(residentProfiles.userId, residentId));
-
       const txId = generateId();
-      await db.insert(transactions).values({
-        id: txId,
-        residentId,
-        reference: `PAYSTACK-TOPUP-${generateSecureReference(10)}`,
-        amount,
-        status: "success",
-        paymentMethod: "bank_transfer",
-        cashStatus: "settled",
-      });
 
-      await db.insert(auditLogs).values({
-        id: generateId(),
-        actorId: residentId,
-        action: "resident_topup",
-        entityType: "resident",
-        entityId: residentId,
-        meta: JSON.stringify({ amount, provider: "paystack" }),
+      // Wrap mutations in db.transaction
+      await db.transaction(async (tx: any) => {
+        // Update balance directly (simulating successful webhook) with atomic Drizzle update
+        await tx.update(residentProfiles)
+          .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amount}` })
+          .where(eq(residentProfiles.userId, residentId));
+
+        await tx.insert(transactions).values({
+          id: txId,
+          residentId,
+          reference: `PAYSTACK-TOPUP-${generateSecureReference(10)}`,
+          amount,
+          status: "success",
+          paymentMethod: "bank_transfer",
+          cashStatus: "settled",
+          paidAt: new Date(),
+        });
+
+        await tx.insert(auditLogs).values({
+          id: generateId(),
+          actorId: residentId,
+          action: "resident_topup",
+          entityType: "resident",
+          entityId: residentId,
+          meta: JSON.stringify({ amount, provider: "paystack" }),
+        });
       });
 
       if (resident.email) {
         const firstName = resident.firstName || resident.name.split(" ")[0];
-        await sendEmail({
-          to: resident.email,
-          subject: "Advance Payment Received!",
-          html: emailTemplates.advancePaymentReceipt(firstName, amount),
-        });
+        try {
+          await sendEmail({
+            to: resident.email,
+            subject: "Advance Payment Received!",
+            html: emailTemplates.advancePaymentReceipt(firstName, amount),
+          });
+        } catch (emailErr) {
+          console.error("Failed to send email receipt:", emailErr);
+        }
       }
 
       return new Response(JSON.stringify({ 
@@ -103,6 +108,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Top-Up Error:", error);
-    return new Response("Internal Server Error", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

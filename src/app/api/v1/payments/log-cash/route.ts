@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
 
-
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -38,11 +38,13 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { invoiceId, residentId, amount } = body;
+    const { invoiceId, residentId, amount: rawAmount } = body;
 
-    if (!invoiceId || !residentId || !amount) {
+    if (!invoiceId || !residentId || !rawAmount) {
       return new Response("Missing required fields.", { status: 400 });
     }
+
+    const amount = Math.round((typeof rawAmount === "number" ? rawAmount : parseFloat(rawAmount)) * 100) / 100;
 
     // Verify invoice status
     const inv = await db
@@ -70,11 +72,6 @@ export async function POST(req: Request) {
       return new Response("Unauthorized to log cash for this invoice.", { status: 403 });
     }
 
-    // Note: We deliberately allow logging cash even if the invoice is "paid".
-    // This handles the race condition where a resident pays via bank transfer
-    // right before giving physical cash to an agent. The cash-verify route
-    // will safely convert this to advance balance later.
-
     const txId = generateId();
     const cashRef = `CASH-REC-${Date.now()}`;
 
@@ -84,16 +81,13 @@ export async function POST(req: Request) {
       invoiceId,
       residentId,
       reference: cashRef,
-      amount: typeof amount === "number" ? amount : parseFloat(amount),
+      amount,
       status: "success",
       paymentMethod: "cash",
       cashStatus: "pending_cash_verification",
       loggedById: actorId,
       paidAt: new Date(),
     });
-
-    // NOTE: We do NOT mark the invoice as "paid" here. 
-    // The PSP Operator must physically verify the cash first.
 
     return new Response(
       JSON.stringify({
@@ -108,6 +102,7 @@ export async function POST(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Log Cash Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

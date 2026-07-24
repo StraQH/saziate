@@ -1,12 +1,12 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, users, transactions, residentProfiles } from "@/db/schema";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, sql } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
-
+export const runtime = "edge";
 
 async function verifyPaystackSignature(
   signature: string,
@@ -48,222 +48,224 @@ export async function POST(req: Request) {
       return new Response("Server configuration error", { status: 500 });
     }
 
-  const isValid = await verifyPaystackSignature(
-    signature,
-    rawBody,
-    webhookSecret
-  );
+    const isValid = await verifyPaystackSignature(
+      signature,
+      rawBody,
+      webhookSecret
+    );
 
-  if (!isValid) {
-    return new Response("Invalid signature", { status: 401 });
-  }
-
-  const eventPayload = JSON.parse(rawBody);
-  const event = eventPayload.event;
-  const db = getDb(env.DB);
-
-  // Dedicated virtual account assignment success
-  if (event === "dedicatedaccount.assign.success") {
-    return new Response(JSON.stringify({ status: "success" }), { status: 200 });
-  }
-
-  if (event === "charge.success") {
-    const data = eventPayload.data;
-    const amountInNaira = data.amount / 100;
-    const customerCode = data.customer.customer_code;
-    const reference = data.reference;
-
-    // Check webhook idempotency
-    const existingTx = await db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.reference, reference))
-      .get();
-
-    if (existingTx) {
-      return new Response(JSON.stringify({ status: "duplicate" }), { status: 200 });
+    if (!isValid) {
+      return new Response("Invalid signature", { status: 401 });
     }
 
-    let profile: any = null;
-    let residentUser: any = null;
+    const eventPayload = JSON.parse(rawBody);
+    const event = eventPayload.event;
+    const db = getDb(env.DB);
 
-    // 1. Try matching by paymentReference from narration
-    const narration = data.narration || data.metadata?.narration || "";
-    const refMatch = narration.match(/\b[a-f0-9]{10}\b/i);
-    
-    let matchedInvoice: any = null;
+    // Dedicated virtual account assignment success
+    if (event === "dedicatedaccount.assign.success") {
+      return new Response(JSON.stringify({ status: "success" }), { status: 200 });
+    }
 
-    if (refMatch) {
-      const extractedRef = refMatch[0].toUpperCase();
-      matchedInvoice = await db
+    if (event === "charge.success") {
+      const data = eventPayload.data;
+      const amountInNaira = Math.round(data.amount) / 100;
+      const reference = data.reference;
+
+      // Check webhook idempotency
+      const existingTx = await db
         .select()
-        .from(invoices)
-        .where(eq(invoices.paymentReference, extractedRef))
+        .from(transactions)
+        .where(eq(transactions.reference, reference))
         .get();
 
-      if (matchedInvoice) {
+      if (existingTx) {
+        return new Response(JSON.stringify({ status: "duplicate" }), { status: 200 });
+      }
+
+      let profile: any = null;
+      let residentUser: any = null;
+
+      // 1. Try matching by paymentReference from narration
+      const narration = data.narration || data.metadata?.narration || "";
+      const refMatch = narration.match(/\b[a-f0-9]{10}\b/i);
+      
+      let matchedInvoice: any = null;
+
+      if (refMatch) {
+        const extractedRef = refMatch[0].toUpperCase();
+        matchedInvoice = await db
+          .select()
+          .from(invoices)
+          .where(eq(invoices.paymentReference, extractedRef))
+          .get();
+
+        if (matchedInvoice) {
+          residentUser = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, matchedInvoice.residentId))
+            .get();
+          
+          profile = await db
+            .select()
+            .from(residentProfiles)
+            .where(eq(residentProfiles.userId, matchedInvoice.residentId))
+            .get();
+        }
+      }
+
+      // 2. Fallback to customer email matching
+      if (!profile && data.customer?.email) {
         residentUser = await db
           .select()
           .from(users)
-          .where(eq(users.id, matchedInvoice.residentId))
+          .where(eq(users.email, data.customer.email))
           .get();
-        
-        profile = await db
-          .select()
-          .from(residentProfiles)
-          .where(eq(residentProfiles.userId, matchedInvoice.residentId))
-          .get();
-      }
-    }
 
-    // 2. Fallback to customer email matching
-    if (!profile && data.customer?.email) {
-      residentUser = await db
+        if (residentUser) {
+          profile = await db
+            .select()
+            .from(residentProfiles)
+            .where(eq(residentProfiles.userId, residentUser.id))
+            .get();
+        }
+      }
+
+      if (!profile || !residentUser) {
+        return new Response("Resident profile not found for reference code or email.", { status: 404 });
+      }
+
+      // Fetch the invoice
+      const invoice = matchedInvoice || await db
         .select()
-        .from(users)
-        .where(eq(users.email, data.customer.email))
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.residentId, profile.userId),
+            eq(invoices.status, "pending")
+          )
+        )
+        .orderBy(asc(invoices.dueDate))
         .get();
 
-      if (residentUser) {
-        profile = await db
-          .select()
-          .from(residentProfiles)
-          .where(eq(residentProfiles.userId, residentUser.id))
-          .get();
-      }
-    }
+      const txId = generateId();
+      const invoiceId = invoice ? invoice.id : null;
 
-    if (!profile || !residentUser) {
-      return new Response("Resident profile not found for reference code or email.", { status: 404 });
-    }
+      // Wrap all database operations in a transaction
+      await db.transaction(async (tx: any) => {
+        // Insert transaction record
+        await tx.insert(transactions).values({
+          id: txId,
+          invoiceId,
+          residentId: profile.userId,
+          reference,
+          amount: amountInNaira,
+          status: "success",
+          paymentMethod: "bank_transfer",
+          paidAt: new Date(),
+        });
 
-    // Fetch the invoice
-    // If we matched by paymentReference, we already have the exact invoice.
-    // Otherwise (matched by email), get the oldest pending invoice.
-    const invoice = matchedInvoice || await db
-      .select()
-      .from(invoices)
-      .where(
-        and(
-          eq(invoices.residentId, profile.userId),
-          eq(invoices.status, "pending")
-        )
-      )
-      .orderBy(asc(invoices.dueDate))
-      .get();
+        if (invoice) {
+          if (amountInNaira >= invoice.totalAmount) {
+            const surplus = Math.round((amountInNaira - invoice.totalAmount) * 100) / 100;
+            
+            if (surplus > 0) {
+              await tx
+                .update(residentProfiles)
+                .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${surplus}` })
+                .where(eq(residentProfiles.userId, profile.userId));
+              
+              // Log secondary transaction for ledger balance
+              await tx.insert(transactions).values({
+                id: generateId(),
+                residentId: profile.userId,
+                reference: `${reference}-SURPLUS`,
+                amount: surplus,
+                status: "success",
+                paymentMethod: "advance_surplus",
+                paidAt: new Date(),
+              });
+            }
 
-    const txId = generateId();
-    const invoiceId = invoice ? invoice.id : null;
-
-    // Insert transaction
-    await db.insert(transactions).values({
-      id: txId,
-      invoiceId,
-      residentId: profile.userId,
-      reference,
-      amount: amountInNaira,
-      status: "success",
-      paymentMethod: "bank_transfer",
-      paidAt: new Date(),
-    });
-
-    if (invoice) {
-      if (amountInNaira >= invoice.totalAmount) {
-        const surplus = amountInNaira - invoice.totalAmount;
-        
-        if (surplus > 0) {
-          await db
+            // Mark invoice paid
+            await tx
+              .update(invoices)
+              .set({ status: "paid", totalAmount: 0 })
+              .where(eq(invoices.id, invoice.id));
+          } else {
+            // Partial Payment - reduce total amount but keep it pending
+            await tx
+              .update(invoices)
+              .set({ totalAmount: sql`${invoices.totalAmount} - ${amountInNaira}` })
+              .where(eq(invoices.id, invoice.id));
+          }
+        } else {
+          // Resident is pre-funding their account (no pending invoices)
+          await tx
             .update(residentProfiles)
-            .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
+            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amountInNaira}` })
             .where(eq(residentProfiles.userId, profile.userId));
-          
-          // Log secondary transaction for ledger balance
-          await db.insert(transactions).values({
-            id: generateId(),
-            residentId: profile.userId,
-            reference: `${reference}-SURPLUS`,
-            amount: surplus,
-            status: "success",
-            paymentMethod: "advance_surplus",
-            paidAt: new Date(),
-          });
         }
+      });
 
-        // Mark invoice paid
-        await db
-          .update(invoices)
-          .set({ status: "paid" })
-          .where(eq(invoices.id, invoice.id));
-      } else {
-        // Partial Payment - reduce total amount but keep it pending
-        await db
-          .update(invoices)
-          .set({ totalAmount: invoice.totalAmount - amountInNaira })
-          .where(eq(invoices.id, invoice.id));
-      }
-
-      // Dispatch real-time payment confirmation receipt to resident via Email
+      // Dispatch real-time payment confirmation receipt (non-blocking)
       if (residentUser?.email) {
         const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
-        await sendEmail({
-          to: residentUser.email,
-          subject: "Saziate Payment Receipt",
-          html: emailTemplates.invoiceReceipt(
-            firstName,
-            amountInNaira,
-            invoice.paymentReference || invoice.id,
-            reference
-          ),
-        });
+        try {
+          if (invoice) {
+            await sendEmail({
+              to: residentUser.email,
+              subject: "Saziate Payment Receipt",
+              html: emailTemplates.invoiceReceipt(
+                firstName,
+                amountInNaira,
+                invoice.paymentReference || invoice.id,
+                reference
+              ),
+            });
+          } else {
+            await sendEmail({
+              to: residentUser.email,
+              subject: "Advance Payment Received!",
+              html: emailTemplates.advancePaymentReceipt(firstName, amountInNaira),
+            });
+          }
+        } catch (emailErr) {
+          console.error("Failed to send email confirmation:", emailErr);
+        }
       }
-    } else {
-      // Resident is pre-funding their account (no pending invoices)
-      await db
-        .update(residentProfiles)
-        .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + amountInNaira })
-        .where(eq(residentProfiles.userId, profile.userId));
 
-      if (residentUser?.email) {
-        const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
-        await sendEmail({
-          to: residentUser.email,
-          subject: "Advance Payment Received!",
-          html: emailTemplates.advancePaymentReceipt(firstName, amountInNaira),
-        });
-      }
+      return new Response(JSON.stringify({ status: "reconciled", transactionId: txId }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ status: "reconciled", transactionId: txId }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+    if (event === "transfer.failed" || event === "transfer.reversed") {
+      const data = eventPayload.data;
+      const reference = data.reference;
 
-  if (event === "transfer.failed" || event === "transfer.reversed") {
-    const data = eventPayload.data;
-    const transferCode = data.transfer_code;
-    const reference = data.reference;
+      // Look up transaction by reference to mark as failed
+      const existingTx = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.reference, reference))
+        .get();
 
-    // Look up transaction by reference to mark as failed
-    const existingTx = await db
-      .select()
-      .from(transactions)
-      .where(eq(transactions.reference, reference))
-      .get();
+      if (existingTx) {
+        await db
+          .update(transactions)
+          .set({ status: "failed" })
+          .where(eq(transactions.id, existingTx.id));
+      }
 
-    if (existingTx) {
-      await db
-        .update(transactions)
-        .set({ status: "failed" })
-        .where(eq(transactions.id, existingTx.id));
+      return new Response(JSON.stringify({ status: "failed_payout_logged" }), { status: 200 });
     }
-
-    return new Response(JSON.stringify({ status: "failed_payout_logged" }), { status: 200 });
-  }
 
     return new Response("Event unhandled", { status: 200 });
   } catch (err: any) {
     console.error("Webhook error:", err);
-    return new Response("Internal Server Error", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

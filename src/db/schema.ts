@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { text, integer, real, primaryKey, sqliteTable, index } from "drizzle-orm/sqlite-core";
+import { text, integer, real, primaryKey, sqliteTable, index, unique } from "drizzle-orm/sqlite-core";
 
 // ─── Better Auth Tables ────────────────────────────────────────────────────
 
@@ -135,9 +135,9 @@ export const routeResidents = sqliteTable("route_residents", {
 
 export const collectionLogs = sqliteTable("collection_logs", {
   id: text("id").primaryKey(),
-  routeId: text("route_id").notNull().references(() => routes.id),
-  residentId: text("resident_id").notNull().references(() => users.id),
-  loggedById: text("logged_by_id").notNull().references(() => users.id),
+  routeId: text("route_id").notNull().references(() => routes.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  loggedById: text("logged_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   status: text("status", {
     enum: ["collected", "no_access", "no_waste", "failed_other"],
   }).notNull(),
@@ -151,8 +151,8 @@ export const collectionLogs = sqliteTable("collection_logs", {
 
 export const invoices = sqliteTable("invoices", {
   id: text("id").primaryKey(),
-  residentId: text("resident_id").notNull().references(() => users.id),
-  pspId: text("psp_id").notNull().references(() => psps.id),
+  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  pspId: text("psp_id").notNull().references(() => psps.id, { onDelete: "cascade" }),
   paymentReference: text("payment_reference").unique(), // Unique reference for bank transfer narration
   baseAmount: real("base_amount").notNull(),     // PSP rate in NGN
   platformFee: real("platform_fee").notNull(),   // Saziate 5%
@@ -162,14 +162,17 @@ export const invoices = sqliteTable("invoices", {
   billingPeriodStart: integer("billing_period_start", { mode: "timestamp_ms" }).notNull(),
   billingPeriodEnd: integer("billing_period_end", { mode: "timestamp_ms" }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-}, (t) => [index("invoices_resident_idx").on(t.residentId)]);
+}, (t) => [
+  index("invoices_resident_idx").on(t.residentId),
+  unique("invoices_resident_billing_period_start_unique").on(t.residentId, t.billingPeriodStart)
+]);
 
 // ─── Transactions ──────────────────────────────────────────────────────────
 
 export const transactions = sqliteTable("transactions", {
   id: text("id").primaryKey(),
-  invoiceId: text("invoice_id").references(() => invoices.id),
-  residentId: text("resident_id").notNull().references(() => users.id),
+  invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   reference: text("reference").notNull().unique(), // Paystack ref or "CASH-xxx"
   amount: real("amount").notNull(),
   status: text("status", { enum: ["initiated", "success", "failed"] }).notNull().default("initiated"),
@@ -178,7 +181,7 @@ export const transactions = sqliteTable("transactions", {
   cashStatus: text("cash_status", {
     enum: ["collected", "pending_cash_verification", "verified", "settled"],
   }),
-  loggedById: text("logged_by_id").references(() => users.id), // field agent for cash
+  loggedById: text("logged_by_id").references(() => users.id, { onDelete: "set null" }), // field agent for cash
   paidAt: integer("paid_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
@@ -187,7 +190,7 @@ export const transactions = sqliteTable("transactions", {
 
 export const auditLogs = sqliteTable("audit_logs", {
   id: text("id").primaryKey(),
-  actorId: text("actor_id").references(() => users.id),
+  actorId: text("actor_id").references(() => users.id, { onDelete: "set null" }),
   action: text("action").notNull(), // e.g. "resident.created", "invoice.cancelled", "rate.updated"
   entityType: text("entity_type").notNull(),
   entityId: text("entity_id").notNull(),

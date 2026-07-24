@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { updateProfileSchema } from "@/lib/validators";
@@ -99,7 +100,7 @@ export async function GET(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -189,6 +190,6 @@ export async function PATCH(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

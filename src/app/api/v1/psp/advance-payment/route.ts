@@ -1,19 +1,22 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { users, residentProfiles, transactions, auditLogs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { getActivePspId, requireRole } from "@/lib/session";
 
+export const runtime = "edge";
+
 const advancePaymentSchema = z.object({
   residentId: z.string().min(1),
-  amount: z.number().positive(),
+  amount: z.number().positive().transform(val => Math.round(val * 100) / 100),
 });
 
 export async function POST(req: Request) {
+  const env = getAppEnv() as any;
   try {
     const json = await req.json();
     const parsed = advancePaymentSchema.safeParse(json);
@@ -24,7 +27,6 @@ export async function POST(req: Request) {
     const { residentId, amount } = parsed.data;
 
     // Use environment DB
-    const env = getAppEnv() as any;
     const db = getDb(env.DB);
     
     await requireRole(req, env.DB, ["psp_operator"]);
@@ -48,44 +50,53 @@ export async function POST(req: Request) {
       return new Response("Resident profile not found.", { status: 404 });
     }
 
-    // 1. Update Advance Balance
-    await db.update(residentProfiles)
-      .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + amount })
-      .where(eq(residentProfiles.userId, residentId));
-
-    // 2. Log Transaction
     const txId = generateId();
-    await db.insert(transactions).values({
-      id: txId,
-      residentId,
-      reference: `ADV-CASH-${generateSecureReference(10)}`,
-      amount,
-      paymentMethod: "cash",
-      cashStatus: "settled",
+
+    // Use db.transaction to group mutations
+    await db.transaction(async (tx: any) => {
+      // 1. Update Advance Balance (Atomic SQL addition)
+      await tx.update(residentProfiles)
+        .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amount}` })
+        .where(eq(residentProfiles.userId, residentId));
+
+      // 2. Log Transaction
+      await tx.insert(transactions).values({
+        id: txId,
+        residentId,
+        reference: `ADV-CASH-${generateSecureReference(10)}`,
+        amount,
+        paymentMethod: "cash",
+        cashStatus: "settled",
+        paidAt: new Date(),
+      });
+
+      // 3. Log Audit
+      const betterAuth = (await import("@/lib/auth")).auth(env.DB);
+      const session = await betterAuth.api.getSession({ headers: req.headers });
+      const actorId = session?.user?.id || "unknown";
+
+      await tx.insert(auditLogs).values({
+        id: generateId(),
+        actorId,
+        action: "advance_payment.log",
+        entityType: "resident",
+        entityId: residentId,
+        meta: JSON.stringify({ amount }),
+      });
     });
 
-    // 3. Log Audit
-    const betterAuth = (await import("@/lib/auth")).auth(env.DB);
-    const session = await betterAuth.api.getSession({ headers: req.headers });
-    const actorId = session?.user?.id || "unknown";
-
-    await db.insert(auditLogs).values({
-      id: generateId(),
-      actorId,
-      action: "advance_payment.log",
-      entityType: "resident",
-      entityId: residentId,
-      meta: JSON.stringify({ amount }),
-    });
-
-    // 4. Send Email Receipt
+    // 4. Send Email Receipt (non-blocking)
     if (resident.email) {
       const firstName = resident.firstName || resident.name.split(" ")[0];
-      await sendEmail({
-        to: resident.email,
-        subject: "Advance Payment Received!",
-        html: emailTemplates.advancePaymentReceipt(firstName, amount),
-      });
+      try {
+        await sendEmail({
+          to: resident.email,
+          subject: "Advance Payment Received!",
+          html: emailTemplates.advancePaymentReceipt(firstName, amount),
+        });
+      } catch (emailErr) {
+        console.error("Failed to send email receipt:", emailErr);
+      }
     }
 
     return new Response(JSON.stringify({ status: "success", transactionId: txId }), { 
@@ -94,6 +105,6 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Advance Payment Error:", error);
-    return new Response("Internal Server Error", { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

@@ -2,11 +2,16 @@ import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
 import { invoices, transactions, auditLogs, residentProfiles } from "@/db/schema";
-import { eq, like } from "drizzle-orm";
+import { eq, like, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
+import { z } from "zod";
 
+export const runtime = "edge";
 
+const verifySchema = z.object({
+  reference: z.string().min(1),
+});
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -16,12 +21,13 @@ export async function POST(req: Request) {
     // Only agents and operators can manually trigger verification
     await requireRole(req, env.DB, ["field_agent", "psp_operator"]);
 
-    const rawBody = await req.json() as { reference?: string };
-    const { reference } = rawBody; // Paystack transaction reference
-
-    if (!reference) {
-      return new Response("Missing Paystack reference.", { status: 400 });
+    const rawBody = await req.json();
+    const parsed = verifySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
+
+    const { reference } = parsed.data;
 
     const paystackSecret = env.PAYSTACK_SECRET_KEY;
     if (!paystackSecret) {
@@ -46,7 +52,6 @@ export async function POST(req: Request) {
     }
 
     const narration = verifyData.data.metadata?.custom_fields?.[0]?.value || verifyData.data.reference;
-    // Extract paymentReference from narration using regex for 10-char hex string
     const match = narration.match(/\b[a-f0-9]{10}\b/i);
     const paymentRef = match ? match[0] : null;
 
@@ -65,98 +70,100 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ status: "failed", message: "Matching invoice not found for this reference." }), { status: 404 });
     }
 
-    const amountInNaira = verifyData.data.amount / 100;
-
+    const amountInNaira = Math.round(verifyData.data.amount) / 100;
     const txId = generateId();
 
-    // Insert transaction with EXACT amount from Paystack
-    await db.insert(transactions).values({
-      id: txId,
-      invoiceId: invoice.id,
-      residentId: invoice.residentId,
-      reference: verifyData.data.reference,
-      amount: amountInNaira,
-      status: "success",
-      paymentMethod: "bank_transfer",
-      paidAt: new Date(),
-    });
+    // Perform database operations within a Drizzle transaction
+    await db.transaction(async (tx: any) => {
+      // 1. Insert transaction with EXACT amount from Paystack
+      await tx.insert(transactions).values({
+        id: txId,
+        invoiceId: invoice.id,
+        residentId: invoice.residentId,
+        reference: verifyData.data.reference,
+        amount: amountInNaira,
+        status: "success",
+        paymentMethod: "bank_transfer",
+        paidAt: new Date(),
+      });
 
-    if (invoice.status !== "paid") {
-      if (amountInNaira >= invoice.totalAmount) {
-        // Full Payment or Overpayment
-        await db
-          .update(invoices)
-          .set({ status: "paid" })
-          .where(eq(invoices.id, invoice.id));
-        
-        const surplus = amountInNaira - invoice.totalAmount;
-        if (surplus > 0) {
-          const profile = await db
-            .select()
-            .from(residentProfiles)
-            .where(eq(residentProfiles.userId, invoice.residentId))
-            .get();
-            
-          if (profile) {
-            await db
-              .update(residentProfiles)
-              .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
-              .where(eq(residentProfiles.userId, profile.userId));
+      if (invoice.status !== "paid") {
+        if (amountInNaira >= invoice.totalAmount) {
+          // Full Payment or Overpayment
+          await tx
+            .update(invoices)
+            .set({ status: "paid", totalAmount: 0 })
+            .where(eq(invoices.id, invoice.id));
+          
+          const surplus = Math.round((amountInNaira - invoice.totalAmount) * 100) / 100;
+          if (surplus > 0) {
+            const profile = await tx
+              .select()
+              .from(residentProfiles)
+              .where(eq(residentProfiles.userId, invoice.residentId))
+              .get();
               
-            // Log secondary transaction for ledger balance
-            await db.insert(transactions).values({
-              id: generateId(),
-              residentId: profile.userId,
-              reference: `${verifyData.data.reference}-SURPLUS`,
-              amount: surplus,
-              status: "success",
-              paymentMethod: "advance_surplus",
-              paidAt: new Date(),
-            });
+            if (profile) {
+              await tx
+                .update(residentProfiles)
+                .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${surplus}` })
+                .where(eq(residentProfiles.userId, profile.userId));
+                
+              // Log secondary transaction for ledger balance
+              await tx.insert(transactions).values({
+                id: generateId(),
+                residentId: profile.userId,
+                reference: `${verifyData.data.reference}-SURPLUS`,
+                amount: surplus,
+                status: "success",
+                paymentMethod: "advance_surplus",
+                paidAt: new Date(),
+              });
+            }
           }
+        } else {
+          // Partial Payment - reduce total amount but keep it pending
+          await tx
+            .update(invoices)
+            .set({ totalAmount: sql`${invoices.totalAmount} - ${amountInNaira}` })
+            .where(eq(invoices.id, invoice.id));
         }
       } else {
-        // Partial Payment - reduce total amount but keep it pending
-        await db
-          .update(invoices)
-          .set({ totalAmount: invoice.totalAmount - amountInNaira })
-          .where(eq(invoices.id, invoice.id));
-      }
-    } else {
-      // Invoice is already paid! The ENTIRE amount goes to advance balance
-      const profile = await db
-        .select()
-        .from(residentProfiles)
-        .where(eq(residentProfiles.userId, invoice.residentId))
-        .get();
-        
-      if (profile) {
-        await db
-          .update(residentProfiles)
-          .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + amountInNaira })
-          .where(eq(residentProfiles.userId, profile.userId));
+        // Invoice is already paid! The ENTIRE amount goes to advance balance
+        const profile = await tx
+          .select()
+          .from(residentProfiles)
+          .where(eq(residentProfiles.userId, invoice.residentId))
+          .get();
           
-        // Log secondary transaction for ledger balance
-        await db.insert(transactions).values({
-          id: generateId(),
-          residentId: profile.userId,
-          reference: `${verifyData.data.reference}-SURPLUS`,
-          amount: amountInNaira,
-          status: "success",
-          paymentMethod: "advance_surplus",
-          paidAt: new Date(),
-        });
+        if (profile) {
+          await tx
+            .update(residentProfiles)
+            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amountInNaira}` })
+            .where(eq(residentProfiles.userId, profile.userId));
+            
+          // Log secondary transaction for ledger balance
+          await tx.insert(transactions).values({
+            id: generateId(),
+            residentId: profile.userId,
+            reference: `${verifyData.data.reference}-SURPLUS`,
+            amount: amountInNaira,
+            status: "success",
+            paymentMethod: "advance_surplus",
+            paidAt: new Date(),
+          });
+        }
       }
-    }
 
-    const session = await auth(env.DB).api.getSession({ headers: req.headers });
-    await db.insert(auditLogs).values({
-      id: generateId(),
-      actorId: session?.user?.id || "unknown", // could also get pspId if operator
-      action: "invoice.reconciled",
-      entityType: "invoice",
-      entityId: invoice.id,
-      meta: JSON.stringify({ txId, reference: verifyData.data.reference, method: "manual_verify" }),
+      const session = await auth(env.DB).api.getSession({ headers: req.headers });
+      await tx.insert(auditLogs).values({
+        id: generateId(),
+        actorId: session?.user?.id || "unknown",
+        action: "invoice.reconciled",
+        entityType: "invoice",
+        entityId: invoice.id,
+        meta: JSON.stringify({ txId, reference: verifyData.data.reference, method: "manual_verify" }),
+      });
     });
 
     return new Response(
@@ -170,6 +177,7 @@ export async function POST(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Verify Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

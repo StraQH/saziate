@@ -5,25 +5,33 @@ import { invoices, residentProfiles, users, routeResidents, routeBillingRates, t
 import { eq, and } from "drizzle-orm";
 import { getActivePspId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
+import { z } from "zod";
 
-/**
- * Trigger batch invoice generation for a specific month.
- * Computes base rate + Saziate 5% markup, and records into the D1 DB.
- */
+export const runtime = "edge";
+
+const generateBillingSchema = z.object({
+  year: z.number().int().min(2000).max(2100),
+  month: z.number().int().min(1).max(12),
+});
+
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
   const db = getDb(env.DB);
 
   try {
     await requireRole(req, env.DB, ["psp_operator"]);
-    const { year, month } = await req.json() as { year: number; month: number };
-    if (!year || !month) {
-      return new Response("Missing year or month parameters.", { status: 400 });
+    
+    const rawBody = await req.json();
+    const parsed = generateBillingSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
 
+    const { year, month } = parsed.data;
+
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // 1-indexed
+    const currentYear = now.getUTCFullYear();
+    const currentMonth = now.getUTCMonth() + 1; // 1-indexed
 
     if (year > currentYear || (year === currentYear && month > currentMonth)) {
       return new Response("Cannot generate invoices for future billing periods.", { status: 400 });
@@ -53,8 +61,9 @@ export async function POST(req: Request) {
       ))
       .where(eq(users.pspId, pspId));
 
-    const billingPeriodStart = new Date(year, month - 1, 1).getTime();
-    const billingPeriodEnd = new Date(year, month, 0).getTime();
+    // Force UTC boundaries
+    const billingPeriodStart = Date.UTC(year, month - 1, 1);
+    const billingPeriodEnd = Date.UTC(year, month, 0, 23, 59, 59, 999);
 
     // Fetch existing invoices for this month to prevent duplication
     const existingInvoices = await db
@@ -67,7 +76,6 @@ export async function POST(req: Request) {
     
     const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
 
-    const generatedInvoices = [];
     const newInvoices: any[] = [];
     const newTransactions: any[] = [];
     const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
@@ -79,10 +87,10 @@ export async function POST(req: Request) {
       }
       // Base rate fallback or override check
       const baseRate = profile.customMonthlyRate || profile.routeMonthlyRate || 6000;
-      const platformFee = parseFloat((baseRate * 0.05).toFixed(2));
-      const totalAmount = parseFloat((baseRate + platformFee).toFixed(2));
+      const platformFee = Math.round((baseRate * 0.05) * 100) / 100;
+      const totalAmount = Math.round((baseRate + platformFee) * 100) / 100;
 
-      const advanceBalance = profile.advancePaymentBalance || 0;
+      const advanceBalance = Math.round((profile.advancePaymentBalance || 0) * 100) / 100;
       let finalAmount = totalAmount;
       let invoiceStatus = "pending";
       let isFullySettled = false;
@@ -91,14 +99,14 @@ export async function POST(req: Request) {
 
       if (advanceBalance >= totalAmount) {
         // Full Settlement
-        finalAmount = totalAmount;
+        finalAmount = 0;
         invoiceStatus = "paid";
         isFullySettled = true;
         amountSettledFromAdvance = totalAmount;
-        profileUpdates.push({ userId: profile.userId, advancePaymentBalance: advanceBalance - totalAmount });
+        profileUpdates.push({ userId: profile.userId, advancePaymentBalance: Math.round((advanceBalance - totalAmount) * 100) / 100 });
       } else if (advanceBalance > 0) {
         // Partial Settlement
-        finalAmount = totalAmount - advanceBalance;
+        finalAmount = Math.round((totalAmount - advanceBalance) * 100) / 100;
         invoiceStatus = "pending";
         isPartiallySettled = true;
         amountSettledFromAdvance = advanceBalance;
@@ -108,10 +116,8 @@ export async function POST(req: Request) {
       const invoiceId = generateId();
       const paymentReference = generateSecureReference(10);
       
-      const dueDate = new Date();
-      dueDate.setFullYear(year);
-      dueDate.setMonth(month - 1); // Current billing month
-      dueDate.setDate(7); // Standardized to the 7th
+      // Standardized to the 7th of billing month in UTC to avoid date overflow bugs
+      const dueDate = new Date(Date.UTC(year, month - 1, 7, 23, 59, 59, 999));
 
       newInvoices.push({
         id: invoiceId,
@@ -121,7 +127,7 @@ export async function POST(req: Request) {
         baseAmount: baseRate,
         platformFee,
         totalAmount: finalAmount,
-        dueDate: new Date(dueDate),
+        dueDate: dueDate,
         status: invoiceStatus,
         billingPeriodStart: new Date(billingPeriodStart),
         billingPeriodEnd: new Date(billingPeriodEnd),
@@ -136,46 +142,52 @@ export async function POST(req: Request) {
           amount: amountSettledFromAdvance,
           paymentMethod: "advance_balance",
           cashStatus: "settled",
+          status: "success",
+          paidAt: new Date(),
         });
       }
-
-      generatedInvoices.push(invoiceId);
     }
 
-    // Execute Batched Database Inserts (Chunked)
-    const chunkSize = 500;
-    
-    // Chunked Invoices
-    for (let i = 0; i < newInvoices.length; i += chunkSize) {
-      const chunk = newInvoices.slice(i, i + chunkSize);
-      if (chunk.length > 0) {
-        await db.insert(invoices).values(chunk);
-      }
+    // Optimization: Group mutations into atomic batch statement to eliminate sequential execution timeout bugs
+    const batchOps: any[] = [];
+
+    // Push Invoices
+    for (const inv of newInvoices) {
+      batchOps.push(db.insert(invoices).values(inv));
     }
 
-    // Chunked Transactions
-    for (let i = 0; i < newTransactions.length; i += chunkSize) {
-      const chunk = newTransactions.slice(i, i + chunkSize);
-      if (chunk.length > 0) {
-        await db.insert(transactions).values(chunk);
-      }
+    // Push Transactions
+    for (const tx of newTransactions) {
+      batchOps.push(db.insert(transactions).values(tx));
     }
 
-    // Process profile updates (Advance balance deduction)
+    // Push Profile updates
     for (const update of profileUpdates) {
-      await db.update(residentProfiles)
-        .set({ advancePaymentBalance: update.advancePaymentBalance })
-        .where(eq(residentProfiles.userId, update.userId));
+      batchOps.push(
+        db.update(residentProfiles)
+          .set({ advancePaymentBalance: update.advancePaymentBalance })
+          .where(eq(residentProfiles.userId, update.userId))
+      );
+    }
+
+    // Chunk batched execution into blocks of 90 statements to abide by D1 max request size limit (100)
+    if (batchOps.length > 0) {
+      const CHUNK_SIZE = 90;
+      for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
+        const chunk = batchOps.slice(i, i + CHUNK_SIZE);
+        await db.batch(chunk as any);
+      }
     }
 
     return new Response(
       JSON.stringify({
         status: "success",
-        invoicesCreatedCount: generatedInvoices.length,
+        invoicesCreatedCount: newInvoices.length,
       }),
       { status: 201, headers: { "Content-Type": "application/json" } }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Generate Billing Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

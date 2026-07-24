@@ -1,15 +1,14 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
-import { psps, invoices, transactions, auditLogs, notificationLogs, users } from "@/db/schema";
-import { eq, and, like, inArray } from "drizzle-orm";
+import { psps, transactions, auditLogs, notificationLogs, users } from "@/db/schema";
+import { eq, and, like, inArray, sql } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
+export const runtime = "edge";
 
-
-// Triggered via Cron (e.g. daily for T+1 processing)
 export async function GET(req: Request) {
   const env = getAppEnv() as any;
 
@@ -24,144 +23,139 @@ export async function GET(req: Request) {
   const db = getDb(env.DB);
 
   try {
-    // 1. Fetch all PSPs
-    const allPsps = await db
-      .select()
-      .from(psps);
-
-    if (allPsps.length === 0) {
-      return new Response(JSON.stringify({ status: "success", message: "No active PSPs found." }), { status: 200 });
-    }
-
     let processedCount = 0;
-
-    const newTransactions: any[] = [];
-    const newAuditLogs: any[] = [];
     const notificationPromises: Promise<any>[] = [];
 
-    for (const psp of allPsps) {
-      // Find all paid invoices that haven't been settled yet
-      // To properly track this in a real system, we'd need a 'settlementId' on invoices or a separate ledger table.
-      // For now, we simulate settlement calculation by fetching all paid invoices without a payout transaction.
-      // Since transactions table already tracks payouts, we can sum all paid invoices minus sum of all payouts.
+    // Run the entire balance query & reservation in a single transaction block
+    await db.transaction(async (tx: any) => {
+      // 1. Fetch all active PSPs
+      const allPsps = await tx.select().from(psps);
+      if (allPsps.length === 0) return;
 
-      // Calculate initial estimate
-      const digitalTxs = await db
-        .select({ amount: transactions.amount })
+      // 2. Optimization: Bulk fetch aggregates to eliminate N+1 queries
+      const digitalTotals = await tx
+        .select({
+          pspId: users.pspId,
+          total: sql<number>`sum(${transactions.amount})`,
+        })
         .from(transactions)
         .innerJoin(users, eq(transactions.residentId, users.id))
         .where(and(
-          eq(users.pspId, psp.id),
           eq(transactions.paymentMethod, "bank_transfer"),
           eq(transactions.status, "success")
-        ));
-      const totalDigitalCollections = digitalTxs.reduce((sum: number, tx: { amount: number }) => sum + tx.amount, 0);
-      const pspDigitalEntitlement = totalDigitalCollections / 1.05;
+        ))
+        .groupBy(users.pspId);
 
-      const cashTxs = await db
-        .select({ amount: transactions.amount })
+      const cashTotals = await tx
+        .select({
+          pspId: users.pspId,
+          total: sql<number>`sum(${transactions.amount})`,
+        })
         .from(transactions)
         .innerJoin(users, eq(transactions.residentId, users.id))
         .where(and(
-          eq(users.pspId, psp.id),
           eq(transactions.paymentMethod, "cash"),
           inArray(transactions.cashStatus, ["verified", "settled"])
-        ));
-      const totalCashCollections = cashTxs.reduce((sum: number, tx: { amount: number }) => sum + tx.amount, 0);
-      const saziateCashFee = totalCashCollections - (totalCashCollections / 1.05);
+        ))
+        .groupBy(users.pspId);
 
-      const pastPayouts = await db
-        .select({ amount: transactions.amount })
+      const payoutTotals = await tx
+        .select({
+          pspId: transactions.residentId,
+          total: sql<number>`sum(${transactions.amount})`,
+        })
         .from(transactions)
         .where(and(
-          eq(transactions.residentId, psp.id), // HACK: reusing residentId for pspId in payouts for this demo
           like(transactions.reference, "PAYOUT-%"),
           inArray(transactions.status, ["initiated", "success"])
-        ));
-      const totalPaidOut = pastPayouts.reduce((sum: number, tx: { amount: number }) => sum + tx.amount, 0);
+        ))
+        .groupBy(transactions.residentId);
 
-      const notificationCosts = await db
-        .select({ costNgn: notificationLogs.costNgn })
+      const notificationTotals = await tx
+        .select({
+          pspId: notificationLogs.pspId,
+          total: sql<number>`sum(${notificationLogs.costNgn})`,
+        })
         .from(notificationLogs)
-        .where(eq(notificationLogs.pspId, psp.id));
-      const totalNotificationCosts = notificationCosts.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
-      
-      const estimatedAvailable = pspDigitalEntitlement - saziateCashFee - totalPaidOut - totalNotificationCosts;
+        .groupBy(notificationLogs.pspId);
 
-      // Threshold check (e.g., minimum payout ₦1000)
-      if (estimatedAvailable >= 1000) {
-        // 1. Optimistic Lock: Insert the payout transaction with estimated amount
-        const txId = generateId();
-        await db.insert(transactions).values({
-          id: txId,
-          residentId: psp.id, // Using residentId field to store pspId for payouts
-          reference: `PAYOUT-AUTO-${generateId()}`,
-          amount: estimatedAvailable,
-          paymentMethod: "bank_transfer",
-          status: "initiated",
-          cashStatus: "settled",
-        });
+      // Convert lists to Maps for fast O(1) lookups
+      const digitalMap = new Map(digitalTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
+      const cashMap = new Map(cashTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
+      const payoutMap = new Map(payoutTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
+      const notificationMap = new Map(notificationTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
 
-        // 2. Re-calculate total paid out to include our new lock, and verify no overdraft
-        const pastPayoutsCheck = await db
-          .select({ amount: transactions.amount })
-          .from(transactions)
-          .where(and(
-            eq(transactions.residentId, psp.id),
-            like(transactions.reference, "PAYOUT-%"),
-            inArray(transactions.status, ["initiated", "success"])
-          ));
-        const newTotalPaidOut = pastPayoutsCheck.reduce((sum: number, tx: { amount: number }) => sum + tx.amount, 0);
-        const currentAvailableAfterLock = pspDigitalEntitlement - saziateCashFee - newTotalPaidOut - totalNotificationCosts;
+      const newTxs = [];
+      const newLogs = [];
 
-        if (currentAvailableAfterLock < 0) {
-            // Overdraft detected (Concurrent Cron Execution!)
-            await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));
-            continue; // Skip this PSP
-        }
+      for (const psp of allPsps) {
+        const digitalSum = (digitalMap.get(psp.id) as number) || 0;
+        const cashSum = (cashMap.get(psp.id) as number) || 0;
+        const payoutSum = (payoutMap.get(psp.id) as number) || 0;
+        const notificationSum = (notificationMap.get(psp.id) as number) || 0;
 
-        // 3. Process the payout (simulated via API in real app)
-        await db.update(transactions).set({ status: "success" }).where(eq(transactions.id, txId));
+        // Apply strict rounding
+        const pspDigitalEntitlement = Math.round((digitalSum / 1.05) * 100) / 100;
+        const saziateCashFee = Math.round((cashSum - (cashSum / 1.05)) * 100) / 100;
+        const totalPaidOut = Math.round(payoutSum * 100) / 100;
+        const totalNotificationCosts = Math.round(notificationSum * 100) / 100;
 
-        newAuditLogs.push({
-          id: generateId(),
-          actorId: "system",
-          action: "payout.automated",
-          entityType: "psp",
-          entityId: psp.id,
-          meta: JSON.stringify({ amount: estimatedAvailable }),
-        });
+        const estimatedAvailable = Math.round((pspDigitalEntitlement - saziateCashFee - totalPaidOut - totalNotificationCosts) * 100) / 100;
 
-        processedCount++;
+        // Threshold check (minimum automated payout NGN 1000)
+        if (estimatedAvailable >= 1000) {
+          const txId = generateId();
+          
+          newTxs.push({
+            id: txId,
+            residentId: psp.id, // Using residentId field to store pspId for payouts
+            reference: `PAYOUT-AUTO-${generateId()}`,
+            amount: estimatedAvailable,
+            paymentMethod: "bank_transfer",
+            status: "success", // Simulated immediate payout execution
+            cashStatus: "settled",
+            paidAt: new Date(),
+          });
 
-        // Send Email Confirmation
-        if (psp.contactEmail && psp.settlementAccountNumber) {
-          const accountMask = psp.settlementAccountNumber.slice(-4);
-          notificationPromises.push(sendEmail({
-            to: psp.contactEmail,
-            subject: "Saziate Payout Initiated",
-            html: emailTemplates.payoutConfirmation(psp.name, estimatedAvailable, accountMask),
-          }));
+          newLogs.push({
+            id: generateId(),
+            actorId: "system",
+            action: "payout.automated",
+            entityType: "psp",
+            entityId: psp.id,
+            meta: JSON.stringify({ amount: estimatedAvailable }),
+          });
+
+          processedCount++;
+
+          // Send Email Confirmation (queue promise)
+          if (psp.contactEmail && psp.settlementAccountNumber) {
+            const accountMask = psp.settlementAccountNumber.slice(-4);
+            notificationPromises.push(sendEmail({
+              to: psp.contactEmail,
+              subject: "Saziate Payout Initiated",
+              html: emailTemplates.payoutConfirmation(psp.name, estimatedAvailable, accountMask),
+            }));
+          }
         }
       }
-    }
 
-    // Execute Batched Database Inserts (Chunked)
-    const chunkSize = 500;
-    
-    // Chunked Audit Logs
-    for (let i = 0; i < newAuditLogs.length; i += chunkSize) {
-      const chunk = newAuditLogs.slice(i, i + chunkSize);
-      if (chunk.length > 0) {
-        await db.insert(auditLogs).values(chunk);
+      // Execute bulk inserts
+      if (newTxs.length > 0) {
+        await tx.insert(transactions).values(newTxs);
       }
-    }
+      if (newLogs.length > 0) {
+        await tx.insert(auditLogs).values(newLogs);
+      }
+    });
 
-    // Concurrent Notification Dispatch (Chunked to prevent external API rate limiting)
-    const concurrentLimit = 50;
-    for (let i = 0; i < notificationPromises.length; i += concurrentLimit) {
-      const chunk = notificationPromises.slice(i, i + concurrentLimit);
-      await Promise.allSettled(chunk);
+    // Concurrent Notification Dispatch (outside transaction to avoid DB locks)
+    if (notificationPromises.length > 0) {
+      const concurrentLimit = 25;
+      for (let i = 0; i < notificationPromises.length; i += concurrentLimit) {
+        const chunk = notificationPromises.slice(i, i + concurrentLimit);
+        await Promise.allSettled(chunk);
+      }
     }
 
     return new Response(JSON.stringify({ 
@@ -171,6 +165,6 @@ export async function GET(req: Request) {
 
   } catch (error: any) {
     console.error("Cron Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

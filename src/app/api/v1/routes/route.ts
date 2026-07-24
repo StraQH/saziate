@@ -6,6 +6,8 @@ import { eq, and } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 
+export const runtime = "edge";
+
 export async function GET(req: Request) {
   const env = getAppEnv() as any;
   const db = getDb(env.DB);
@@ -24,7 +26,8 @@ export async function GET(req: Request) {
 
     return new Response(JSON.stringify(list), { status: 200 });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("GET Routes Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -65,28 +68,31 @@ export async function POST(req: Request) {
 
     const routeId = generateId();
 
-    // SQL transactional write creating Route + Default rates
-    await db.insert(routes).values({
-      id: routeId,
-      pspId: pspId,
-      name,
-      description,
-      collectionSchedule: collectionSchedule || "Mondays & Thursdays",
-      assignedAgentId,
-    });
+    // Wrap Route + default rates insertion in a database transaction block
+    await db.transaction(async (tx: any) => {
+      await tx.insert(routes).values({
+        id: routeId,
+        pspId: pspId,
+        name,
+        description,
+        collectionSchedule: collectionSchedule || "Mondays & Thursdays",
+        assignedAgentId,
+      });
 
-    if (rates && rates.length > 0) {
-      for (const rate of rates) {
-        await db.insert(routeBillingRates).values({
+      if (rates && rates.length > 0) {
+        const batchRates = rates.map(rate => ({
           routeId,
           billingCategory: rate.category,
-          monthlyRate: rate.monthlyRate,
-        });
+          monthlyRate: Math.round(rate.monthlyRate * 100) / 100,
+        }));
+        
+        await tx.insert(routeBillingRates).values(batchRates);
       }
-    }
+    });
 
     return new Response(JSON.stringify({ status: "success", routeId }), { status: 201 });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Create Route Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

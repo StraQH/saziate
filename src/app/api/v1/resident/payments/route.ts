@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
@@ -80,6 +81,6 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

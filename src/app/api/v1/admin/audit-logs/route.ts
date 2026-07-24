@@ -1,3 +1,4 @@
+export const runtime = "edge";
 ﻿import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";

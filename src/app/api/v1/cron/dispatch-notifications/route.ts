@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { pendingNotifications, notificationLogs } from "@/db/schema";
@@ -112,6 +113,6 @@ export async function GET(req: Request) {
 
   } catch (error: any) {
     console.error("Dispatch Cron Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

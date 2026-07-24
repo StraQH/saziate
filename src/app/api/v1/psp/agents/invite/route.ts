@@ -7,8 +7,13 @@ import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
 
+export const runtime = "edge";
 
+const inviteSchema = z.object({
+  email: z.string().email(),
+});
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -27,10 +32,13 @@ export async function POST(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const { email } = await req.json() as { email?: string };
-    if (!email) {
-      return new Response("Missing agent email.", { status: 400 });
+    const rawBody = await req.json();
+    const parsed = inviteSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
+
+    const { email } = parsed.data;
 
     const psp = await db.select().from(psps).where(eq(psps.id, pspId)).get();
     if (!psp) {
@@ -42,7 +50,7 @@ export async function POST(req: Request) {
 
     await db.insert(agentInvitations).values({
       token,
-      email: email.toLowerCase(),
+      email: email.toLowerCase().trim(),
       pspId,
       expiresAt,
       createdAt: new Date(),
@@ -50,11 +58,15 @@ export async function POST(req: Request) {
 
     const inviteLink = `https://saziate.com/signup?invite=${token}&email=${encodeURIComponent(email)}&role=field_agent`;
 
-    await sendEmail({
-      to: email,
-      subject: `You have been invited to join ${psp.name} on Saziate!`,
-      html: emailTemplates.inviteAgent(psp.name, inviteLink),
-    });
+    try {
+      await sendEmail({
+        to: email,
+        subject: `You have been invited to join ${psp.name} on Saziate!`,
+        html: emailTemplates.inviteAgent(psp.name, inviteLink),
+      });
+    } catch (emailErr) {
+      console.error("Failed to send agent invitation email:", emailErr);
+    }
 
     return new Response(
       JSON.stringify({
@@ -67,6 +79,7 @@ export async function POST(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Invite Agent Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

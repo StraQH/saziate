@@ -1,16 +1,19 @@
 import { getAppEnv } from "@/lib/env";
 import { requireRole, getActivePspId } from "@/lib/session";
 import { getDb } from "@/db";
-import { transactions, invoices, residentProfiles, auditLogs } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { transactions, invoices, residentProfiles, auditLogs, users } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { auth } from "@/lib/auth";
-import { TermiiClient } from "@/lib/termii";
-import { users } from "@/db/schema";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { z } from "zod";
 
+export const runtime = "edge";
 
+const cashVerifySchema = z.object({
+  transactionId: z.string().min(1),
+});
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -24,12 +27,13 @@ export async function POST(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json() as { transactionId?: string };
-    const { transactionId } = rawBody;
-
-    if (!transactionId) {
-      return new Response("Missing transactionId.", { status: 400 });
+    const rawBody = await req.json();
+    const parsed = cashVerifySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
+
+    const { transactionId } = parsed.data;
 
     // Fetch the cash transaction and verify it belongs to the current PSP's invoice
     const txData = await db
@@ -59,97 +63,92 @@ export async function POST(req: Request) {
     }
 
     const tx = txData;
+    let invoice: any = null;
 
-    // Update transaction cashStatus to 'verified'
-    await db
-      .update(transactions)
-      .set({ cashStatus: "verified" })
-      .where(eq(transactions.id, transactionId));
-
-    // Update the invoice if attached
     if (tx.invoiceId) {
-      const invoice = await db
+      invoice = await db
         .select()
         .from(invoices)
         .where(eq(invoices.id, tx.invoiceId))
         .get();
+    }
 
-      if (invoice) {
+    // Wrap multiple updates in transaction block
+    await db.transaction(async (dbTx: any) => {
+      // Update transaction cashStatus to 'verified'
+      await dbTx
+        .update(transactions)
+        .set({ cashStatus: "verified" })
+        .where(eq(transactions.id, transactionId));
+
+      // Update the invoice if attached
+      if (tx.invoiceId && invoice) {
         if (invoice.status !== "paid") {
           if (tx.amount >= invoice.totalAmount) {
             // Full Payment or Overpayment
-            await db
+            await dbTx
               .update(invoices)
-              .set({ status: "paid" })
+              .set({ status: "paid", totalAmount: 0 })
               .where(eq(invoices.id, invoice.id));
             
-            const surplus = tx.amount - invoice.totalAmount;
+            const surplus = Math.round((tx.amount - invoice.totalAmount) * 100) / 100;
             if (surplus > 0) {
-              const profile = await db
-                .select()
-                .from(residentProfiles)
-                .where(eq(residentProfiles.userId, invoice.residentId))
-                .get();
-                
-              if (profile) {
-                await db
-                  .update(residentProfiles)
-                  .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + surplus })
-                  .where(eq(residentProfiles.userId, profile.userId));
-              }
+              await dbTx
+                .update(residentProfiles)
+                .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${surplus}` })
+                .where(eq(residentProfiles.userId, invoice.residentId));
             }
           } else {
             // Partial Payment: Reduce invoice total, leave as pending
-            await db
+            await dbTx
               .update(invoices)
-              .set({ totalAmount: invoice.totalAmount - tx.amount })
+              .set({ totalAmount: sql`${invoices.totalAmount} - ${tx.amount}` })
               .where(eq(invoices.id, invoice.id));
           }
         } else {
           // Invoice is already paid! The ENTIRE cash amount goes to advance balance
-          const profile = await db
-            .select()
-            .from(residentProfiles)
-            .where(eq(residentProfiles.userId, invoice.residentId))
-            .get();
-            
-          if (profile) {
-            await db
-              .update(residentProfiles)
-              .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + tx.amount })
-              .where(eq(residentProfiles.userId, profile.userId));
-          }
+          await dbTx
+            .update(residentProfiles)
+            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${tx.amount}` })
+            .where(eq(residentProfiles.userId, invoice.residentId));
         }
+      }
+      
+      const session = await auth(env.DB).api.getSession({ headers: req.headers });
+      await dbTx.insert(auditLogs).values({
+        id: generateId(),
+        actorId: session?.user?.id || pspId,
+        action: "cash.verified",
+        entityType: "transaction",
+        entityId: transactionId,
+        meta: JSON.stringify({ pspId, invoiceId: tx.invoiceId }),
+      });
+    });
 
-        // Send Email Receipt
-        const residentUser = await db.select().from(users).where(eq(users.id, invoice.residentId)).get();
-        if (residentUser && residentUser.email) {
-          const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
+    // Send Email Receipt (non-blocking)
+    if (invoice) {
+      const residentUser = await db.select().from(users).where(eq(users.id, invoice.residentId)).get();
+      if (residentUser && residentUser.email) {
+        const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
+        try {
           await sendEmail({
             to: residentUser.email,
             subject: "Saziate Payment Receipt",
             html: emailTemplates.paymentReceipt(firstName, tx.amount),
           });
+        } catch (emailErr) {
+          console.error("Failed to send cash verification email receipt:", emailErr);
         }
       }
     }
-
-    const session = await auth(env.DB).api.getSession({ headers: req.headers });
-    await db.insert(auditLogs).values({
-      id: generateId(),
-      actorId: session?.user?.id || pspId,
-      action: "cash.verified",
-      entityType: "transaction",
-      entityId: transactionId,
-      meta: JSON.stringify({ pspId, invoiceId: tx.invoiceId }),
-    });
 
     return new Response(JSON.stringify({ status: "success", message: "Cash verified." }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Cash Verification Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -190,6 +189,7 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/json" }
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("GET Pending Cash Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

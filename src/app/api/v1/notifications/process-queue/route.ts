@@ -1,12 +1,20 @@
 import { getAppEnv } from "@/lib/env";
 import { processPendingRetries } from "@/lib/notifications";
+import { config } from "@/lib/config";
 
-
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!config.isMockMode) {
+      if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+    }
+
     const termiiKey = env.TERMII_API_KEY;
     if (!termiiKey) {
       throw new Error("TERMII_API_KEY is required.");
@@ -24,6 +32,7 @@ export async function POST(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Process Queue Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

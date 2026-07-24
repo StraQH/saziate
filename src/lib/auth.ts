@@ -4,18 +4,22 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/hash";
-
-const authSecret = process.env.BETTER_AUTH_SECRET || "saziate_prod_secret_2026";
+import { getAppEnv } from "@/lib/env";
 
 /**
  * Configure Better Auth instance with explicit table mappings for Cloudflare D1.
  */
 export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
+  const env = getAppEnv();
   const db = getDb(dbBinding);
-  const isDemo = process.env.NEXT_PUBLIC_MOCK_MODE === "true" || requestOrigin?.includes("demo.saziate.com");
+  const isDemo = env.NEXT_PUBLIC_MOCK_MODE === "true" || requestOrigin?.includes("demo.saziate.com");
   const baseURL = requestOrigin || (isDemo ? "https://demo.saziate.com" : "https://app.saziate.com");
+  const authSecret = env.BETTER_AUTH_SECRET || "saziate_prod_secret_2026";
 
   return betterAuth({
+    logger: {
+      level: "debug",
+    },
     baseURL,
     database: drizzleAdapter(db, {
       provider: "sqlite",

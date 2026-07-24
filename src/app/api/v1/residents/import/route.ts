@@ -1,65 +1,95 @@
 import { getAppEnv } from "@/lib/env";
-import { importResidentsSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
+import { users, residentProfiles, accounts, routeResidents, routes, auditLogs } from "@/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateId, generateSecurePassword, normalizePhoneNumber } from "@/lib/utils";
-import { SaziateLogger } from "@/lib/logger";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
-import { MOCK_PSP_ID, MOCK_ROUTE_NAME, MOCK_WARD } from "@/lib/mockdata";
+import { z } from "zod";
 
+export const runtime = "edge";
 
+const importResidentsSchema = z.object({
+  residents: z.array(z.object({
+    name: z.string().min(1),
+    email: z.string().optional(),
+    phone: z.string().min(1),
+    address: z.string().min(1),
+    billingCategory: z.enum(["commercial", "residential", "industrial", "health"]),
+    baseRate: z.number().positive(),
+    route: z.string().optional(),
+  })),
+});
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
   const db = getDb(env.DB);
-  const logger = new SaziateLogger(env.DB);
 
   try {
     await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB) || MOCK_PSP_ID;
+    const pspId = await getActivePspId(req, env.DB);
 
-    const { residents } = await req.json() as {
-      residents: {
-        name: string;
-        email: string;
-        phone: string;
-        address: string;
-        billingCategory: "commercial" | "residential" | "industrial" | "health";
-        baseRate: number;
-        route: string;
-      }[];
-    };
-
-    if (!residents || !Array.isArray(residents)) {
-      return new Response("Missing or invalid residents array.", { status: 400 });
+    if (!pspId) {
+      return new Response("Unauthorized.", { status: 401 });
     }
+
+    const rawBody = await req.json();
+    const parsed = importResidentsSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
+    }
+
+    const { residents } = parsed.data;
 
     // Verify Route Ownership for all imported residents
     const routeIds = [...new Set(residents.map((r: any) => r.route).filter(Boolean))] as string[];
+    const routeMap = new Map<string, any>();
+
     if (routeIds.length > 0) {
       const validRoutes = await db
         .select()
         .from(routes)
         .where(inArray(routes.id, routeIds));
       
-      const validRouteMap = new Map<string, any>(validRoutes.map((r: any) => [r.id, r]));
+      for (const route of validRoutes) {
+        routeMap.set(route.id, route);
+      }
       
       for (const routeId of routeIds) {
-        const route = validRouteMap.get(routeId);
+        const route = routeMap.get(routeId);
         if (!route || route.pspId !== pspId) {
           return new Response(`Invalid route ID (${routeId}) or unauthorized to assign to this route.`, { status: 403 });
         }
       }
     }
 
-    const insertedCount = [];
+    // Optimization: Bulk query max sequence orders to avoid loop queries
+    const maxSeqMap = new Map<string, number>();
+    if (routeIds.length > 0) {
+      const maxSeqs = await db
+        .select({
+          routeId: routeResidents.routeId,
+          maxSeq: sql<number>`MAX(${routeResidents.sequenceOrder})`,
+        })
+        .from(routeResidents)
+        .where(inArray(routeResidents.routeId, routeIds))
+        .groupBy(routeResidents.routeId);
 
-    // Process all profiles in D1
+      for (const s of maxSeqs) {
+        maxSeqMap.set(s.routeId, Number(s.maxSeq || 0));
+      }
+    }
+
+    const insertedCount = [];
+    const batchOps: any[] = [];
+    const notificationQueue: any[] = [];
+
+    // Dynamically load password hashing
+    const betterAuthCrypto = await import("better-auth/crypto");
+
     for (const res of residents) {
       const userId = generateId();
       const tempPassword = generateSecurePassword(8);
@@ -70,8 +100,8 @@ export async function POST(req: Request) {
       const firstName = nameParts[0] || "Unknown";
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      // Create User
-      await db.insert(users).values({
+      // Group all inserts into batch array
+      batchOps.push(db.insert(users).values({
         id: userId,
         name: res.name,
         firstName,
@@ -80,42 +110,37 @@ export async function POST(req: Request) {
         email: finalEmail,
         role: "resident",
         pspId: pspId,
-      });
+      }));
 
-      // Create Resident Profile
-      await db.insert(residentProfiles).values({
+      batchOps.push(db.insert(residentProfiles).values({
         userId,
         address: res.address,
-        ward: MOCK_WARD,
+        ward: "Ward A",
         lga: "Eti-Osa",
         billingCategory: res.billingCategory || "residential",
         customMonthlyRate: res.baseRate || null,
-      });
+        advancePaymentBalance: 0,
+      }));
 
-
-      // Create credentials account link
-      const hashedPassword = await import("better-auth/crypto").then(c => c.hashPassword(tempPassword));
-      await db.insert(accounts).values({
+      const hashedPassword = await betterAuthCrypto.hashPassword(tempPassword);
+      batchOps.push(db.insert(accounts).values({
         id: generateId(),
         accountId: userId,
         providerId: "credential",
         userId: userId,
         password: hashedPassword,
-      });
+      }));
 
       if (res.route) {
-        const maxSeqRecord = await db
-          .select({ maxSeq: sql`MAX(sequence_order)` })
-          .from(routeResidents)
-          .where(eq(routeResidents.routeId, res.route))
-          .get();
-        const nextSequence = maxSeqRecord?.maxSeq ? (maxSeqRecord.maxSeq as number) + 1 : 1;
+        let currentSeq = maxSeqMap.get(res.route) || 0;
+        currentSeq++;
+        maxSeqMap.set(res.route, currentSeq);
 
-        await db.insert(routeResidents).values({
+        batchOps.push(db.insert(routeResidents).values({
           routeId: res.route,
           residentId: userId,
-          sequenceOrder: nextSequence,
-        });
+          sequenceOrder: currentSeq,
+        }));
       }
 
       insertedCount.push({
@@ -124,52 +149,85 @@ export async function POST(req: Request) {
         email: finalEmail,
         phone: normalizedPhone || "",
         address: res.address,
-        route: res.route,
+        route: res.route || null,
         billingCategory: res.billingCategory || "residential",
         baseRate: res.baseRate || 6000,
         isOverride: false,
         status: "active",
       });
 
-      // Dispatch WhatsApp/SMS setup notification via Termii (free onboarding cost)
-      if (res.phone) {
-        const msgText = `Hello ${res.name}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
-        await sendNotificationWithFallback({
-          dbBinding: env.DB,
-          termiiApiKey: env.TERMII_API_KEY || "",
-          pspId,
-          residentId: userId,
-          phone: normalizedPhone,
-          messageText: msgText,
-          messageType: "setup",
-          channel: "sms",
-        });
-      }
-
-      // Send Welcome Email if real email exists
-      const hasRealEmail = res.email && res.email.includes("@") && !res.email.endsWith("@saziate.com");
-      if (hasRealEmail) {
-        await sendEmail({
-          to: res.email,
-          subject: "Welcome to Saziate!",
-          html: emailTemplates.welcomeResident(res.name.split(" ")[0], tempPassword),
-        });
-      }
+      notificationQueue.push({
+        name: res.name,
+        email: res.email,
+        phone: normalizedPhone,
+        userId,
+        tempPassword,
+      });
     }
 
-    await logger.logAudit({
-      actorId: MOCK_PSP_ID,
+    // Write audit log
+    const session = await auth(env.DB).api.getSession({ headers: req.headers });
+    batchOps.push(db.insert(auditLogs).values({
+      id: generateId(),
+      actorId: session?.user?.id || pspId,
       action: "residents.imported",
       entityType: "resident_profiles",
       entityId: "bulk",
       meta: JSON.stringify({ count: insertedCount.length }),
-    });
+    }));
+
+    // Execute database statements in batch chunks of 90 to prevent D1 size limit exceptions
+    if (batchOps.length > 0) {
+      const CHUNK_SIZE = 90;
+      for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
+        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as any);
+      }
+    }
+
+    // Process notification dispatch in parallel (outside the transaction to avoid connection locking)
+    const notificationPromises: Promise<any>[] = [];
+    for (const notif of notificationQueue) {
+      if (notif.phone) {
+        const msgText = `Hello ${notif.name}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${notif.tempPassword}. Please update your email on login.`;
+        notificationPromises.push(
+          sendNotificationWithFallback({
+            dbBinding: env.DB,
+            termiiApiKey: env.TERMII_API_KEY || "",
+            pspId,
+            residentId: notif.userId,
+            phone: notif.phone,
+            messageText: msgText,
+            messageType: "setup",
+            channel: "sms",
+          }).catch(err => console.error(`WhatsApp/SMS onboarding failed for ${notif.phone}:`, err))
+        );
+      }
+
+      const hasRealEmail = notif.email && notif.email.includes("@") && !notif.email.endsWith("@saziate.com");
+      if (hasRealEmail) {
+        notificationPromises.push(
+          sendEmail({
+            to: notif.email,
+            subject: "Welcome to Saziate!",
+            html: emailTemplates.welcomeResident(notif.name.split(" ")[0], notif.tempPassword),
+          }).catch(err => console.error(`Welcome email onboarding failed for ${notif.email}:`, err))
+        );
+      }
+    }
+
+    if (notificationPromises.length > 0) {
+      const limit = 25;
+      for (let i = 0; i < notificationPromises.length; i += limit) {
+        await Promise.allSettled(notificationPromises.slice(i, i + limit));
+      }
+    }
 
     return new Response(JSON.stringify({ status: "success", count: insertedCount.length, residents: insertedCount }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Import Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

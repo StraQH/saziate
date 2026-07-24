@@ -1,3 +1,4 @@
+export const runtime = "edge";
 ﻿import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { createComplaintSchema, updateComplaintSchema } from "@/lib/validators";
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
       limit
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
 
     return new Response(JSON.stringify({ status: "success", complaintId }), { status: 201, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
@@ -160,7 +161,7 @@ export async function PATCH(req: Request) {
 
     return new Response(JSON.stringify({ status: "success" }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 

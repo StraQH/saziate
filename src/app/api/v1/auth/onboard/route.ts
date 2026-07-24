@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getAppEnv } from "@/lib/env";
 import { onboardSchema } from "@/lib/validators";
 import { getDb } from "@/db";
@@ -152,6 +153,6 @@ export async function POST(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

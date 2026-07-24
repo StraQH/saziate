@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getAppEnv } from "@/lib/env";
 
 export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const isDemo = process.env.NEXT_PUBLIC_MOCK_MODE === "true" || request.nextUrl.hostname.includes("demo.");
+  const env = getAppEnv();
+  const isDemo = env.NEXT_PUBLIC_MOCK_MODE === "true" || request.nextUrl.hostname.includes("demo.");
 
   // 1. Bypass authentication filters completely in Mock Mode / Demo
   if (isDemo) {

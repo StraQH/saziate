@@ -1,12 +1,16 @@
 import { getAppEnv } from "@/lib/env";
-import { cancelInvoiceSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { invoices, transactions, residentProfiles } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { generateId } from "@/lib/utils";
+import { z } from "zod";
 
+export const runtime = "edge";
 
+const cancelInvoiceSchema = z.object({
+  invoiceId: z.string().min(1),
+});
 
 export async function PATCH(req: Request) {
   const env = getAppEnv() as any;
@@ -19,10 +23,13 @@ export async function PATCH(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const { invoiceId } = await req.json() as { invoiceId: string };
-    if (!invoiceId) {
-      return new Response("Missing invoice ID.", { status: 400 });
+    const rawBody = await req.json();
+    const parsed = cancelInvoiceSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
+
+    const { invoiceId } = parsed.data;
 
     // Verify invoice belongs to PSP and is pending
     const existing = await db
@@ -56,42 +63,47 @@ export async function PATCH(req: Request) {
       }
       refundAmount += tx.amount;
     }
+    refundAmount = Math.round(refundAmount * 100) / 100;
 
-    if (refundAmount > 0) {
-      const profile = await db
-        .select()
-        .from(residentProfiles)
-        .where(eq(residentProfiles.userId, existing.residentId))
-        .get();
+    // Execute mutations inside a transaction block
+    await db.transaction(async (tx: any) => {
+      if (refundAmount > 0) {
+        const profile = await tx
+          .select()
+          .from(residentProfiles)
+          .where(eq(residentProfiles.userId, existing.residentId))
+          .get();
 
-      if (profile) {
-        await db
-          .update(residentProfiles)
-          .set({ advancePaymentBalance: (profile.advancePaymentBalance || 0) + refundAmount })
-          .where(eq(residentProfiles.userId, profile.userId));
-        
-        await db.insert(transactions).values({
-          id: generateId(),
-          residentId: profile.userId,
-          reference: `REFUND-${Date.now()}-${generateId().slice(0, 4)}`,
-          amount: refundAmount,
-          status: "success",
-          paymentMethod: "advance_surplus",
-          paidAt: new Date(),
-        });
+        if (profile) {
+          await tx
+            .update(residentProfiles)
+            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${refundAmount}` })
+            .where(eq(residentProfiles.userId, profile.userId));
+          
+          await tx.insert(transactions).values({
+            id: generateId(),
+            residentId: profile.userId,
+            reference: `REFUND-${Date.now()}-${generateId().slice(0, 4)}`,
+            amount: refundAmount,
+            status: "success",
+            paymentMethod: "advance_surplus",
+            paidAt: new Date(),
+          });
+        }
       }
-    }
 
-    await db
-      .update(invoices)
-      .set({ status: "cancelled" })
-      .where(eq(invoices.id, invoiceId));
+      await tx
+        .update(invoices)
+        .set({ status: "cancelled" })
+        .where(eq(invoices.id, invoiceId));
+    });
 
     return new Response(JSON.stringify({ status: "success", message: "Invoice cancelled." }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Cancel Invoice Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

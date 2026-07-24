@@ -4,7 +4,7 @@ import { invoices } from "@/db/schema";
 import { and, lt, eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 
-
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -19,29 +19,23 @@ export async function POST(req: Request) {
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalize to start of day
+    today.setUTCHours(0, 0, 0, 0); // Normalize to start of day in UTC
 
-    // Query pending invoices that are past their due date
-    const pendingInvoices = await db
-      .select({ id: invoices.id, dueDate: invoices.dueDate })
-      .from(invoices)
-      .where(eq(invoices.status, "pending"))
-      .all();
-
-    const overdueInvoices = pendingInvoices.filter((inv: any) => new Date(inv.dueDate) < today);
-    const ids = overdueInvoices.map((inv: any) => inv.id);
-
-    if (ids.length > 0) {
-      for (const id of ids) {
-        await db.update(invoices).set({ status: "overdue" }).where(eq(invoices.id, id));
-      }
-    }
+    // Optimized: Single SQL statement instead of sequential loop N+1 updates
+    await db
+      .update(invoices)
+      .set({ status: "overdue" })
+      .where(
+        and(
+          eq(invoices.status, "pending"),
+          lt(invoices.dueDate, today)
+        )
+      );
 
     return new Response(
       JSON.stringify({
         status: "success",
-        updatedCount: ids.length,
-        updatedInvoiceIds: ids,
+        message: "Overdue invoices processed successfully.",
       }),
       {
         status: 200,
@@ -49,6 +43,7 @@ export async function POST(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    console.error("Mark Overdue Invoices Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

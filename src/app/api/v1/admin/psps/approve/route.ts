@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
-
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -118,6 +118,7 @@ export async function POST(req: Request) {
           to: psp.contactEmail,
           subject: "Saziate Account Approved!",
           html: emailTemplates.approvePSP(psp.name, dvaBankName, dvaAccountNumber),
+          apiKey: env.RESEND_API_KEY
         });
       } catch (emailErr) {
         console.error("Failed to dispatch Approval email:", emailErr);
@@ -136,6 +137,6 @@ export async function POST(req: Request) {
       }
     );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

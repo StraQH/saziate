@@ -1,14 +1,13 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
-import { users, residentProfiles, invoices, psps, transactions, pendingNotifications } from "@/db/schema";
+import { users, residentProfiles, invoices, transactions, pendingNotifications } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { generateId, generateSecureReference, calculateResidentBill } from "@/lib/utils";
-import { sendEmail } from "@/lib/email";
-import { sendNotificationWithFallback } from "@/lib/notifications";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
-// Secure this endpoint in production (e.g. using a secret cron token)
+export const runtime = "edge";
+
 export async function GET(req: Request) {
   const env = getAppEnv() as any;
   
@@ -44,18 +43,20 @@ export async function GET(req: Request) {
       return new Response(JSON.stringify({ status: "success", message: "No active residents found." }), { status: 200 });
     }
 
-    const currentMonthStart = new Date();
-    currentMonthStart.setDate(1);
-    currentMonthStart.setHours(0, 0, 0, 0);
+    // Force strict UTC timezone boundaries
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth(); // 0-indexed
 
-    const dueDate = new Date();
-    dueDate.setDate(7); // Bills due on the 7th of the month
+    const currentMonthStart = new Date(Date.UTC(year, month, 1));
+    const currentMonthEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
+    const dueDate = new Date(Date.UTC(year, month, 7, 23, 59, 59, 999));
     
-    // 1.5 Fetch existing invoices for this month to prevent duplication
+    // Fetch existing invoices for this month to prevent duplication
     const existingInvoices = await db
       .select({ residentId: invoices.residentId })
       .from(invoices)
-      .where(eq(invoices.billingPeriodStart, new Date(currentMonthStart)));
+      .where(eq(invoices.billingPeriodStart, currentMonthStart));
     
     const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
 
@@ -65,8 +66,6 @@ export async function GET(req: Request) {
     const newInvoices: any[] = [];
     const newTransactions: any[] = [];
     const pendingNotificationsQueue: any[] = [];
-
-    // Arrays to hold profile updates (using sequential execution later or batched queries if available)
     const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
 
     // 2. Prepare Invoices & Transactions in memory
@@ -84,7 +83,7 @@ export async function GET(req: Request) {
       const invoiceId = generateId();
       const paymentReference = generateSecureReference(10);
       
-      const advanceBalance = resident.advancePaymentBalance || 0;
+      const advanceBalance = Math.round((resident.advancePaymentBalance || 0) * 100) / 100;
       let finalAmount = totalAmount;
       let invoiceStatus = "pending";
       let isFullySettled = false;
@@ -93,14 +92,14 @@ export async function GET(req: Request) {
 
       if (advanceBalance >= totalAmount) {
         // Full Settlement
-        finalAmount = totalAmount;
+        finalAmount = 0;
         invoiceStatus = "paid";
         isFullySettled = true;
         amountSettledFromAdvance = totalAmount;
-        profileUpdates.push({ userId: resident.userId, advancePaymentBalance: advanceBalance - totalAmount });
+        profileUpdates.push({ userId: resident.userId, advancePaymentBalance: Math.round((advanceBalance - totalAmount) * 100) / 100 });
       } else if (advanceBalance > 0) {
         // Partial Settlement
-        finalAmount = totalAmount - advanceBalance;
+        finalAmount = Math.round((totalAmount - advanceBalance) * 100) / 100;
         invoiceStatus = "pending";
         isPartiallySettled = true;
         amountSettledFromAdvance = advanceBalance;
@@ -118,7 +117,7 @@ export async function GET(req: Request) {
         status: invoiceStatus,
         dueDate: dueDate,
         billingPeriodStart: currentMonthStart,
-        billingPeriodEnd: dueDate,
+        billingPeriodEnd: currentMonthEnd,
       });
 
       if (isFullySettled || isPartiallySettled) {
@@ -130,6 +129,8 @@ export async function GET(req: Request) {
           amount: amountSettledFromAdvance,
           paymentMethod: "advance_balance",
           cashStatus: "settled",
+          status: "success",
+          paidAt: new Date(),
         });
       }
 
@@ -143,8 +144,8 @@ export async function GET(req: Request) {
         let subject = "";
         let html = "";
         if (isFullySettled) {
-          subject = "Your Monthly Bill is Settled!";
-          html = emailTemplates.advanceBillSettled(firstName, totalAmount, advanceBalance - totalAmount);
+          subject = "Your Monthly Waste Bill is Settled!";
+          html = emailTemplates.advanceBillSettled(firstName, totalAmount, Math.round((advanceBalance - totalAmount) * 100) / 100);
         } else if (isPartiallySettled) {
           subject = "Partial Advance Payment Applied";
           html = emailTemplates.partialAdvanceSettled(firstName, amountSettledFromAdvance, finalAmount);
@@ -164,7 +165,7 @@ export async function GET(req: Request) {
           residentId: resident.userId,
           channel: "email",
           messageType: "due_invoice",
-          recipientPhone: resident.email!, // Store email here for email channel
+          recipientPhone: resident.email!,
           messageText: JSON.stringify({ subject, html }),
         });
         
@@ -172,11 +173,11 @@ export async function GET(req: Request) {
       } else if (resident.phone) {
         let msg = "";
         if (isFullySettled) {
-          msg = `Hello ${firstName}, your monthly bill of ₦${totalAmount} has been fully settled from your advance balance!`;
+          msg = `Hello ${firstName}, your monthly waste bill of ₦${totalAmount} has been fully settled from your advance balance!`;
         } else if (isPartiallySettled) {
-          msg = `Hello ${firstName}, partial payment applied. Outstanding: ₦${finalAmount}. Reference: ${paymentReference}.`;
+          msg = `Hello ${firstName}, partial payment of ₦${amountSettledFromAdvance} applied. Outstanding: ₦${finalAmount}. Reference: ${paymentReference}.`;
         } else {
-          msg = `Hello ${firstName}, your monthly bill of ₦${totalAmount} is due on ${dueDate.toLocaleDateString("en-GB")}. Reference: ${paymentReference}.`;
+          msg = `Hello ${firstName}, your monthly waste bill of ₦${totalAmount} is due on ${dueDate.toLocaleDateString("en-GB")}. Reference: ${paymentReference}.`;
         }
 
         pendingNotificationsQueue.push({
@@ -191,50 +192,48 @@ export async function GET(req: Request) {
       }
     }
 
-    // 4. Execute Batched Database Inserts (Chunked)
-    const chunkSize = 500;
-    
-    // Chunked Invoices
-    for (let i = 0; i < newInvoices.length; i += chunkSize) {
-      const chunk = newInvoices.slice(i, i + chunkSize);
-      if (chunk.length > 0) {
-        await db.insert(invoices).values(chunk);
-      }
+    // 4. Optimization: Group all database mutations into D1 batch chunks to eliminate N+1 loops
+    const batchOps: any[] = [];
+
+    // Chunk Invoices
+    for (const inv of newInvoices) {
+      batchOps.push(db.insert(invoices).values(inv));
     }
 
-    // Chunked Transactions
-    for (let i = 0; i < newTransactions.length; i += chunkSize) {
-      const chunk = newTransactions.slice(i, i + chunkSize);
-      if (chunk.length > 0) {
-        await db.insert(transactions).values(chunk);
-      }
+    // Chunk Transactions
+    for (const tx of newTransactions) {
+      batchOps.push(db.insert(transactions).values(tx));
     }
 
-    // Process profile updates (Advance balance deduction) using db.batch
-    const batchUpdateQueries = profileUpdates.map(update => 
-      db.update(residentProfiles)
-        .set({ advancePaymentBalance: update.advancePaymentBalance })
-        .where(eq(residentProfiles.userId, update.userId))
-    );
-    for (let i = 0; i < batchUpdateQueries.length; i += 100) {
-      await db.batch(batchUpdateQueries.slice(i, i + 100) as any);
+    // Profile updates
+    for (const update of profileUpdates) {
+      batchOps.push(
+        db.update(residentProfiles)
+          .set({ advancePaymentBalance: update.advancePaymentBalance })
+          .where(eq(residentProfiles.userId, update.userId))
+      );
     }
 
-    // Insert pending SMS notifications into database queue (Chunked)
-    for (let i = 0; i < pendingNotificationsQueue.length; i += chunkSize) {
-      const chunk = pendingNotificationsQueue.slice(i, i + chunkSize);
-      if (chunk.length > 0) {
-        await db.insert(pendingNotifications).values(chunk);
+    // Pending Notifications
+    for (const notif of pendingNotificationsQueue) {
+      batchOps.push(db.insert(pendingNotifications).values(notif));
+    }
+
+    // Execute in batch blocks of 90 to prevent D1 size limit exceptions
+    if (batchOps.length > 0) {
+      const CHUNK_SIZE = 90;
+      for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
+        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as any);
       }
     }
 
     return new Response(JSON.stringify({ 
       status: "success", 
-      message: `Generated ${generatedCount} invoices and dispatched ${emailCount} emails.` 
+      message: `Generated ${generatedCount} invoices and queued ${pendingNotificationsQueue.length} notifications.` 
     }), { status: 200, headers: { "Content-Type": "application/json" } });
 
   } catch (error: any) {
     console.error("Cron Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
