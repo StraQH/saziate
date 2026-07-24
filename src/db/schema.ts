@@ -24,6 +24,7 @@ export const agentInvitations = sqliteTable("agent_invitations", {
   pspId: text("psp_id").notNull().references(() => psps.id, { onDelete: "cascade" }),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
 
 export const sessions = sqliteTable("sessions", {

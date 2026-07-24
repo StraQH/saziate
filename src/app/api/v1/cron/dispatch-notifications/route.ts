@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     for (let i = 0; i < queue.length; i += BATCH_SIZE) {
       const batch = queue.slice(i, i + BATCH_SIZE);
       
-      await Promise.allSettled(batch.map(async (notification) => {
+      await Promise.allSettled(batch.map(async (notification: any) => {
         try {
           if (notification.channel === "email") {
             const { subject, html } = JSON.parse(notification.messageText);

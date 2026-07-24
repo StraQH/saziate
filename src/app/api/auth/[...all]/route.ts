@@ -22,29 +22,6 @@ async function handleAuthRequest(request: Request) {
 
   // Intercept sign-up and sign-in requests
   if (request.method === "POST") {
-    // Inject default role for sign-up to prevent NOT NULL constraint crashes
-    if (url.pathname.endsWith("/api/auth/sign-up/email")) {
-      try {
-        const clonedRequest = request.clone();
-        const body = await clonedRequest.json() as { role?: string; [key: string]: any };
-        if (!body.role) {
-          body.role = "resident";
-          console.log(`[AUTH_INTERCEPT] Injecting default role 'resident' for sign-up`);
-          const newHeaders = new Headers(request.headers);
-          newHeaders.delete("content-length");
-
-          const newRequest = new Request(request.url, {
-            method: request.method,
-            headers: newHeaders,
-            body: JSON.stringify(body),
-            duplex: "half",
-          } as RequestInit);
-          return authInstance.handler(newRequest);
-        }
-      } catch (err) {
-        console.error("[AUTH_INTERCEPT_ERROR] Failed to inject role:", err);
-      }
-    }
 
     // Intercept sign-in request to allow email OR phone number login
     if (url.pathname.endsWith("/api/auth/sign-in/email")) {
