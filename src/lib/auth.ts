@@ -24,10 +24,10 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
     database: drizzleAdapter(db, {
       provider: "sqlite",
       schema: {
-        user: users,
-        session: sessions,
-        account: accounts,
-        verification: verifications,
+        users: users,
+        sessions: sessions,
+        accounts: accounts,
+        verifications: verifications,
       },
       usePlural: true,
       transaction: false, // REQUIRED FOR CLOUDFLARE D1
