@@ -36,6 +36,15 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
         verify: async ({ password, hash }: any) => await verifyPassword(password, hash),
       },
     },
+    user: {
+      additionalFields: {
+        role: { type: "string", required: false, defaultValue: "resident" },
+        firstName: { type: "string", required: false },
+        lastName: { type: "string", required: false },
+        phone: { type: "string", required: false },
+        pspId: { type: "string", required: false },
+      }
+    },
     trustedOrigins: [
       "http://localhost:3000",
       "https://saziate.pages.dev",
