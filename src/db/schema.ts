@@ -12,7 +12,7 @@ export const users = sqliteTable("users", {
   emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
   phone: text("phone").unique(),
   image: text("image"),
-  role: text("role", { enum: ["admin", "psp_operator", "field_agent", "resident"] }).notNull(),
+  role: text("role", { enum: ["admin", "psp_operator", "field_agent", "resident"] }).notNull().default("resident"),
   pspId: text("psp_id").references(() => psps.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
