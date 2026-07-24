@@ -1,8 +1,8 @@
 import { defineCloudflareConfig } from "@opennextjs/cloudflare";
 
 const config = defineCloudflareConfig();
-if (config.cloudflare) {
-  config.cloudflare.useWorkerdCondition = false;
-}
+
+config.edgeExternals = config.edgeExternals || [];
+config.edgeExternals.push("@better-auth/core/instrumentation");
 
 export default config;
