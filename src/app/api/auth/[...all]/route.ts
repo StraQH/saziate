@@ -5,6 +5,8 @@ import { eq, or } from "drizzle-orm";
 import { normalizePhoneNumber } from "@/lib/utils";
 import { getAppEnv } from "@/lib/env";
 
+export const runtime = "edge";
+
 
 async function handleAuthRequest(request: Request) {
   const env = getAppEnv();
