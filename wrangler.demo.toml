@@ -23,10 +23,3 @@ NEXT_PUBLIC_MOCK_MODE = "true"
 
 [build]
 command = "npm run build:worker"
-
-[triggers]
-crons = [
-  "0 0 1 * *",  # Monthly: generate-invoices (Run on 1st of month at midnight)
-  "0 0 * * *",  # Daily: process-payouts (Run every night at midnight)
-  "*/5 * * * *" # Every 5 minutes: dispatch-notifications (Process email/SMS queue)
-]
