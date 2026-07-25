@@ -20,12 +20,10 @@ export interface Route {
   description: string;
   collectionSchedule: string;
   assignedAgent: string;
-  rates: {
-    residential: number;
-    commercial: number;
-    industrial: number;
-    health: number;
-  };
+  rates: Array<{
+    category: "commercial" | "residential" | "industrial" | "health";
+    monthlyRate: number;
+  }>;
 }
 
 export interface Invoice {
@@ -108,12 +106,12 @@ export const MOCK_ROUTES: Route[] = [
     description: "Covers Admiralty Way, Fola Osibo, and block clusters A-F",
     collectionSchedule: "Mondays & Thursdays",
     assignedAgent: "Field Agent Johnson",
-    rates: {
-      residential: 6000,
-      commercial: 15000,
-      industrial: 45000,
-      health: 30000,
-    },
+    rates: [
+      { category: "residential", monthlyRate: 6000 },
+      { category: "commercial", monthlyRate: 15000 },
+      { category: "industrial", monthlyRate: 45000 },
+      { category: "health", monthlyRate: 30000 },
+    ],
   },
   {
     id: "rt2",
@@ -121,12 +119,12 @@ export const MOCK_ROUTES: Route[] = [
     description: "Commercial establishments along main expressway corridors",
     collectionSchedule: "Tuesdays & Fridays",
     assignedAgent: "Field Agent Musa",
-    rates: {
-      residential: 7500,
-      commercial: 25000,
-      industrial: 60000,
-      health: 40000,
-    },
+    rates: [
+      { category: "residential", monthlyRate: 7500 },
+      { category: "commercial", monthlyRate: 25000 },
+      { category: "industrial", monthlyRate: 60000 },
+      { category: "health", monthlyRate: 40000 },
+    ],
   },
 ];
 

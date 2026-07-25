@@ -60,12 +60,12 @@ export default function PSPRoutesPage() {
           description,
           collectionSchedule,
           assignedAgent,
-          rates: {
-            residential: resRate,
-            commercial: commRate,
-            industrial: indRate,
-            health: hRate,
-          },
+          rates: [
+            { category: "residential", monthlyRate: resRate },
+            { category: "commercial", monthlyRate: commRate },
+            { category: "industrial", monthlyRate: indRate },
+            { category: "health", monthlyRate: hRate }
+          ],
         };
         setRoutes((prev) => [...prev, newRoute]);
         setName("");
@@ -84,12 +84,12 @@ export default function PSPRoutesPage() {
           description,
           collectionSchedule,
           assignedAgentId: "ag_johnson", // Field Agent Johnson
-          rates: {
-            residential: resRate,
-            commercial: commRate,
-            industrial: indRate,
-            health: hRate,
-          },
+          rates: [
+            { category: "residential", monthlyRate: resRate },
+            { category: "commercial", monthlyRate: commRate },
+            { category: "industrial", monthlyRate: indRate },
+            { category: "health", monthlyRate: hRate }
+          ],
         }),
       });
 
@@ -105,12 +105,12 @@ export default function PSPRoutesPage() {
         description,
         collectionSchedule,
         assignedAgent,
-        rates: {
-          residential: resRate,
-          commercial: commRate,
-          industrial: indRate,
-          health: hRate,
-        },
+        rates: [
+          { category: "residential", monthlyRate: resRate },
+          { category: "commercial", monthlyRate: commRate },
+          { category: "industrial", monthlyRate: indRate },
+          { category: "health", monthlyRate: hRate }
+        ],
       };
 
       setRoutes((prev) => [...prev, newRoute]);
@@ -347,7 +347,7 @@ export default function PSPRoutesPage() {
                   >
                     <p className="text-xs text-muted">Residential</p>
                     <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates.residential)}
+                      {formatNaira(route.rates?.find(r => r.category === "residential")?.monthlyRate || 0)}
                     </p>
                   </div>
 
@@ -360,7 +360,7 @@ export default function PSPRoutesPage() {
                   >
                     <p className="text-xs text-muted">Commercial</p>
                     <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates.commercial)}
+                      {formatNaira(route.rates?.find(r => r.category === "commercial")?.monthlyRate || 0)}
                     </p>
                   </div>
 
@@ -373,7 +373,7 @@ export default function PSPRoutesPage() {
                   >
                     <p className="text-xs text-muted">Industrial</p>
                     <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates.industrial)}
+                      {formatNaira(route.rates?.find(r => r.category === "industrial")?.monthlyRate || 0)}
                     </p>
                   </div>
 
@@ -386,7 +386,7 @@ export default function PSPRoutesPage() {
                   >
                     <p className="text-xs text-muted">Health Facilities</p>
                     <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates.health)}
+                      {formatNaira(route.rates?.find(r => r.category === "health")?.monthlyRate || 0)}
                     </p>
                   </div>
                 </div>

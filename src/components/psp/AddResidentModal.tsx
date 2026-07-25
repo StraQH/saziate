@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { config } from "@/lib/config";
 import { generateId, generateSecureReference } from "@/lib/utils";
+import { SaziateRepository } from "@/lib/repository";
+import { useSession } from "@/components/providers/SessionProvider";
 
 type BillingCategory = "residential" | "commercial" | "industrial" | "health";
 
@@ -40,6 +42,26 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
   const [isOverride, setIsOverride] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [availableRoutes, setAvailableRoutes] = useState<{id: string, name: string}[]>([]);
+
+  const { user } = useSession();
+
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        if (!user?.pspId) return;
+        const repo = new SaziateRepository(user.pspId);
+        const data = await repo.getRoutes();
+        setAvailableRoutes(data);
+        if (data.length > 0 && !route) {
+          setRoute(data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to fetch routes:", err);
+      }
+    };
+    fetchRoutes();
+  }, [user?.pspId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,13 +230,17 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
             <div className="form-group">
               <label className="label">Route</label>
-              <input
-                type="text"
-                className="input"
+              <select
+                className="select"
                 value={route}
                 onChange={(e) => setRoute(e.target.value)}
-                placeholder="e.g. Route A"
-              />
+                required
+              >
+                <option value="" disabled>Select a Route</option>
+                {availableRoutes.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">

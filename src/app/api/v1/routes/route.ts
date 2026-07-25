@@ -2,7 +2,7 @@ import { getAppEnv } from "@/lib/env";
 import { createRouteSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { routes, routeBillingRates, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 
@@ -23,7 +23,35 @@ export async function GET(req: Request) {
       .from(routes)
       .where(eq(routes.pspId, pspId));
 
-    return new Response(JSON.stringify(list), { status: 200 });
+    if (list.length === 0) {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+
+    const routeIds = list.map((r: any) => r.id);
+    
+    // In drizzle with SQLite, using inArray is safe.
+    // Fetch rates for these routes
+    const ratesList = await db
+      .select()
+      .from(routeBillingRates)
+      .where(inArray(routeBillingRates.routeId, routeIds));
+
+    // Group rates by routeId
+    const ratesMap = new Map();
+    for (const r of ratesList) {
+      if (!ratesMap.has(r.routeId)) ratesMap.set(r.routeId, []);
+      ratesMap.get(r.routeId).push({
+        category: r.billingCategory,
+        monthlyRate: r.monthlyRate
+      });
+    }
+
+    const routesWithRates = list.map((route: any) => ({
+      ...route,
+      rates: ratesMap.get(route.id) || []
+    }));
+
+    return new Response(JSON.stringify(routesWithRates), { status: 200 });
   } catch (error: any) {
     console.error("GET Routes Error:", error);
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
@@ -67,27 +95,29 @@ export async function POST(req: Request) {
 
     const routeId = generateId();
 
-    // Wrap Route + default rates insertion in a database transaction block
-    await db.transaction(async (tx: any) => {
-      await tx.insert(routes).values({
+    const inserts = [];
+    inserts.push(
+      db.insert(routes).values({
         id: routeId,
         pspId: pspId,
         name,
         description,
         collectionSchedule: collectionSchedule || "Mondays & Thursdays",
         assignedAgentId,
-      });
+      })
+    );
 
-      if (rates && rates.length > 0) {
-        const batchRates = rates.map(rate => ({
-          routeId,
-          billingCategory: rate.category,
-          monthlyRate: Math.round(rate.monthlyRate * 100) / 100,
-        }));
-        
-        await tx.insert(routeBillingRates).values(batchRates);
-      }
-    });
+    if (rates && rates.length > 0) {
+      const batchRates = rates.map((rate: any) => ({
+        routeId,
+        billingCategory: rate.category,
+        monthlyRate: Math.round(rate.monthlyRate * 100) / 100,
+      }));
+      inserts.push(db.insert(routeBillingRates).values(batchRates));
+    }
+
+    // @ts-ignore: Drizzle batch typing with dynamic arrays causes TS to hang
+    await db.batch(inserts);
 
     return new Response(JSON.stringify({ status: "success", routeId }), { status: 201 });
   } catch (error: any) {

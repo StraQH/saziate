@@ -11,6 +11,7 @@ import { SendSMSModal } from "@/components/psp/SendSMSModal";
 import { MOCK_RESIDENTS, type Resident, MOCK_PSP_ID } from "@/lib/mockdata";
 import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
+import { useSession } from "@/components/providers/SessionProvider";
 
 // --- Types ---
 type BillingCategory = "residential" | "commercial" | "industrial" | "health";
@@ -46,16 +47,19 @@ export default function PSPResidentsPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  const { user } = useSession();
+
   useEffect(() => {
+    if (!user?.pspId) return;
     setLoading(true);
-    const repo = new SaziateRepository(MOCK_PSP_ID);
+    const repo = new SaziateRepository(user.pspId);
     repo.getResidents(page, limit, debouncedSearch).then((res) => {
       setResidents(res.data);
       setTotalPages(res.totalPages);
       setTotalCount(res.totalCount);
       setLoading(false);
     });
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, user?.pspId]);
 
   const handleAddResident = (newResident: Resident) => {
     setResidents((prev) => [newResident, ...prev]);
