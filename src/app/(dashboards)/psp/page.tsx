@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/components/providers/SessionProvider";
 import { SaziateRepository } from "@/lib/repository";
 import { MOCK_PSP_ID } from "@/lib/mockdata";
+import { config } from "@/lib/config";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area
@@ -36,14 +37,36 @@ export default function PSPDashboardPage() {
   const { user } = useSession();
   const [metrics, setMetrics] = useState<{ label: string; value: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDvaPending, setIsDvaPending] = useState(false);
 
   useEffect(() => {
     if (!user) return;
-    const repo = new SaziateRepository(user.pspId!);
-    repo.getMetrics().then((data) => {
-      setMetrics(data);
+    
+    if (config.isMockMode) {
+      setMetrics([
+        { label: "Collections This Month", value: "₦1,240,000" },
+        { label: "Settled Today",          value: "₦145,000" },
+        { label: "Available Settlement",   value: "₦380,000" },
+        { label: "Next Settlement Date",   value: new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) },
+        { label: "Total Active Residents", value: "1,240" },
+        { label: "Paid Invoices",          value: "245" },
+        { label: "Unpaid Invoices",        value: "42" },
+        { label: "Active Routes",          value: "14" },
+      ]);
+      setIsDvaPending(false);
       setLoading(false);
-    });
+      return;
+    }
+
+    setLoading(true);
+    fetch("/api/v1/psp/metrics")
+      .then((res) => res.json())
+      .then((data: any) => {
+        setMetrics(data.metrics || []);
+        setIsDvaPending(data.isDvaPending || false);
+      })
+      .catch((err) => console.error("Failed to load metrics:", err))
+      .finally(() => setLoading(false));
   }, [user]);
 
   // Map icons based on labels roughly
@@ -61,6 +84,18 @@ export default function PSPDashboardPage() {
 
   return (
     <div style={{ padding: "1.5rem" }}>
+      {isDvaPending && (
+        <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: "var(--radius-sm)", padding: "1rem", color: "#92400e", fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600 }}>
+            <AlertCircle size={18} />
+            <span>DVA Provisioning Required</span>
+          </div>
+          <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.4 }}>
+            You must configure your settlement bank account details to validate your profile and generate your Dedicated Virtual Account (DVA) before you can receive resident payments. <a href="/psp/settings" style={{ fontWeight: 600, textDecoration: "underline", color: "inherit" }}>Go to Settings</a>
+          </p>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", marginBottom: "2rem", gap: "1rem" }}>
         <div>
           <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "var(--color-text)", margin: 0 }}>Dashboard</h1>

@@ -13,11 +13,8 @@ invocation_logs = true
 
 [[d1_databases]]
 binding = "DB"
-database_name = "saziate-demo-db"
-database_id = "d52c8fa6-9567-4dc2-9139-379a12f6093e"  # prod 
-
-# database_name in prod "saziate-db"
-# database_id in prod "92932312-77ce-422a-8cd7-be1e32472897" 
+database_name = "saziate-db"
+database_id = "92932312-77ce-422a-8cd7-be1e32472897" 
 
 [vars]
 NEXT_PUBLIC_APP_NAME = "Saziate"
@@ -25,4 +22,11 @@ NEXT_PUBLIC_MOCK_MODE = "false"
 
 [build]
 command = "npm run build:worker"
+
+[triggers]
+crons = [
+  "0 0 1 * *",  # Monthly: generate-invoices (Run on 1st of month at midnight)
+  "0 0 * * *",  # Daily: process-payouts (Run every night at midnight)
+  "*/5 * * * *" # Every 5 minutes: dispatch-notifications (Process email/SMS queue)
+]
 

@@ -1,4 +1,4 @@
-﻿import { getAppEnv } from "@/lib/env";
+import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, collectionLogs, psps, users, notificationLogs, transactions, routes } from "@/db/schema";
 import { eq, and, like } from "drizzle-orm";
@@ -49,13 +49,27 @@ export async function GET(req: Request) {
 
     // Sum of manual and automatic payouts
     const pastPayouts = await db
-      .select({ amount: transactions.amount })
+      .select({ amount: transactions.amount, status: transactions.status, paidAt: transactions.paidAt })
       .from(transactions)
       .where(and(
         eq(transactions.residentId, pspId), // reusing residentId
         like(transactions.reference, "PAYOUT-%")
       ));
-    const totalPaidOut = pastPayouts.reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+    
+    const totalPaidOut = pastPayouts
+      .filter((tx: any) => ["success", "initiated"].includes(tx.status))
+      .reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const settledToday = pastPayouts
+      .filter((tx: any) => {
+        if (tx.status !== "success" || !tx.paidAt) return false;
+        const pDate = new Date(tx.paidAt);
+        return pDate.getTime() >= startOfToday.getTime();
+      })
+      .reduce((sum: number, tx: any) => sum + (tx.amount || 0), 0);
 
     // Sum of custom messaging SMS costs
     const notificationCosts = await db
@@ -68,7 +82,7 @@ export async function GET(req: Request) {
 
     const metrics = [
       { label: "Collections This Month", value: `₦${totalPaidSum.toLocaleString("en-NG")}` },
-      { label: "Settled Today",          value: "₦0" },
+      { label: "Settled Today",          value: `₦${settledToday.toLocaleString("en-NG")}` },
       { label: "Available Settlement",   value: `₦${availableSettlement.toLocaleString("en-NG")}` }, // Less Saziate 5% commission and payouts/SMS costs
       { label: "Next Settlement Date",   value: new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }, // T+1
       { label: "Total Active Residents", value: residentUsers.length.toLocaleString() },
@@ -77,7 +91,15 @@ export async function GET(req: Request) {
       { label: "Active Routes",          value: pspRoutes.length.toLocaleString() },
     ];
 
-    return new Response(JSON.stringify({ metrics }), {
+    const psp = await db
+      .select({ dvaAccountNumber: psps.dvaAccountNumber })
+      .from(psps)
+      .where(eq(psps.id, pspId))
+      .get();
+
+    const isDvaPending = !psp?.dvaAccountNumber;
+
+    return new Response(JSON.stringify({ metrics, isDvaPending }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

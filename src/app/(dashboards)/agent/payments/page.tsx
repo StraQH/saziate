@@ -59,22 +59,40 @@ export default function AgentPaymentsPage() {
   const [cashAmount, setCashAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pspDvaNumber, setPspDvaNumber] = useState(config.isMockMode ? "9920192834" : "Not provisioned yet");
+  const [pspDvaBank, setPspDvaBank] = useState(config.isMockMode ? "Wema Bank" : "Not provisioned yet");
+
+  const fetchPspSettings = async () => {
+    if (config.isMockMode) return;
+    try {
+      const res = await fetch("/api/v1/psp/settings");
+      if (res.ok) {
+        const body = await res.json() as any;
+        setPspDvaNumber(body.dvaAccountNumber || "Not provisioned yet");
+        setPspDvaBank(body.dvaBankName || "Not provisioned yet");
+      }
+    } catch (err) {
+      console.error("Failed to load PSP settings for DVA:", err);
+    }
+  };
 
   const fetchResidents = async () => {
     if (config.isMockMode) return;
     try {
       const res = await fetch("/api/v1/residents");
       if (res.ok) {
-        const body = await res.json() as any[];
+        const json = await res.json() as any;
+        const body = Array.isArray(json) ? json : (json.data || []);
         const mapped: ResidentPaymentStatus[] = body.map((r: any) => ({
           residentId: r.id,
           name: r.name,
-          dvaAccountNumber: "9920148563",
-          dvaBankName: "Wema Bank (Saziate/Paystack)",
-          lastPaymentAmount: 0,
-          lastPaymentDate: null,
-          outstandingBalance: r.baseRate || 6300,
-          status: "unpaid",
+          dvaAccountNumber: pspDvaNumber,
+          dvaBankName: pspDvaBank,
+          lastPaymentAmount: r.lastPaymentAmount || 0,
+          lastPaymentDate: r.lastPaymentDate || null,
+          outstandingBalance: r.outstandingBalance || 0,
+          status: r.status || "unpaid",
+          activeInvoiceId: r.activeInvoiceId || null,
         }));
         setStatuses(mapped);
       }
@@ -84,8 +102,9 @@ export default function AgentPaymentsPage() {
   };
 
   useEffect(() => {
+    fetchPspSettings();
     fetchResidents();
-  }, []);
+  }, [pspDvaNumber, pspDvaBank]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,7 +156,7 @@ export default function AgentPaymentsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          invoiceId: "inv-001", // Default mock base invoice ID
+          invoiceId: config.isMockMode ? "inv-001" : (selectedResident as any).activeInvoiceId,
           residentId: selectedResident.residentId,
           amount: cashAmount,
         }),
@@ -256,12 +275,12 @@ export default function AgentPaymentsPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8125rem" }}>
                   <div>
                     <p className="text-muted">Bank Name</p>
-                    <p className="font-semibold" style={{ marginTop: "0.15rem" }}>{selectedResident.dvaBankName}</p>
+                    <p className="font-semibold" style={{ marginTop: "0.15rem" }}>{pspDvaBank}</p>
                   </div>
                   <div>
                     <p className="text-muted">Account Number</p>
                     <p className="font-semibold" style={{ marginTop: "0.15rem", fontFamily: "monospace" }}>
-                      {selectedResident.dvaAccountNumber}
+                      {pspDvaNumber}
                     </p>
                   </div>
                 </div>

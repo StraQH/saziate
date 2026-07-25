@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PSPSidebar } from "@/components/psp/PSPSidebar";
 import { useSession } from "@/components/providers/SessionProvider";
 import { OfflineSyncBanner } from "@/components/ui/OfflineSyncBanner";
+import { ForceChangePasswordModal } from "@/components/ui/ForceChangePasswordModal";
 
 export default function PSPLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function PSPLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell pb-16 sm:pb-0">
+      {(user as any).mustChangePassword && <ForceChangePasswordModal />}
       <PSPSidebar pspName={user.name || "PSP Operator"} />
       <main className="main-content">
         <OfflineSyncBanner />

@@ -2,8 +2,8 @@ import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
-import { users, residentProfiles, psps, invoices, routes, routeResidents } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { users, residentProfiles, psps, invoices, routes, routeResidents, collectionLogs } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { config } from "@/lib/config";
 
 
@@ -120,10 +120,20 @@ export async function GET(req: Request) {
 
     let routeName = "";
     let routeSchedule = "Mondays & Thursdays";
+    let nextCollection = {
+      date: "Mondays & Thursdays",
+      status: "Scheduled",
+      route: "",
+    };
 
     if (!config.isMockMode) {
       const routeRes = await db
-        .select({ name: routes.name, collectionSchedule: routes.collectionSchedule })
+        .select({ 
+          routeId: routes.id,
+          name: routes.name, 
+          collectionSchedule: routes.collectionSchedule,
+          sequenceOrder: routeResidents.sequenceOrder 
+        })
         .from(routeResidents)
         .innerJoin(routes, eq(routeResidents.routeId, routes.id))
         .where(eq(routeResidents.residentId, residentId))
@@ -132,14 +142,68 @@ export async function GET(req: Request) {
       if (routeRes) {
         routeName = routeRes.name;
         routeSchedule = routeRes.collectionSchedule || "Mondays & Thursdays";
-      }
-    }
 
-    const nextCollection = {
-      date: routeSchedule,
-      status: "Scheduled",
-      route: routeName,
-    };
+        // Query today's logs on this route
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const logsToday = await db
+          .select({
+            residentId: collectionLogs.residentId,
+            sequenceOrder: routeResidents.sequenceOrder,
+            status: collectionLogs.status,
+          })
+          .from(collectionLogs)
+          .innerJoin(routeResidents, eq(collectionLogs.residentId, routeResidents.residentId))
+          .where(
+            and(
+              eq(collectionLogs.routeId, routeRes.routeId),
+              sql`${collectionLogs.loggedAt} >= ${startOfToday.getTime()}`
+            )
+          )
+          .all();
+
+        const myLog = logsToday.find((l: any) => l.residentId === residentId);
+
+        if (myLog) {
+          nextCollection = {
+            date: "Completed today",
+            status: myLog.status === "collected" ? "Collected" : myLog.status === "no_access" ? "Access Blocked" : "Completed",
+            route: routeName,
+          };
+        } else if (logsToday.length > 0) {
+          const maxVisitedSeq = logsToday.reduce((max: number, l: any) => Math.max(max, l.sequenceOrder || 0), 0);
+          const mySeq = routeRes.sequenceOrder || 1;
+          
+          if (mySeq > maxVisitedSeq) {
+            const stopsAway = mySeq - maxVisitedSeq;
+            nextCollection = {
+              date: `${stopsAway} stops away`,
+              status: "In Progress",
+              route: routeName,
+            };
+          } else {
+            nextCollection = {
+              date: "Vehicle in your zone",
+              status: "In Progress",
+              route: routeName,
+            };
+          }
+        } else {
+          nextCollection = {
+            date: routeSchedule,
+            status: "Scheduled",
+            route: routeName,
+          };
+        }
+      }
+    } else {
+      nextCollection = {
+        date: routeSchedule,
+        status: "Scheduled",
+        route: "Main District Route",
+      };
+    }
 
     return new Response(
       JSON.stringify({

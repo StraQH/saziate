@@ -1,8 +1,8 @@
 import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes } from "@/db/schema";
-import { eq, and, sql, like } from "drizzle-orm";
+import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes, invoices } from "@/db/schema";
+import { eq, and, sql, like, inArray } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const db = getDb(env.DB);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
+    await requireRole(req, env.DB, ["psp_operator", "field_agent"]);
     const pspId = await getActivePspId(req, env.DB);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
@@ -39,6 +39,10 @@ export async function GET(req: Request) {
         address: residentProfiles.address,
         billingCategory: residentProfiles.billingCategory,
         customMonthlyRate: residentProfiles.customMonthlyRate,
+        billingModel: residentProfiles.billingModel,
+        onDemandTripRate: residentProfiles.onDemandTripRate,
+        onDemandBinRate: residentProfiles.onDemandBinRate,
+        onDemandDrumRate: residentProfiles.onDemandDrumRate,
         route: routes.name,
       })
       .from(residentProfiles)
@@ -69,8 +73,58 @@ export async function GET(req: Request) {
       
     const totalCount = Number(countResult?.count || 0);
 
+    // Fetch invoice aggregates to calculate payment details
+    const residentIds = profiles.map((p: any) => p.id);
+    let invoicesList: any[] = [];
+    if (residentIds.length > 0) {
+      invoicesList = await db
+        .select()
+        .from(invoices)
+        .where(inArray(invoices.residentId, residentIds))
+        .all();
+    }
+
+    const invoicesMap = new Map<string, any[]>();
+    for (const inv of invoicesList) {
+      if (!invoicesMap.has(inv.residentId)) {
+        invoicesMap.set(inv.residentId, []);
+      }
+      invoicesMap.get(inv.residentId)!.push(inv);
+    }
+
+    const mappedData = profiles.map((p: any) => {
+      const pInvoices = invoicesMap.get(p.id) || [];
+      const pendingOrOverdue = pInvoices.filter((i) => ["pending", "overdue"].includes(i.status));
+      const outstandingBalance = pendingOrOverdue.reduce((sum: number, i: any) => sum + i.totalAmount, 0);
+      
+      let status = "paid";
+      let activeInvoiceId = null;
+      
+      const activeInvoice = pendingOrOverdue.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+      if (activeInvoice) {
+        activeInvoiceId = activeInvoice.id;
+        status = activeInvoice.status === "overdue" ? "overdue" : "unpaid";
+      }
+
+      const paidInvoices = pInvoices
+        .filter((i) => i.status === "paid")
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      const lastPaymentAmount = paidInvoices[0]?.totalAmount || 0;
+      const lastPaymentDate = paidInvoices[0] ? new Date(paidInvoices[0].createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : null;
+
+      return {
+        ...p,
+        outstandingBalance,
+        status,
+        lastPaymentAmount,
+        lastPaymentDate,
+        activeInvoiceId,
+      };
+    });
+
     return new Response(JSON.stringify({
-      data: profiles,
+      data: mappedData,
       totalCount,
       totalPages: Math.ceil(totalCount / limit),
       page,
@@ -80,6 +134,7 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
+    console.error("GET Residents error:", error);
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
@@ -101,7 +156,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { firstName, lastName, email, address, billingCategory, baseRate, isOverride, route } = body;
+    const { firstName, lastName, email, address, billingCategory, baseRate, isOverride, route, billingModel, onDemandTripRate, onDemandBinRate, onDemandDrumRate } = body;
     const phone = normalizePhoneNumber(body.phone);
 
     if (!firstName || !lastName || !phone || !address || !route) {
@@ -146,6 +201,7 @@ export async function POST(req: Request) {
       role: "resident",
       pspId: pspId,
       emailVerified: true,
+      mustChangePassword: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -157,6 +213,10 @@ export async function POST(req: Request) {
       lga: "",
       billingCategory,
       customMonthlyRate: isOverride ? (typeof baseRate === "number" ? baseRate : parseFloat(baseRate)) : null,
+      billingModel: billingModel || "subscription",
+      onDemandTripRate: onDemandTripRate || 0,
+      onDemandBinRate: onDemandBinRate || 0,
+      onDemandDrumRate: onDemandDrumRate || 0,
     });
 
     // Create credentials account link
@@ -183,13 +243,20 @@ export async function POST(req: Request) {
       sequenceOrder: nextSequence,
     });
 
-    // Dispatch WhatsApp/SMS setup notification via Termii (free onboarding cost)
-    if (phone) {
+    // Send Welcome Email if real email exists; otherwise, fallback to SMS onboarding notification
+    const hasRealEmail = email && email.includes("@") && !email.endsWith("@saziate.com");
+    if (hasRealEmail) {
+      await sendEmail({
+        to: email,
+        subject: "Welcome to Saziate!",
+        html: emailTemplates.welcomeResident(firstName, tempPassword),
+      });
+    } else if (phone) {
       const termiiKey = env.TERMII_API_KEY;
       if (!termiiKey) {
         throw new Error("TERMII_API_KEY is required for notifications.");
       }
-      const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
+      const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
       await sendNotificationWithFallback({
         dbBinding: env.DB,
         termiiApiKey: termiiKey,
@@ -199,16 +266,6 @@ export async function POST(req: Request) {
         messageText: msgText,
         messageType: "setup",
         channel: "sms",
-      });
-    }
-
-    // Send Welcome Email if real email exists
-    const hasRealEmail = email && email.includes("@") && !email.endsWith("@saziate.com");
-    if (hasRealEmail) {
-      await sendEmail({
-        to: email,
-        subject: "Welcome to Saziate!",
-        html: emailTemplates.welcomeResident(firstName, tempPassword),
       });
     }
 

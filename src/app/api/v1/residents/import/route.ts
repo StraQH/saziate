@@ -109,6 +109,7 @@ export async function POST(req: Request) {
         email: finalEmail,
         role: "resident",
         pspId: pspId,
+        mustChangePassword: true,
       }));
 
       batchOps.push(db.insert(residentProfiles).values({
@@ -186,8 +187,17 @@ export async function POST(req: Request) {
     // Process notification dispatch in parallel (outside the transaction to avoid connection locking)
     const notificationPromises: Promise<any>[] = [];
     for (const notif of notificationQueue) {
-      if (notif.phone) {
-        const msgText = `Hello ${notif.name}, welcome to Saziate! Your account has been created. Login at the Resident Portal with your phone number and temporary password: ${notif.tempPassword}. Please update your email on login.`;
+      const hasRealEmail = notif.email && notif.email.includes("@") && !notif.email.endsWith("@saziate.com");
+      if (hasRealEmail) {
+        notificationPromises.push(
+          sendEmail({
+            to: notif.email,
+            subject: "Welcome to Saziate!",
+            html: emailTemplates.welcomeResident(notif.name.split(" ")[0], notif.tempPassword),
+          }).catch(err => console.error(`Welcome email onboarding failed for ${notif.email}:`, err))
+        );
+      } else if (notif.phone) {
+        const msgText = `Hello ${notif.name}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${notif.tempPassword}. Please update your email on login.`;
         notificationPromises.push(
           sendNotificationWithFallback({
             dbBinding: env.DB,
@@ -199,17 +209,6 @@ export async function POST(req: Request) {
             messageType: "setup",
             channel: "sms",
           }).catch(err => console.error(`WhatsApp/SMS onboarding failed for ${notif.phone}:`, err))
-        );
-      }
-
-      const hasRealEmail = notif.email && notif.email.includes("@") && !notif.email.endsWith("@saziate.com");
-      if (hasRealEmail) {
-        notificationPromises.push(
-          sendEmail({
-            to: notif.email,
-            subject: "Welcome to Saziate!",
-            html: emailTemplates.welcomeResident(notif.name.split(" ")[0], notif.tempPassword),
-          }).catch(err => console.error(`Welcome email onboarding failed for ${notif.email}:`, err))
         );
       }
     }

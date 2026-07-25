@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Mail, Plus, ShieldCheck } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
 import { SaziateRepository } from "@/lib/repository";
+import { config } from "@/lib/config";
 
 export default function PSPAgentsPage() {
   const { user } = useSession();
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
 
@@ -22,16 +24,27 @@ export default function PSPAgentsPage() {
 
   const fetchAgents = async () => {
     setLoading(true);
-    // Since we don't have a dedicated getAgents endpoint in the mock repository yet, 
-    // we would fetch users where pspId == user.pspId AND role == field_agent
-    // For now, it will be empty in mock mode, or we can just show empty state
-    setAgents([]);
-    setLoading(false);
+    if (config.isMockMode) {
+      setAgents([]);
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/v1/psp/agents");
+      if (res.ok) {
+        const data = await res.json() as any[];
+        setAgents(data);
+      }
+    } catch (err) {
+      console.error("Failed to load active agents:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail) return;
+    if (!inviteEmail || !inviteName) return;
 
     setIsInviting(true);
     setMessage(null);
@@ -39,15 +52,17 @@ export default function PSPAgentsPage() {
       const res = await fetch("/api/v1/psp/agents/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail }),
+        body: JSON.stringify({ email: inviteEmail, name: inviteName }),
       });
       
       const text = await res.text();
       if (res.ok) {
-        setMessage({ text: "Invitation sent successfully!", type: "success" });
+        setMessage({ text: "Field agent onboarded successfully!", type: "success" });
         setInviteEmail("");
+        setInviteName("");
+        fetchAgents();
       } else {
-        setMessage({ text: `Failed to invite: ${text}`, type: "error" });
+        setMessage({ text: `Failed to onboard: ${text}`, type: "error" });
       }
     } catch (err: any) {
       setMessage({ text: `Error: ${err.message}`, type: "error" });
@@ -93,9 +108,20 @@ export default function PSPAgentsPage() {
             Invite New Agent
           </h2>
           <p className="text-muted text-sm" style={{ marginBottom: "1.5rem" }}>
-            Enter the email address of the field agent you want to invite. They will receive a magic link to create their account and set their password.
+            Enter the details of the field agent you want to onboard. They will receive an email containing a temporary password to access their account.
           </p>
           <form onSubmit={handleInvite} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="form-group">
+              <label className="label">Agent Name</label>
+              <input
+                type="text"
+                className="input"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Agent Full Name"
+                required
+              />
+            </div>
             <div className="form-group">
               <label className="label">Agent Email</label>
               <input
@@ -108,7 +134,7 @@ export default function PSPAgentsPage() {
               />
             </div>
             <button type="submit" className="btn btn-primary" disabled={isInviting}>
-              {isInviting ? "Sending..." : "Send Invitation"}
+              {isInviting ? "Onboarding..." : "Onboard Agent"}
             </button>
           </form>
         </div>

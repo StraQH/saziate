@@ -23,6 +23,8 @@ export default function PSPSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
+  const [banksLoadingError, setBanksLoadingError] = useState("");
 
   const loadSettings = async () => {
     if (config.isMockMode) return;
@@ -46,8 +48,24 @@ export default function PSPSettingsPage() {
     }
   };
 
+  const loadBanks = async () => {
+    try {
+      const res = await fetch("/api/v1/banks");
+      if (res.ok) {
+        const data = await res.json() as any[];
+        setBanks(data);
+      } else {
+        const text = await res.text();
+        setBanksLoadingError(text || "Failed to load settlement banks.");
+      }
+    } catch (err: any) {
+      setBanksLoadingError(err.message || "Failed to load settlement banks.");
+    }
+  };
+
   useEffect(() => {
     loadSettings();
+    loadBanks();
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -79,12 +97,15 @@ export default function PSPSettingsPage() {
       }
 
       setSuccess("Payout account details updated successfully.");
+      await loadSettings();
     } catch (err: any) {
       setError(err.message || "Failed to save settings.");
     } finally {
       setLoading(false);
     }
   };
+
+  const isDvaPending = !dvaAccountNumber || dvaAccountNumber === "Not provisioned yet";
 
   return (
     <div>
@@ -111,6 +132,18 @@ export default function PSPSettingsPage() {
           <div style={{ background: "var(--color-success-bg)", border: "1px solid var(--color-success)", borderRadius: "var(--radius-sm)", padding: "0.875rem", color: "var(--color-success)", fontSize: "0.875rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <CheckCircle2 size={16} />
             <span>{success}</span>
+          </div>
+        )}
+
+        {isDvaPending && (
+          <div style={{ background: "#fef3c7", border: "1px solid #f59e0b", borderRadius: "var(--radius-sm)", padding: "1rem", color: "#92400e", fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 600 }}>
+              <ShieldAlert size={18} />
+              <span>DVA Provisioning Required</span>
+            </div>
+            <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.4 }}>
+              You must configure your settlement bank account details below to validate your profile and generate your Dedicated Virtual Account (DVA) before you can receive resident payments.
+            </p>
           </div>
         )}
 
@@ -167,10 +200,10 @@ export default function PSPSettingsPage() {
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
             <CreditCard size={20} style={{ color: "var(--color-primary)" }} />
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>Provisioned DVA</h2>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>Provisioned Dedicated Virtual Account</h2>
           </div>
           <p className="text-muted text-sm" style={{ marginBottom: "1.5rem" }}>
-            Your Paystack Dedicated Virtual Account. Residents transfer payments directly to this account for automated reconciliation.
+            Your Dedicated Virtual Account. Residents transfer payments directly to this account for automated reconciliation.
           </p>
 
           <div
@@ -211,10 +244,15 @@ export default function PSPSettingsPage() {
               <div className="form-group">
                 <label className="label">Bank Name</label>
                 <select className="select" value={bankCode} onChange={(e) => setBankCode(e.target.value)}>
-                  <option value="035">Wema Bank</option>
-                  <option value="058">GTBank</option>
-                  <option value="011">First Bank</option>
-                  <option value="044">Access Bank</option>
+                  {banks.length === 0 ? (
+                    <option value="">{banksLoadingError || "Loading banks..."}</option>
+                  ) : (
+                    banks.map((bank) => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
               <div className="form-group">

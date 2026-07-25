@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
-
+import { PaystackClient } from "@/lib/paystack";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as any;
@@ -51,49 +51,45 @@ export async function POST(req: Request) {
     } else if (env.PAYSTACK_SECRET_KEY) {
       // In live production, calls Paystack APIs to create customer + dva dedicated account
       try {
-        const pResponse = await fetch("https://api.paystack.co/customer", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: psp.contactEmail,
-            first_name: psp.name,
-            last_name: "Operator",
-            phone: psp.contactPhone,
-          }),
+        const paystack = new PaystackClient(env.PAYSTACK_SECRET_KEY);
+
+        // 1. Create customer
+        const customer = await paystack.createCustomer({
+          email: psp.contactEmail,
+          first_name: psp.name,
+          last_name: "Operator",
+          phone: psp.contactPhone,
         });
 
-        if (pResponse.ok) {
-          const pBody = await pResponse.json() as any;
-          const customerCode = pBody.data.customer_code;
-          
-          const dvaResponse = await fetch("https://api.paystack.co/dedicated_account", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              customer: customerCode,
-              preferred_bank: "wema-bank",
-            }),
+        // 2. Validate customer identification if not in test mode
+        // Paystack DVAs in production require customer validation
+        if (psp.settlementAccountNumber && psp.settlementBankCode) {
+          await paystack.validateCustomer(customer.customer_code, {
+            first_name: psp.name.split(" ")[0] || psp.name,
+            last_name: psp.name.split(" ").slice(1).join(" ") || "Operator",
+            type: "bank_account",
+            value: psp.settlementAccountNumber,
+            country: "NG",
+            bank_code: psp.settlementBankCode,
+            account_number: psp.settlementAccountNumber,
           });
-
-          if (dvaResponse.ok) {
-            const dvaBody = await dvaResponse.json() as any;
-            dvaBankName = dvaBody.data.bank.name;
-            dvaAccountNumber = dvaBody.data.account_number;
-            dvaAccountName = dvaBody.data.account_name;
-            dvaCustomerCode = customerCode;
-          }
         } else {
-          throw new Error("Paystack customer creation failed.");
+          return new Response("PSP operator has not set up their settlement bank details. Please ask the operator to add payout details in settings first.", { status: 400 });
         }
-      } catch (paystackErr) {
+
+        // 3. Create DVA dedicated account
+        const dva = await paystack.createDedicatedAccount({
+          customer: customer.customer_code,
+          preferred_bank: "wema-bank",
+        });
+
+        dvaBankName = dva.bank.name;
+        dvaAccountNumber = dva.account_number;
+        dvaAccountName = dva.account_name;
+        dvaCustomerCode = customer.customer_code;
+      } catch (paystackErr: any) {
         console.error("Failed to provision Paystack DVA:", paystackErr);
-        return new Response("Paystack DVA provisioning failed. Please check credentials.", { status: 500 });
+        return new Response(`Paystack DVA provisioning failed: ${paystackErr.message || paystackErr}`, { status: 500 });
       }
     } else {
       return new Response("Paystack configuration missing.", { status: 500 });

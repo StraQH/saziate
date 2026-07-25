@@ -39,6 +39,10 @@ export const createResidentSchema = z.object({
   billingCategory: z.enum(["commercial", "residential", "industrial", "health"]),
   baseRate: z.string().or(z.number()),
   isOverride: z.boolean().optional(),
+  billingModel: z.enum(["subscription", "on_demand"]).optional(),
+  onDemandTripRate: z.number().optional(),
+  onDemandBinRate: z.number().optional(),
+  onDemandDrumRate: z.number().optional(),
 });
 
 export const importResidentsSchema = z.object({
@@ -61,6 +65,8 @@ export const collectionLogSchema = z.object({
   notes: z.string().optional(),
   imageUrl: z.string().url().optional(),
   loggedAt: z.string().or(z.number()).optional(),
+  binsCollected: z.number().int().nonnegative().optional(),
+  drumsCollected: z.number().int().nonnegative().optional(),
 });
 
 export const collectionVerifySchema = z.object({

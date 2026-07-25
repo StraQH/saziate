@@ -36,7 +36,12 @@ export async function GET(req: Request) {
       })
       .from(users)
       .innerJoin(residentProfiles, eq(users.id, residentProfiles.userId))
-      .where(eq(users.role, "resident"));
+      .where(
+        and(
+          eq(users.role, "resident"),
+          eq(residentProfiles.billingModel, "subscription")
+        )
+      );
 
     if (activeResidents.length === 0) {
       return new Response(JSON.stringify({ status: "success", message: "No active residents found." }), { status: 200 });

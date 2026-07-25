@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { useSession } from "@/components/providers/SessionProvider";
 import { OfflineSyncBanner } from "@/components/ui/OfflineSyncBanner";
+import { ForceChangePasswordModal } from "@/components/ui/ForceChangePasswordModal";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,6 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="app-shell">
+      {(user as any).mustChangePassword && <ForceChangePasswordModal />}
       <AdminSidebar adminName={user.name || "Platform Admin"} />
       <main className="main-content">
         <OfflineSyncBanner />

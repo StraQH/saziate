@@ -105,5 +105,29 @@ export class PaystackClient {
     });
   }
 
+  /**
+   * Fetch all banks for Nigeria from Paystack.
+   */
+  async getBanks(): Promise<{ name: string; code: string }[]> {
+    return this.request<{ name: string; code: string }[]>("/bank?country=nigeria");
+  }
+
+  /**
+   * Validate a customer's identity (required for DVA in live mode).
+   */
+  async validateCustomer(customerCode: string, params: {
+    first_name: string;
+    last_name: string;
+    type: "bank_account";
+    value: string;
+    country: string;
+    bank_code: string;
+    account_number: string;
+  }): Promise<any> {
+    return this.request<any>(`/customer/${customerCode}/identification`, {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
 
 }

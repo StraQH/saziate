@@ -14,6 +14,7 @@ export const users = sqliteTable("users", {
   image: text("image"),
   role: text("role", { enum: ["admin", "psp_operator", "field_agent", "resident"] }).notNull().default("resident"),
   pspId: text("psp_id").references(() => psps.id, { onDelete: "set null" }),
+  mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 });
@@ -123,6 +124,10 @@ export const residentProfiles = sqliteTable("resident_profiles", {
   customMonthlyRate: real("custom_monthly_rate"),
   // Surplus payment balance to be applied to future invoices
   advancePaymentBalance: real("advance_payment_balance").notNull().default(0),
+  billingModel: text("billing_model", { enum: ["subscription", "on_demand"] }).notNull().default("subscription"),
+  onDemandTripRate: real("on_demand_trip_rate").notNull().default(0),
+  onDemandBinRate: real("on_demand_bin_rate").notNull().default(0),
+  onDemandDrumRate: real("on_demand_drum_rate").notNull().default(0),
 });
 
 export const routeResidents = sqliteTable("route_residents", {
@@ -143,6 +148,8 @@ export const collectionLogs = sqliteTable("collection_logs", {
   }).notNull(),
   notes: text("notes"),
   imageUrl: text("image_url"),
+  binsCollected: integer("bins_collected").notNull().default(0),
+  drumsCollected: integer("drums_collected").notNull().default(0),
   loggedAt: integer("logged_at", { mode: "timestamp_ms" }).notNull(),
   syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (t) => [index("collection_logs_resident_idx").on(t.residentId)]);

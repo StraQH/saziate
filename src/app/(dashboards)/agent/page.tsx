@@ -13,6 +13,8 @@ export default function AgentDashboardPage() {
   const { user } = useSession();
   const [logs, setLogs] = useState<CollectionRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assignedZone, setAssignedZone] = useState(config.isMockMode ? "Lekki Res Zone A" : "Unassigned");
+  const [collectionSchedule, setCollectionSchedule] = useState(config.isMockMode ? "Mondays & Thursdays" : "-");
 
   const fetchAgentLogs = async () => {
     if (!user) return;
@@ -27,8 +29,23 @@ export default function AgentDashboardPage() {
     setLoading(false);
   };
 
+  const fetchAgentRoute = async () => {
+    if (config.isMockMode) return;
+    try {
+      const res = await fetch("/api/v1/agent/route");
+      if (res.ok) {
+        const body = await res.json() as any;
+        setAssignedZone(body.zone || "Unassigned");
+        setCollectionSchedule(body.schedule || "-");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchAgentLogs();
+    fetchAgentRoute();
   }, [user]);
 
   const agentCollections = logs.filter((c) => c.status !== "pending");
@@ -53,8 +70,8 @@ export default function AgentDashboardPage() {
       <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
         <MetricCard label="My Completed Logs" value={completedCount.toString()} />
         <MetricCard label="Pending route tasks" value={pendingCount.toString()} />
-        <MetricCard label="Today's assigned zone" value={config.isMockMode ? "Lekki Res Zone A" : "Unassigned"} />
-        <MetricCard label="Collection Schedule" value={config.isMockMode ? "Mondays & Thursdays" : "-"} />
+        <MetricCard label="Today's assigned zone" value={assignedZone} />
+        <MetricCard label="Collection Schedule" value={collectionSchedule} />
       </div>
 
       <div className="card">

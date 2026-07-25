@@ -40,6 +40,10 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
   const [billingCategory, setBillingCategory] = useState<BillingCategory>("residential");
   const [baseRate, setBaseRate] = useState("6000");
   const [isOverride, setIsOverride] = useState(false);
+  const [billingModel, setBillingModel] = useState<"subscription" | "on_demand">("subscription");
+  const [onDemandTripRate, setOnDemandTripRate] = useState("1000");
+  const [onDemandBinRate, setOnDemandBinRate] = useState("500");
+  const [onDemandDrumRate, setOnDemandDrumRate] = useState("800");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [availableRoutes, setAvailableRoutes] = useState<{id: string, name: string}[]>([]);
@@ -87,7 +91,11 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           isOverride,
           referenceCode: generateSecureReference(8),
           status: "active",
-        };
+          billingModel,
+          onDemandTripRate: parseFloat(onDemandTripRate) || 0,
+          onDemandBinRate: parseFloat(onDemandBinRate) || 0,
+          onDemandDrumRate: parseFloat(onDemandDrumRate) || 0,
+        } as any;
         onSuccess(newResident);
         return;
       }
@@ -106,6 +114,10 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           baseRate: rateNum,
           isOverride,
           route,
+          billingModel,
+          onDemandTripRate: parseFloat(onDemandTripRate) || 0,
+          onDemandBinRate: parseFloat(onDemandBinRate) || 0,
+          onDemandDrumRate: parseFloat(onDemandDrumRate) || 0,
         }),
       });
 
@@ -146,6 +158,8 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           maxWidth: "500px",
           position: "relative",
           animation: "toast-in 0.2s ease",
+          maxHeight: "90vh",
+          overflowY: "auto",
         }}
       >
         <button
@@ -259,28 +273,80 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           </div>
 
           <div className="form-group">
-            <label className="label">Monthly Base Rate (₦)</label>
-            <input
-              type="number"
-              className="input"
-              value={baseRate}
-              onChange={(e) => setBaseRate(e.target.value)}
-              required
-            />
+            <label className="label">Billing Model</label>
+            <select
+              className="select"
+              value={billingModel}
+              onChange={(e) => setBillingModel(e.target.value as any)}
+            >
+              <option value="subscription">Subscription (Flat Monthly Rate)</option>
+              <option value="on_demand">On-Demand (Pay-As-You-Go)</option>
+            </select>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <input
-              type="checkbox"
-              id="isOverride"
-              checked={isOverride}
-              onChange={(e) => setIsOverride(e.target.checked)}
-              style={{ width: "16px", height: "16px" }}
-            />
-            <label htmlFor="isOverride" className="label" style={{ cursor: "pointer" }}>
-              Apply custom rate override for this resident
-            </label>
-          </div>
+          {billingModel === "subscription" ? (
+            <>
+              <div className="form-group">
+                <label className="label">Monthly Base Rate (₦)</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={baseRate}
+                  onChange={(e) => setBaseRate(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <input
+                  type="checkbox"
+                  id="isOverride"
+                  checked={isOverride}
+                  onChange={(e) => setIsOverride(e.target.checked)}
+                  style={{ width: "16px", height: "16px" }}
+                />
+                <label htmlFor="isOverride" className="label" style={{ cursor: "pointer" }}>
+                  Apply custom rate override for this resident
+                </label>
+              </div>
+            </>
+          ) : (
+            <div style={{ background: "rgba(243, 244, 246, 0.5)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <h4 style={{ fontSize: "0.8125rem", fontWeight: 600, margin: 0 }}>On-Demand Rates (₦)</h4>
+              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
+                <div className="form-group">
+                  <label className="label" style={{ fontSize: "0.75rem" }}>Trip Rate</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={onDemandTripRate}
+                    onChange={(e) => setOnDemandTripRate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label" style={{ fontSize: "0.75rem" }}>Per Bin</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={onDemandBinRate}
+                    onChange={(e) => setOnDemandBinRate(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label" style={{ fontSize: "0.75rem" }}>Per Drum</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={onDemandDrumRate}
+                    onChange={(e) => setOnDemandDrumRate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ background: "var(--color-primary-light)", padding: "0.875rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-primary)", display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
             <span style={{ color: "var(--color-primary)" }}>ℹ️</span>
@@ -295,8 +361,8 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Create Profile
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? "Creating..." : "Create Profile"}
             </button>
           </div>
         </form>

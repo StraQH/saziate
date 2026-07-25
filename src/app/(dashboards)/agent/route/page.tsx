@@ -16,6 +16,17 @@ export default function AgentRoutePage() {
   const [notes, setNotes] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [assignedZone, setAssignedZone] = useState(config.isMockMode ? "Lekki Res Zone A" : "Active Route");
+  const [collectionSchedule, setCollectionSchedule] = useState(config.isMockMode ? "Mondays & Thursdays" : "");
+  const [binsCollected, setBinsCollected] = useState(0);
+  const [drumsCollected, setDrumsCollected] = useState(0);
+
+  useEffect(() => {
+    setStatus("collected");
+    setNotes("");
+    setBinsCollected(0);
+    setDrumsCollected(0);
+  }, [selectedTask]);
 
   const fetchCollections = async () => {
     if (!user) return;
@@ -30,8 +41,23 @@ export default function AgentRoutePage() {
     setLoading(false);
   };
 
+  const fetchAgentRoute = async () => {
+    if (config.isMockMode) return;
+    try {
+      const res = await fetch("/api/v1/agent/route");
+      if (res.ok) {
+        const body = await res.json() as any;
+        setAssignedZone(body.zone || "Active Route");
+        setCollectionSchedule(body.schedule || "");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchCollections();
+    fetchAgentRoute();
   }, [user]);
 
   const handleLogSubmit = async (e: React.FormEvent) => {
@@ -66,10 +92,12 @@ export default function AgentRoutePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          routeId: config.isMockMode ? "route_lekki_1" : "", // TODO: Pass actual routeId from context or task
+          routeId: config.isMockMode ? "route_lekki_1" : (selectedTask as any).routeId,
           residentId: selectedTask.id,
           status,
           notes,
+          binsCollected: (selectedTask as any).billingModel === "on_demand" ? binsCollected : 0,
+          drumsCollected: (selectedTask as any).billingModel === "on_demand" ? drumsCollected : 0,
           loggedAt: new Date().toISOString(),
         }),
       });
@@ -121,7 +149,10 @@ export default function AgentRoutePage() {
         <div>
           <h1>Active Route Streets</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            {config.isMockMode ? "Lekki Res Zone A \u2022 assigned today \u2022 Schedule: Mondays & Thursdays" : "Active Route"}
+            {config.isMockMode 
+              ? "Lekki Res Zone A • assigned today • Schedule: Mondays & Thursdays" 
+              : `${assignedZone}${collectionSchedule ? ` • Schedule: ${collectionSchedule}` : ""}`
+            }
           </p>
         </div>
       </div>
@@ -266,6 +297,36 @@ export default function AgentRoutePage() {
                   </label>
                 </div>
               </div>
+
+              {(selectedTask as any).billingModel === "on_demand" && status === "collected" && (
+                <div style={{ background: "var(--color-primary-light)", border: "1px solid var(--color-primary)", borderRadius: "var(--radius-sm)", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <h4 style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--color-primary)", margin: 0 }}>On-Demand Quantities</h4>
+                  <p className="text-xs text-muted" style={{ margin: 0, lineHeight: 1.4 }}>
+                    Specify the number of bins or drums cleared for this pickup. Pickup rates: 
+                    <strong> Flat Visit: ₦{(selectedTask as any).onDemandTripRate || 0}</strong>, 
+                    <strong> Bin: ₦{(selectedTask as any).onDemandBinRate || 0}</strong>, 
+                    <strong> Drum: ₦{(selectedTask as any).onDemandDrumRate || 0}</strong>.
+                  </p>
+                  <div style={{ display: "flex", gap: "1.5rem" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.375rem" }}>Bins Cleared</label>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <button type="button" className="btn btn-secondary" style={{ padding: "0.25rem 0.75rem", minWidth: "32px" }} onClick={() => setBinsCollected(prev => Math.max(0, prev - 1))}>-</button>
+                        <span style={{ fontWeight: 600, fontSize: "1rem", minWidth: "24px", textAlign: "center" }}>{binsCollected}</span>
+                        <button type="button" className="btn btn-secondary" style={{ padding: "0.25rem 0.75rem", minWidth: "32px" }} onClick={() => setBinsCollected(prev => prev + 1)}>+</button>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.375rem" }}>Drums Cleared</label>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <button type="button" className="btn btn-secondary" style={{ padding: "0.25rem 0.75rem", minWidth: "32px" }} onClick={() => setDrumsCollected(prev => Math.max(0, prev - 1))}>-</button>
+                        <span style={{ fontWeight: 600, fontSize: "1rem", minWidth: "24px", textAlign: "center" }}>{drumsCollected}</span>
+                        <button type="button" className="btn btn-secondary" style={{ padding: "0.25rem 0.75rem", minWidth: "32px" }} onClick={() => setDrumsCollected(prev => prev + 1)}>+</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="label">Photo Proof (Optional for verification)</label>

@@ -78,6 +78,13 @@
       "when": 1784883787402,
       "tag": "0010_sticky_turbo",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1785003795729,
+      "tag": "0011_slim_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

@@ -55,6 +55,8 @@ export default function AdminDashboardPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"operators" | "audit">("operators");
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [totalVolume, setTotalVolume] = useState<number>(config.isMockMode ? 1240000 : 0);
+  const [saziateRevenue, setSaziateRevenue] = useState<number>(config.isMockMode ? 62000 : 0);
 
   // Audit Log Pagination
   const [auditPage, setAuditPage] = useState(1);
@@ -120,8 +122,23 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchMetrics = async () => {
+    if (config.isMockMode) return;
+    try {
+      const res = await fetch("/api/v1/admin/metrics");
+      if (res.ok) {
+        const body = await res.json() as any;
+        setTotalVolume(body.totalPlatformVolume || 0);
+        setSaziateRevenue(body.saziateRevenue || 0);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchPSPs();
+    fetchMetrics();
   }, []);
 
   useEffect(() => {
@@ -171,6 +188,7 @@ export default function AdminDashboardPage() {
       if (res.ok) {
         alert("Waste Operator registered successfully!");
         fetchPSPs();
+        fetchMetrics();
         setName("");
         setRcNumber("");
         setEmail("");
@@ -202,6 +220,7 @@ export default function AdminDashboardPage() {
       if (res.ok) {
         alert("Operator verified and Virtual Bank Account provisioned successfully!");
         fetchPSPs();
+        fetchMetrics();
       } else {
         const text = await res.text();
         alert(`Failed to verify: ${text}`);
@@ -247,8 +266,8 @@ export default function AdminDashboardPage() {
         <>
           <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
         <MetricCard label="Active Operators" value={psps.filter((p) => p.status === "verified").length.toString()} />
-        <MetricCard label="Total Platform Volume" value="₦1,240,000" />
-        <MetricCard label="Saziate Revenue (5%)" value="₦62,000" />
+        <MetricCard label="Total Platform Volume" value={`₦${totalVolume.toLocaleString()}`} />
+        <MetricCard label="Saziate Revenue (5%)" value={`₦${saziateRevenue.toLocaleString()}`} />
       </div>
 
       {showAddForm && (
