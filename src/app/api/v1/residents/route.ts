@@ -39,9 +39,12 @@ export async function GET(req: Request) {
         address: residentProfiles.address,
         billingCategory: residentProfiles.billingCategory,
         customMonthlyRate: residentProfiles.customMonthlyRate,
+        route: routes.name,
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
+      .leftJoin(routeResidents, eq(routeResidents.residentId, users.id))
+      .leftJoin(routes, eq(routes.id, routeResidents.routeId))
       .where(
         and(
           eq(users.pspId, pspId),
@@ -230,7 +233,7 @@ export async function POST(req: Request) {
           email: finalEmail,
           phone,
           address,
-          route,
+          route: routeRecord.name,
           billingCategory,
           baseRate: typeof baseRate === "number" ? baseRate : parseFloat(baseRate),
           isOverride,

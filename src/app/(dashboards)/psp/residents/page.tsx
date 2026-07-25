@@ -63,6 +63,7 @@ export default function PSPResidentsPage() {
 
   const handleAddResident = (newResident: Resident) => {
     setResidents((prev) => [newResident, ...prev]);
+    setTotalCount((prev) => prev + 1);
     setShowModal(false);
   };
 
