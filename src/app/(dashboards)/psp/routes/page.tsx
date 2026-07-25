@@ -83,7 +83,6 @@ export default function PSPRoutesPage() {
           name,
           description,
           collectionSchedule,
-          assignedAgentId: "ag_johnson", // Field Agent Johnson
           rates: [
             { category: "residential", monthlyRate: resRate },
             { category: "commercial", monthlyRate: commRate },
