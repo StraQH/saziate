@@ -23,7 +23,9 @@ export function middleware(request: NextRequest) {
     // Check both environment-prefixed cookies
     const sessionCookie = 
       request.cookies.get("saziate_prod.session_token") || 
-      request.cookies.get("saziate_demo.session_token");
+      request.cookies.get("saziate_demo.session_token") ||
+      request.cookies.get("__Secure-saziate_prod.session_token") ||
+      request.cookies.get("__Secure-saziate_demo.session_token");
 
     if (!sessionCookie) {
       const loginUrl = new URL("/login", request.url);
