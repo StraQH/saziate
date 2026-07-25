@@ -19,33 +19,38 @@ export async function GET(req: Request) {
     const paidInvoices = await db
       .select({ count: invoices.id })
       .from(invoices)
-      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "paid")));
+      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "paid")))
+      .all();
 
     // Sum total paid amount
     const paidSums = await db
       .select({ total: invoices.totalAmount })
       .from(invoices)
-      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "paid")));
+      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "paid")))
+      .all();
       
     // Count unpaid invoices
     const unpaidInvoices = await db
       .select({ count: invoices.id })
       .from(invoices)
-      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "pending")));
+      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "pending")))
+      .all();
 
     // Count residents for this PSP
     const residentUsers = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.pspId, pspId), eq(users.role, "resident")));
+      .where(and(eq(users.pspId, pspId), eq(users.role, "resident")))
+      .all();
       
     // Count routes for this PSP
     const pspRoutes = await db
       .select({ id: routes.id })
       .from(routes)
-      .where(eq(routes.pspId, pspId));
+      .where(eq(routes.pspId, pspId))
+      .all();
 
-    const totalPaidSum = paidSums.reduce((sum: number, inv: any) => sum + inv.total, 0);
+    const totalPaidSum = paidSums.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
 
     // Sum of manual and automatic payouts
     const pastPayouts = await db
@@ -54,7 +59,8 @@ export async function GET(req: Request) {
       .where(and(
         eq(transactions.residentId, pspId), // reusing residentId
         like(transactions.reference, "PAYOUT-%")
-      ));
+      ))
+      .all();
     
     const totalPaidOut = pastPayouts
       .filter((tx: any) => ["success", "initiated"].includes(tx.status))
@@ -75,7 +81,8 @@ export async function GET(req: Request) {
     const notificationCosts = await db
       .select({ costNgn: notificationLogs.costNgn })
       .from(notificationLogs)
-      .where(eq(notificationLogs.pspId, pspId));
+      .where(eq(notificationLogs.pspId, pspId))
+      .all();
     const totalNotificationCosts = notificationCosts.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
 
     const availableSettlement = Math.max(0, (totalPaidSum * 0.95) - totalPaidOut - totalNotificationCosts);

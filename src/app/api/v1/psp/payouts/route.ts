@@ -59,8 +59,9 @@ export async function POST(req: Request) {
             eq(users.pspId, psp.id),
             eq(transactions.paymentMethod, "bank_transfer"),
             eq(transactions.status, "success")
-          ));
-        const totalDigitalCollections = digitalTxs.reduce((sum: number, t: any) => sum + t.amount, 0);
+          ))
+          .all();
+        const totalDigitalCollections = digitalTxs.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
         const pspDigitalEntitlement = totalDigitalCollections / 1.05;
 
         const cashTxs = await tx
@@ -71,8 +72,9 @@ export async function POST(req: Request) {
             eq(users.pspId, psp.id),
             eq(transactions.paymentMethod, "cash"),
             inArray(transactions.cashStatus, ["verified", "settled"])
-          ));
-        const totalCashCollections = cashTxs.reduce((sum: number, t: any) => sum + t.amount, 0);
+          ))
+          .all();
+        const totalCashCollections = cashTxs.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
         const saziateCashFee = totalCashCollections - (totalCashCollections / 1.05);
 
         const pastPayouts = await tx
@@ -82,13 +84,15 @@ export async function POST(req: Request) {
             eq(transactions.residentId, psp.id),
             like(transactions.reference, "PAYOUT-%"),
             inArray(transactions.status, ["initiated", "success"])
-          ));
-        const totalPaidOut = pastPayouts.reduce((sum: number, t: any) => sum + t.amount, 0);
+          ))
+          .all();
+        const totalPaidOut = pastPayouts.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
 
         const notificationCosts = await tx
           .select({ costNgn: notificationLogs.costNgn })
           .from(notificationLogs)
-          .where(eq(notificationLogs.pspId, psp.id));
+          .where(eq(notificationLogs.pspId, psp.id))
+          .all();
         const totalNotificationCosts = notificationCosts.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
 
         // Standardize calculations with 2 decimal precision
