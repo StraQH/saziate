@@ -123,6 +123,7 @@ export class PaystackClient {
     country: string;
     bank_code: string;
     account_number: string;
+    bvn?: string;
   }): Promise<any> {
     return this.request<any>(`/customer/${customerCode}/identification`, {
       method: "POST",

@@ -60,6 +60,7 @@ export async function PATCH(req: Request) {
       settlementBankCode,
       settlementAccountNumber,
       settlementAccountName,
+      bvn,
       password
     } = parsed.data;
 
@@ -113,6 +114,10 @@ export async function PATCH(req: Request) {
         dvaCustomerCode = "CUST_99014";
       } else if (env.PAYSTACK_SECRET_KEY) {
         try {
+          if (!bvn) {
+            return new Response("A valid BVN is required by Paystack to provision a Dedicated Virtual Account.", { status: 400 });
+          }
+
           const paystack = new PaystackClient(env.PAYSTACK_SECRET_KEY);
 
           // 1. Create customer on Paystack
@@ -130,6 +135,7 @@ export async function PATCH(req: Request) {
             type: "bank_account",
             value: settlementAccountNumber,
             country: "NG",
+            bvn: bvn,
             bank_code: settlementBankCode,
             account_number: settlementAccountNumber,
           });

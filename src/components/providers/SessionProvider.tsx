@@ -122,9 +122,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       await authClient.signOut();
       setLiveUser(null);
-      router.push("/login");
+      window.location.href = "/login";
     } catch (err) {
       console.error("Sign out failed:", err);
+      // Fallback
+      window.location.href = "/login";
     }
   };
 

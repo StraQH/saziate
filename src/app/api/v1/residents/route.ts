@@ -4,6 +4,7 @@ import { getDb } from "@/db";
 import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes, invoices } from "@/db/schema";
 import { eq, and, sql, like, inArray } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
+import { hashPassword } from "@/lib/hash";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { auditLogs } from "@/db/schema";
@@ -220,7 +221,7 @@ export async function POST(req: Request) {
     });
 
     // Create credentials account link
-    const hashedPassword = await import("better-auth/crypto").then(c => c.hashPassword(tempPassword));
+    const hashedPassword = await hashPassword(tempPassword);
     await db.insert(accounts).values({
       id: generateId(),
       accountId: userId,

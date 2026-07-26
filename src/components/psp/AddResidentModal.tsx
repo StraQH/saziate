@@ -6,6 +6,7 @@ import { config } from "@/lib/config";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { SaziateRepository } from "@/lib/repository";
 import { useSession } from "@/components/providers/SessionProvider";
+import type { Route } from "@/lib/mockdata";
 
 type BillingCategory = "residential" | "commercial" | "industrial" | "health";
 
@@ -41,14 +42,25 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
   const [baseRate, setBaseRate] = useState("6000");
   const [isOverride, setIsOverride] = useState(false);
   const [billingModel, setBillingModel] = useState<"subscription" | "on_demand">("subscription");
-  const [onDemandTripRate, setOnDemandTripRate] = useState("1000");
-  const [onDemandBinRate, setOnDemandBinRate] = useState("500");
-  const [onDemandDrumRate, setOnDemandDrumRate] = useState("800");
+  const [onDemandUnit, setOnDemandUnit] = useState<"trip" | "bin" | "drum">("trip");
+  const [onDemandRate, setOnDemandRate] = useState("1000");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [availableRoutes, setAvailableRoutes] = useState<{id: string, name: string}[]>([]);
+  const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
 
   const { user } = useSession();
+
+  // Auto-populate base rate when route or category changes
+  useEffect(() => {
+    if (billingModel === "on_demand" || isOverride) return;
+    const selectedRoute = availableRoutes.find((r) => r.id === route);
+    if (selectedRoute && selectedRoute.rates) {
+      const rateObj = selectedRoute.rates.find((r) => r.category === billingCategory);
+      if (rateObj) {
+        setBaseRate(rateObj.monthlyRate.toString());
+      }
+    }
+  }, [route, billingCategory, availableRoutes, billingModel, isOverride]);
 
   useEffect(() => {
     const fetchRoutes = async () => {
@@ -92,16 +104,15 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           referenceCode: generateSecureReference(8),
           status: "active",
           billingModel,
-          onDemandTripRate: parseFloat(onDemandTripRate) || 0,
-          onDemandBinRate: parseFloat(onDemandBinRate) || 0,
-          onDemandDrumRate: parseFloat(onDemandDrumRate) || 0,
+          onDemandTripRate: onDemandUnit === "trip" ? (parseFloat(onDemandRate) || 0) : 0,
+          onDemandBinRate: onDemandUnit === "bin" ? (parseFloat(onDemandRate) || 0) : 0,
+          onDemandDrumRate: onDemandUnit === "drum" ? (parseFloat(onDemandRate) || 0) : 0,
         } as any;
         onSuccess(newResident);
         return;
       }
 
-      // Live mode POST database write
-      const response = await fetch("/api/v1/residents", {
+      const res = await fetch("/api/v1/residents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,23 +121,23 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           email,
           phone,
           address,
+          route,
           billingCategory,
           baseRate: rateNum,
           isOverride,
-          route,
           billingModel,
-          onDemandTripRate: parseFloat(onDemandTripRate) || 0,
-          onDemandBinRate: parseFloat(onDemandBinRate) || 0,
-          onDemandDrumRate: parseFloat(onDemandDrumRate) || 0,
+          onDemandTripRate: onDemandUnit === "trip" ? (parseFloat(onDemandRate) || 0) : 0,
+          onDemandBinRate: onDemandUnit === "bin" ? (parseFloat(onDemandRate) || 0) : 0,
+          onDemandDrumRate: onDemandUnit === "drum" ? (parseFloat(onDemandRate) || 0) : 0,
         }),
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
+      if (!res.ok) {
+        const errText = await res.text();
         throw new Error(errText || "Failed to create resident profile.");
       }
 
-      const resBody = await response.json() as any;
+      const resBody = await res.json() as any;
       onSuccess(resBody.resident as any);
     } catch (err: any) {
       setError((err as Error).message || "An unexpected error occurred.");
@@ -312,38 +323,30 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
             </>
           ) : (
             <div style={{ background: "rgba(243, 244, 246, 0.5)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-sm)", padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <h4 style={{ fontSize: "0.8125rem", fontWeight: 600, margin: 0 }}>On-Demand Rates (₦)</h4>
-              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "0.75rem" }}>
-                <div className="form-group">
-                  <label className="label" style={{ fontSize: "0.75rem" }}>Trip Rate</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={onDemandTripRate}
-                    onChange={(e) => setOnDemandTripRate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label" style={{ fontSize: "0.75rem" }}>Per Bin</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={onDemandBinRate}
-                    onChange={(e) => setOnDemandBinRate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="label" style={{ fontSize: "0.75rem" }}>Per Drum</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={onDemandDrumRate}
-                    onChange={(e) => setOnDemandDrumRate(e.target.value)}
-                    required
-                  />
-                </div>
+              <h4 style={{ fontSize: "0.8125rem", fontWeight: 600, margin: 0 }}>On-Demand Configuration</h4>
+              
+              <div className="form-group" style={{ marginBottom: "0.5rem" }}>
+                <label className="label">Charge Unit</label>
+                <select 
+                  className="select" 
+                  value={onDemandUnit} 
+                  onChange={(e) => setOnDemandUnit(e.target.value as any)}
+                >
+                  <option value="trip">Per Trip</option>
+                  <option value="drum">Per Drum</option>
+                  <option value="bin">Per Bin</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="label">Rate per {onDemandUnit.charAt(0).toUpperCase() + onDemandUnit.slice(1)} (₦)</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={onDemandRate}
+                  onChange={(e) => setOnDemandRate(e.target.value)}
+                  required
+                />
               </div>
             </div>
           )}

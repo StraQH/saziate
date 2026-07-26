@@ -70,6 +70,23 @@ export default function PSPRoutesPage() {
     fetchAgents();
   }, [user]);
 
+  const handleUpdateAgent = async (routeId: string, agentId: string) => {
+    try {
+      const res = await fetch("/api/v1/routes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routeId, agentId: agentId || null }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to reassign agent");
+      }
+      fetchRoutes();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to reassign agent.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
@@ -345,119 +362,62 @@ export default function PSPRoutesPage() {
           <div className="spinner" />
         </div>
       ) : (
-        <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "1.5rem" }}>
-          {routes.map((route) => (
-            <div key={route.id} className="card">
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
-                  gap: "1rem",
-                  marginBottom: "1rem",
-                }}
-              >
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <MapPin size={20} style={{ color: "var(--color-primary)" }} />
-                    <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>{route.name}</h2>
-                  </div>
-                  <p className="text-muted text-sm" style={{ marginTop: "0.25rem" }}>
-                    {route.description}
-                  </p>
-                  {route.collectionSchedule && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
-                      <Calendar size={16} style={{ color: "var(--color-primary)" }} />
-                      <span className="text-sm font-medium">{route.collectionSchedule}</span>
+        <div className="table-wrapper">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Route Name</th>
+                <th>Description</th>
+                <th>Collection Schedule</th>
+                <th>Assigned Agent</th>
+                <th>Default Billing Rates (NGN)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {routes.map((route) => (
+                <tr key={route.id}>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <MapPin size={16} style={{ color: "var(--color-primary)" }} />
+                      <span className="font-medium">{route.name}</span>
                     </div>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    background: "var(--color-bg)",
-                    padding: "0.5rem 0.875rem",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <User size={16} style={{ color: "var(--color-text-muted)" }} />
-                  <span className="font-medium">{route.assignedAgentName || route.assignedAgent || "Unassigned"}</span>
-                </div>
-              </div>
-
-              <div className="divider" style={{ margin: "1rem 0" }} />
-
-              <div>
-                <p className="font-semibold text-xs text-muted" style={{ textTransform: "uppercase", marginBottom: "0.75rem" }}>
-                  Default Billing Rates
-                </p>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-                    gap: "1rem",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "var(--color-bg)",
-                      padding: "0.875rem",
-                      borderRadius: "var(--radius-md)",
-                    }}
-                  >
-                    <p className="text-xs text-muted">Residential</p>
-                    <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates?.find(r => r.category === "residential")?.monthlyRate || 0)}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      background: "var(--color-bg)",
-                      padding: "0.875rem",
-                      borderRadius: "var(--radius-md)",
-                    }}
-                  >
-                    <p className="text-xs text-muted">Commercial</p>
-                    <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates?.find(r => r.category === "commercial")?.monthlyRate || 0)}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      background: "var(--color-bg)",
-                      padding: "0.875rem",
-                      borderRadius: "var(--radius-md)",
-                    }}
-                  >
-                    <p className="text-xs text-muted">Industrial</p>
-                    <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates?.find(r => r.category === "industrial")?.monthlyRate || 0)}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      background: "var(--color-bg)",
-                      padding: "0.875rem",
-                      borderRadius: "var(--radius-md)",
-                    }}
-                  >
-                    <p className="text-xs text-muted">Health Facilities</p>
-                    <p className="font-semibold" style={{ fontSize: "1.125rem", marginTop: "0.25rem" }}>
-                      {formatNaira(route.rates?.find(r => r.category === "health")?.monthlyRate || 0)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+                  </td>
+                  <td className="text-sm text-muted">{route.description}</td>
+                  <td className="text-sm">
+                    {route.collectionSchedule ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Calendar size={14} style={{ color: "var(--color-primary)" }} />
+                        <span>{route.collectionSchedule}</span>
+                      </div>
+                    ) : "Not Set"}
+                  </td>
+                  <td>
+                    <select
+                      className="select"
+                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.875rem", height: "32px", minWidth: "150px" }}
+                      value={route.assignedAgentId || ""}
+                      onChange={(e) => handleUpdateAgent(route.id, e.target.value)}
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {agents.map((agent) => (
+                        <option key={agent.id} value={agent.id}>
+                          {agent.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", fontSize: "0.75rem" }}>
+                      <Badge variant="neutral">Res: {formatNaira(route.rates?.find((r: any) => r.category === "residential")?.monthlyRate || 0)}</Badge>
+                      <Badge variant="neutral">Com: {formatNaira(route.rates?.find((r: any) => r.category === "commercial")?.monthlyRate || 0)}</Badge>
+                      <Badge variant="neutral">Ind: {formatNaira(route.rates?.find((r: any) => r.category === "industrial")?.monthlyRate || 0)}</Badge>
+                      <Badge variant="neutral">Hlt: {formatNaira(route.rates?.find((r: any) => r.category === "health")?.monthlyRate || 0)}</Badge>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

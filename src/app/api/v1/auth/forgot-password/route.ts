@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { users, passwordResetTokens, accounts } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { generateSecurePassword, normalizePhoneNumber } from "@/lib/utils";
+import { hashPassword } from "@/lib/hash";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { sendNotificationWithFallback } from "@/lib/notifications";
@@ -132,7 +133,7 @@ export async function PATCH(req: Request) {
     }
 
     // Update password
-    const hashedPassword = await import("better-auth/crypto").then(c => c.hashPassword(newPassword));
+    const hashedPassword = await hashPassword(newPassword);
     await db.update(accounts)
       .set({ password: hashedPassword })
       .where(eq(accounts.userId, user.id));

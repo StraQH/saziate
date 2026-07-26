@@ -136,3 +136,42 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
+
+export async function PATCH(req: Request) {
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
+
+  try {
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
+    if (!pspId) {
+      return new Response("Unauthorized.", { status: 401 });
+    }
+
+    const { routeId, agentId } = await req.json() as { routeId: string, agentId: string | null };
+    if (!routeId) {
+      return new Response("Missing routeId.", { status: 400 });
+    }
+
+    if (agentId) {
+      const validAgent = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, agentId), eq(users.pspId, pspId)))
+        .get();
+        
+      if (!validAgent) {
+        return new Response("Unauthorized: Agent does not belong to this PSP.", { status: 403 });
+      }
+    }
+
+    await db.update(routes)
+      .set({ assignedAgentId: agentId || null })
+      .where(and(eq(routes.id, routeId), eq(routes.pspId, pspId)));
+
+    return new Response(JSON.stringify({ status: "success" }), { status: 200 });
+  } catch (error: any) {
+    console.error("Update Route Error:", error);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
+  }
+}

@@ -21,6 +21,7 @@ export interface Route {
   collectionSchedule: string;
   assignedAgent: string;
   assignedAgentName?: string;
+  assignedAgentId?: string;
   rates: Array<{
     category: "commercial" | "residential" | "industrial" | "health";
     monthlyRate: number;

@@ -41,8 +41,10 @@ export async function GET(req: Request) {
       const digitalTxs = await db
         .select({ amount: transactions.amount })
         .from(transactions)
+        .innerJoin(users, eq(transactions.residentId, users.id))
         .where(and(
-          inArray(transactions.residentId, residentIdList),
+          eq(users.pspId, pspId),
+          eq(users.role, "resident"),
           eq(transactions.paymentMethod, "bank_transfer"),
           eq(transactions.status, "success"),
           // Exclude payouts — same paymentMethod but are outflows, not income
@@ -55,8 +57,10 @@ export async function GET(req: Request) {
       const cashTxs = await db
         .select({ amount: transactions.amount })
         .from(transactions)
+        .innerJoin(users, eq(transactions.residentId, users.id))
         .where(and(
-          inArray(transactions.residentId, residentIdList),
+          eq(users.pspId, pspId),
+          eq(users.role, "resident"),
           eq(transactions.paymentMethod, "cash"),
           inArray(transactions.cashStatus, ["verified", "settled"])
         ))

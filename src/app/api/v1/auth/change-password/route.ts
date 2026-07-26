@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
 import { users, accounts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { hashPassword } from "@/lib/hash";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as Record<string, string | undefined>;
@@ -25,7 +26,6 @@ export async function POST(req: Request) {
       return new Response("Password must be at least 6 characters.", { status: 400 });
     }
 
-    const { hashPassword } = await import("better-auth/crypto");
     const hashedPassword = await hashPassword(newPassword);
 
     // 1. Update password in accounts table

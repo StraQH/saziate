@@ -1,6 +1,7 @@
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { updateProfileSchema } from "@/lib/validators";
+import { hashPassword } from "@/lib/hash";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
 import { users, accounts } from "@/db/schema";
@@ -161,7 +162,6 @@ export async function PATCH(req: Request) {
 
     // Handle password update if provided
     if (newPassword) {
-      const { hashPassword } = await import("better-auth/crypto");
       const hashedPassword = await hashPassword(newPassword);
       
       await db

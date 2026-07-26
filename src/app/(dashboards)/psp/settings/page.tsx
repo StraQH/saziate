@@ -19,6 +19,7 @@ export default function PSPSettingsPage() {
   const [bankCode, setBankCode] = useState(config.isMockMode ? "035" : "");
   const [accountNumber, setAccountNumber] = useState(config.isMockMode ? "0123456789" : "");
   const [accountName, setAccountName] = useState(config.isMockMode ? "Lekki Green Cleaners Ltd" : "");
+  const [bvn, setBvn] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -95,6 +96,7 @@ export default function PSPSettingsPage() {
           settlementBankCode: bankCode,
           settlementAccountNumber: accountNumber,
           settlementAccountName: accountName,
+          bvn,
           password,
         }),
       });
@@ -285,6 +287,20 @@ export default function PSPSettingsPage() {
                 placeholder="Enter Settlement Account Name"
                 required
               />
+            </div>
+            <div className="form-group">
+              <label className="label">Bank Verification Number (BVN)</label>
+              <input
+                type="text"
+                className="input"
+                value={bvn}
+                onChange={(e) => setBvn(e.target.value)}
+                placeholder="11-digit BVN"
+                maxLength={11}
+              />
+              <p className="text-xs text-muted" style={{ marginTop: "0.25rem" }}>
+                Required by Paystack to provision a Dedicated Virtual Account for your payout details. This is securely passed to Paystack and not stored on our servers.
+              </p>
             </div>
             <div className="flex justify-end" style={{ marginTop: "0.5rem" }}>
               <button type="submit" className="btn btn-primary" disabled={loading}>

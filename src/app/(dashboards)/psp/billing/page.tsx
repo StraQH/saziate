@@ -10,6 +10,8 @@ import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
 import { useSession } from "@/components/providers/SessionProvider";
 import { AdvancePaymentModal } from "@/components/psp/AdvancePaymentModal";
+import { AlertModal } from "@/components/ui/Modal";
+import { PayoutModal } from "@/components/psp/PayoutModal";
 
 export default function PSPBillingPage() {
   const { user } = useSession();
@@ -19,6 +21,9 @@ export default function PSPBillingPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
+  
+  const [alertState, setAlertState] = useState<{isOpen: boolean, title: string, message: string}>({isOpen: false, title: "", message: ""});
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
 
   const [totalInvoiced, setTotalInvoiced] = useState(0);
   const [totalCollected, setTotalCollected] = useState(0);
@@ -31,6 +36,10 @@ export default function PSPBillingPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const showAlert = (title: string, message: string) => {
+    setAlertState({ isOpen: true, title, message });
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -109,11 +118,11 @@ export default function PSPBillingPage() {
         body: JSON.stringify({ transactionId }),
       });
       if (res.ok) {
-        alert("Cash payment verified successfully!");
+        showAlert("Success", "Cash payment verified successfully!");
         fetchInvoices();
       } else {
         const text = await res.text();
-        alert(`Failed to verify cash: ${text}`);
+        showAlert("Verification Failed", text || "Failed to verify cash.");
       }
     } catch (err) {
       console.error(err);
@@ -122,7 +131,7 @@ export default function PSPBillingPage() {
 
   const handleReconcile = async (invoiceId: string) => {
     if (config.isMockMode) {
-      alert("Reconcile simulated in mock mode.");
+      showAlert("Mock Mode", "Reconcile simulated in mock mode.");
       return;
     }
     try {
@@ -132,11 +141,11 @@ export default function PSPBillingPage() {
         body: JSON.stringify({ invoiceId }),
       });
       if (res.ok) {
-        alert("Payment reconciled successfully!");
+        showAlert("Success", "Payment reconciled successfully!");
         fetchInvoices();
       } else {
         const text = await res.text();
-        alert(`Failed to reconcile: ${text}`);
+        showAlert("Reconciliation Failed", text || "Failed to reconcile invoice.");
       }
     } catch (err) {
       console.error(err);
@@ -145,7 +154,7 @@ export default function PSPBillingPage() {
 
   const handleCancel = async (invoiceId: string) => {
     if (config.isMockMode) {
-      alert("Cancellation simulated in mock mode.");
+      showAlert("Mock Mode", "Cancellation simulated in mock mode.");
       return;
     }
     try {
@@ -155,11 +164,11 @@ export default function PSPBillingPage() {
         body: JSON.stringify({ invoiceId }),
       });
       if (res.ok) {
-        alert("Invoice cancelled successfully!");
+        showAlert("Success", "Invoice cancelled successfully!");
         fetchInvoices();
       } else {
         const text = await res.text();
-        alert(`Failed to cancel: ${text}`);
+        showAlert("Cancellation Failed", text || "Failed to cancel invoice.");
       }
     } catch (err) {
       console.error(err);
@@ -175,36 +184,8 @@ export default function PSPBillingPage() {
     return (inv as any).status === filterStatus;
   });
 
-  const handleRequestPayout = async () => {
-    const amountStr = prompt("Enter payout amount (NGN):", "10000");
-    if (!amountStr) return;
-    const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-      alert("Invalid amount.");
-      return;
-    }
-
-    if (config.isMockMode) {
-      alert(`Payout of ${formatNaira(amount)} simulated in mock mode.`);
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/v1/psp/payouts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
-      });
-      if (res.ok) {
-        alert("Payout initiated successfully!");
-      } else {
-        const text = await res.text();
-        alert(`Failed to initiate payout: ${text}`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Error initiating payout.");
-    }
+  const handleRequestPayout = () => {
+    setShowPayoutModal(true);
   };
 
 
@@ -228,10 +209,6 @@ export default function PSPBillingPage() {
             <DollarSign size={16} />
             Request Payout
           </button>
-          <a href="/psp/billing/reconciliation" className="btn btn-secondary btn-sm">
-            <AlertCircle size={16} />
-            Manual Reconciliation
-          </a>
           <button className="btn btn-secondary btn-sm" onClick={fetchInvoices}>
             <RefreshCw size={16} />
             Refresh Feed
@@ -440,6 +417,20 @@ export default function PSPBillingPage() {
           </table>
         </div>
       )}
+
+      <AlertModal
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
+        title={alertState.title}
+        message={alertState.message}
+      />
+
+      <PayoutModal
+        isOpen={showPayoutModal}
+        onClose={() => setShowPayoutModal(false)}
+        onSuccess={fetchInvoices}
+        showAlert={showAlert}
+      />
     </div>
   );
 }

@@ -219,7 +219,8 @@ export async function GET(req: Request) {
           eq(invoices.pspId, pspId),
           eq(transactions.cashStatus, "pending_cash_verification")
         )
-      );
+      )
+      .all();
 
     return new Response(JSON.stringify(pendingCash), {
       status: 200,

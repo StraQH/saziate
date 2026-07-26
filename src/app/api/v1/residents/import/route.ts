@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { users, residentProfiles, accounts, routeResidents, routes, auditLogs } from "@/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateId, generateSecurePassword, normalizePhoneNumber } from "@/lib/utils";
+import { hashPassword } from "@/lib/hash";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { sendNotificationWithFallback } from "@/lib/notifications";
@@ -88,9 +89,6 @@ export async function POST(req: Request) {
     const batchOps: any[] = [];
     const notificationQueue: any[] = [];
 
-    // Dynamically load password hashing
-    const betterAuthCrypto = await import("better-auth/crypto");
-
     for (const res of residents) {
       const userId = generateId();
       const tempPassword = generateSecurePassword(8);
@@ -124,7 +122,7 @@ export async function POST(req: Request) {
         advancePaymentBalance: 0,
       } as any));
 
-      const hashedPassword = await betterAuthCrypto.hashPassword(tempPassword);
+      const hashedPassword = await hashPassword(tempPassword);
       batchOps.push(db.insert(accounts).values({
         id: generateId(),
         accountId: userId,

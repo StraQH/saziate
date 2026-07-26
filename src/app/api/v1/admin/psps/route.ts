@@ -1,10 +1,11 @@
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
-import { registerPspSchema } from "@/lib/validators";
+import { registerPspSchema, approvePspSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { psps, users, accounts, transactions } from "@/db/schema";
 import { eq, sql, and, notLike } from "drizzle-orm";
 import { generateId, generateSecurePassword } from "@/lib/utils";
+import { hashPassword } from "@/lib/hash";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
     });
 
     // 3. Create credentials account link
-    const hashedPassword = await import("better-auth/crypto").then((c) => c.hashPassword(tempPassword));
+    const hashedPassword = await hashPassword(tempPassword);
     await db.insert(accounts).values({
       id: generateId(),
       accountId: userId,

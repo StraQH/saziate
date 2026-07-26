@@ -3,6 +3,7 @@ import { requireRole, getActivePspId } from "@/lib/session";
 import { getDb } from "@/db";
 import { users, accounts, psps } from "@/db/schema";
 import { generateId, generateSecurePassword } from "@/lib/utils";
+import { hashPassword } from "@/lib/hash";
 import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     // 1. Create agent account directly
     const userId = generateId();
     const tempPassword = generateSecurePassword(10);
-    const hashedPassword = await import("better-auth/crypto").then((c) => c.hashPassword(tempPassword));
+    const hashedPassword = await hashPassword(tempPassword);
 
     await db.insert(users).values({
       id: userId,
