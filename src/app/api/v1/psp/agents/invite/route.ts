@@ -15,23 +15,24 @@ const inviteSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
     const ip = req.headers.get("x-forwarded-for") || "unknown";
-    if (!checkRateLimit(ip)) {
+    const isAllowed = await checkRateLimit(ip, env.DB as any, "psp-agents", { max: 10 });
+    if (!isAllowed) {
       return new Response("Too Many Requests", { status: 429 });
     }
 
-    const sessionResponse = await requireRole(req, env.DB, ["psp_operator"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["psp_operator"]);
     const pspId = (sessionResponse.user as any).pspId;
 
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = inviteSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -85,7 +86,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Field agent onboarded successfully and credentials email sent.",
       }),
       {

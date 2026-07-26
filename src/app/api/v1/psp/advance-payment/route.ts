@@ -15,9 +15,9 @@ const advancePaymentSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
   try {
-    const json = await req.json();
+    const json = await req.json() as any;
     const parsed = advancePaymentSchema.safeParse(json);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -26,10 +26,10 @@ export async function POST(req: Request) {
     const { residentId, amount } = parsed.data;
 
     // Use environment DB
-    const db = getDb(env.DB);
+    const db = getDb(env.DB as any);
     
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
 
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     const txId = generateId();
 
     // Use db.transaction to group mutations
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       // 1. Update Advance Balance (Atomic SQL addition)
       await tx.update(residentProfiles)
         .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amount}` })
@@ -65,12 +65,12 @@ export async function POST(req: Request) {
         reference: `ADV-CASH-${generateSecureReference(10)}`,
         amount,
         paymentMethod: "cash",
-        cashStatus: "settled",
+        cashStatus: "settled" as any,
         paidAt: new Date(),
       });
 
       // 3. Log Audit
-      const betterAuth = (await import("@/lib/auth")).auth(env.DB);
+      const betterAuth = (await import("@/lib/auth")).auth(env.DB as any);
       const session = await betterAuth.api.getSession({ headers: req.headers });
       const actorId = session?.user?.id || "unknown";
 
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return new Response(JSON.stringify({ status: "success", transactionId: txId }), { 
+    return new Response(JSON.stringify({ status: "success" as any, transactionId: txId }), { 
       status: 200, 
       headers: { "Content-Type": "application/json" } 
     });

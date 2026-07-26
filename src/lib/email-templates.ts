@@ -60,6 +60,18 @@ const buildEmailWrapper = (title: string, contentHtml: string) => `
 
 export const emailTemplates = {
   /**
+   * Password Reset Email
+   */
+  passwordReset: (token: string) => buildEmailWrapper("Password Reset Request", `
+    <h2 style="color: #1E293B; font-size: 20px; font-weight: 700; margin: 0 0 16px 0;">Password Reset Code</h2>
+    <p style="margin: 0 0 20px 0;">You have requested to reset your password. Use the verification code below to set a new password. This code will expire in 10 minutes.</p>
+    <div style="padding: 16px; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center; letter-spacing: 4px; color: #1E293B; margin: 24px 0;">
+      ${token}
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #64748B;">If you did not request this, please ignore this email or contact support.</p>
+  `),
+
+  /**
    * Welcome Email template for newly onboarded residents
    */
   welcomeResident: (name: string, tempPassword: string) => buildEmailWrapper("Welcome to Saziate", `

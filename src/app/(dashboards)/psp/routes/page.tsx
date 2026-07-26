@@ -34,17 +34,17 @@ export default function PSPRoutesPage() {
   const [description, setDescription] = useState("");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Monday", "Thursday"]);
   const [assignedAgent, setAssignedAgent] = useState("");
-  const [residentialRate, setResidentialRate] = useState("6000");
-  const [commercialRate, setCommercialRate] = useState("15000");
-  const [industrialRate, setIndustrialRate] = useState("45000");
-  const [healthRate, setHealthRate] = useState("30000");
+  const [residentialRate, setResidentialRate] = useState(config.DEFAULT_MONTHLY_RATE_NGN.toString());
+  const [commercialRate, setCommercialRate] = useState(config.DEFAULT_COMMERCIAL_RATE_NGN.toString());
+  const [industrialRate, setIndustrialRate] = useState(config.DEFAULT_INDUSTRIAL_RATE_NGN.toString());
+  const [healthRate, setHealthRate] = useState(config.DEFAULT_HEALTH_RATE_NGN.toString());
 
   const fetchRoutes = async () => {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.pspId!);
     repo.getRoutes().then((data) => {
-      setRoutes(data);
+      setRoutes(data as any);
       setLoading(false);
     });
   };
@@ -55,9 +55,9 @@ export default function PSPRoutesPage() {
       const res = await fetch("/api/v1/psp/agents");
       if (res.ok) {
         const data = await res.json() as any[];
-        setAgents(data);
+        setAgents(data as any);
         if (data.length > 0) {
-          setAssignedAgent(data[0].id);
+          setAssignedAgent(data[0].id as any);
         }
       }
     } catch (err) {
@@ -131,7 +131,7 @@ export default function PSPRoutesPage() {
 
       const resBody = await response.json() as any;
       const newRoute: Route = {
-        id: resBody.routeId,
+        id: String(resBody.routeId),
         name,
         description,
         collectionSchedule: computedSchedule,
@@ -151,7 +151,7 @@ export default function PSPRoutesPage() {
       setSelectedDays(["Monday", "Thursday"]);
       setShowAddForm(false);
     } catch (err: any) {
-      setError(err.message || "An error occurred.");
+      setError((err as Error).message || "An error occurred.");
     } finally {
       setSubmitLoading(false);
     }

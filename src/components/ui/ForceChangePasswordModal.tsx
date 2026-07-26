@@ -44,7 +44,7 @@ export function ForceChangePasswordModal() {
         setError(txt || "Failed to update password.");
       }
     } catch (err: any) {
-      setError(err.message || "Failed to update password.");
+      setError((err as Error).message || "Failed to update password.");
     } finally {
       setIsSubmitting(false);
     }

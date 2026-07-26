@@ -7,11 +7,11 @@ import { eq, and, sql, like } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    const sessionResponse = await requireRole(req, env.DB, ["resident", "psp_operator"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["resident", "psp_operator"]);
     const sessionUser = sessionResponse.user as any;
     const userRole = sessionUser.role;
     const userId = sessionUser.id;
@@ -87,11 +87,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    const sessionResponse = await requireRole(req, env.DB, ["resident"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["resident"]);
     const sessionUser = sessionResponse.user as any;
     const userId = sessionUser.id;
     const pspId = sessionUser.pspId;
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
       return new Response("Resident not assigned to a PSP.", { status: 400 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = createComplaintSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -117,18 +117,18 @@ export async function POST(req: Request) {
       status: "submitted",
     });
 
-    return new Response(JSON.stringify({ status: "success", complaintId }), { status: 201, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ status: "success" as any, complaintId }), { status: 201, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
 
 export async function PATCH(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    const sessionResponse = await requireRole(req, env.DB, ["psp_operator"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["psp_operator"]);
     const sessionUser = sessionResponse.user as any;
     const pspId = sessionUser.pspId;
 
@@ -136,7 +136,7 @@ export async function PATCH(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = updateComplaintSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });

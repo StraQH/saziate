@@ -88,7 +88,7 @@ export default function PSPAgentsPage() {
         setMessage({ text: `Failed to onboard: ${text}`, type: "error" });
       }
     } catch (err: any) {
-      setMessage({ text: `Error: ${err.message}`, type: "error" });
+      setMessage({ text: `Error: ${(err as Error).message}`, type: "error" });
     } finally {
       setIsInviting(false);
     }

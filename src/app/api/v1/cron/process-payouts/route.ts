@@ -9,7 +9,7 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
 
   // Basic security: require a CRON_SECRET token
   const authHeader = req.headers.get("Authorization");
@@ -19,14 +19,14 @@ export async function GET(req: Request) {
     }
   }
 
-  const db = getDb(env.DB);
+  const db = getDb(env.DB as any);
 
   try {
     let processedCount = 0;
     const notificationPromises: Promise<any>[] = [];
 
     // Run the entire balance query & reservation in a single transaction block
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       // 1. Fetch all active PSPs
       const allPsps = await tx.select().from(psps).all();
       if (allPsps.length === 0) return;
@@ -41,7 +41,9 @@ export async function GET(req: Request) {
         .innerJoin(users, eq(transactions.residentId, users.id))
         .where(and(
           eq(transactions.paymentMethod, "bank_transfer"),
-          eq(transactions.status, "success")
+          eq(transactions.status, "success"),
+          // Exclude payouts — they share bank_transfer paymentMethod but are outflows, not income
+          sql`${transactions.reference} NOT LIKE 'PAYOUT-%'`
         ))
         .groupBy(users.pspId)
         .all();
@@ -62,7 +64,7 @@ export async function GET(req: Request) {
 
       const payoutTotals = await tx
         .select({
-          pspId: transactions.residentId,
+          pspId: transactions.pspId,
           total: sql<number>`sum(${transactions.amount})`,
         })
         .from(transactions)
@@ -70,7 +72,7 @@ export async function GET(req: Request) {
           like(transactions.reference, "PAYOUT-%"),
           inArray(transactions.status, ["initiated", "success"])
         ))
-        .groupBy(transactions.residentId)
+        .groupBy(transactions.pspId)
         .all();
 
       const notificationTotals = await tx
@@ -83,10 +85,10 @@ export async function GET(req: Request) {
         .all();
 
       // Convert lists to Maps for fast O(1) lookups
-      const digitalMap = new Map(digitalTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
-      const cashMap = new Map(cashTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
-      const payoutMap = new Map(payoutTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
-      const notificationMap = new Map(notificationTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));
+      const digitalMap = new Map(digitalTotals.map((t) => [t.pspId, Number(t.total || 0)]));
+      const cashMap = new Map(cashTotals.map((t) => [t.pspId, Number(t.total || 0)]));
+      const payoutMap = new Map(payoutTotals.map((t) => [t.pspId, Number(t.total || 0)]));
+      const notificationMap = new Map(notificationTotals.map((t) => [t.pspId, Number(t.total || 0)]));
 
       const newTxs = [];
       const newLogs = [];
@@ -98,25 +100,26 @@ export async function GET(req: Request) {
         const notificationSum = (notificationMap.get(psp.id) as number) || 0;
 
         // Apply strict rounding
-        const pspDigitalEntitlement = Math.round((digitalSum / 1.05) * 100) / 100;
-        const saziateCashFee = Math.round((cashSum - (cashSum / 1.05)) * 100) / 100;
+        const pspDigitalEntitlement = Math.round((digitalSum / config.PLATFORM_FEE_DIVISOR) * 100) / 100;
+        const saziateCashFee = Math.round((cashSum - (cashSum / config.PLATFORM_FEE_DIVISOR)) * 100) / 100;
         const totalPaidOut = Math.round(payoutSum * 100) / 100;
         const totalNotificationCosts = Math.round(notificationSum * 100) / 100;
 
         const estimatedAvailable = Math.round((pspDigitalEntitlement - saziateCashFee - totalPaidOut - totalNotificationCosts) * 100) / 100;
 
         // Threshold check (minimum automated payout NGN 1000)
-        if (estimatedAvailable >= 1000) {
+        if (estimatedAvailable >= config.AUTO_PAYOUT_MINIMUM_NGN) {
           const txId = generateId();
           
           newTxs.push({
             id: txId,
-            residentId: psp.id, // Using residentId field to store pspId for payouts
+            pspId: psp.id,
+            residentId: psp.id, // fallback placeholder; NOT a real user FK — pspId is authoritative
             reference: `PAYOUT-AUTO-${generateId()}`,
             amount: estimatedAvailable,
-            paymentMethod: "bank_transfer",
-            status: "success", // Simulated immediate payout execution
-            cashStatus: "settled",
+            paymentMethod: "bank_transfer" as any,
+            status: "success" as any,
+            cashStatus: "settled" as any,
             paidAt: new Date(),
           });
 
@@ -162,7 +165,7 @@ export async function GET(req: Request) {
     }
 
     return new Response(JSON.stringify({ 
-      status: "success", 
+      status: "success" as any, 
       message: `Processed ${processedCount} automated payouts successfully.` 
     }), { status: 200, headers: { "Content-Type": "application/json" } });
 

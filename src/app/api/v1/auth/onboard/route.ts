@@ -3,7 +3,7 @@ import { onboardSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { users, psps, agentInvitations } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { generateId } from "@/lib/utils";
+import { generateId, normalizePhoneNumber } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { SaziateLogger } from "@/lib/logger";
@@ -14,17 +14,18 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 
 export async function POST(req: Request) {
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
+  const logger = new SaziateLogger(env.DB as any);
+
   const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";
-  if (!checkRateLimit(ip)) {
+  const isAllowed = await checkRateLimit(ip, env.DB as any, "onboard", { max: 10 });
+  if (!isAllowed) {
     return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), { status: 429, headers: { "Content-Type": "application/json" } });
   }
 
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
-  const logger = new SaziateLogger(env.DB);
-
   try {
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = onboardSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
       return new Response("Missing required onboarding parameters.", { status: 400 });
     }
 
-    const betterAuth = auth(env.DB);
+    const betterAuth = auth(env.DB as any);
     const session = await betterAuth.api.getSession({ headers: req.headers });
     if (!session || !session.user || session.user.id !== userId) {
       return new Response("Unauthorized to onboard this user.", { status: 401 });
@@ -67,13 +68,12 @@ export async function POST(req: Request) {
 
       pspId = generateId();
 
-      // Create PSP operator record
       await db.insert(psps).values({
         id: pspId,
         name: pspName,
         rcNumber: rcNumber || null,
         address,
-        contactPhone: phone || "",
+        contactPhone: phone ? normalizePhoneNumber(phone) : "",
         contactEmail: userRecord.email,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
       meta: JSON.stringify({ role, pspId }),
     });
 
-    return new Response(JSON.stringify({ status: "success", userId, pspId }), {
+    return new Response(JSON.stringify({ status: "success" as any, userId, pspId }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

@@ -9,11 +9,11 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["resident"]);
+    await requireRole(req, env.DB as any, ["resident"]);
     let residentId = "";
     let residentName = "Resident";
     let residentEmail = "";
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       residentEmail = "08031234567@saziate.com"; // mock placeholder email to test banner
       advancePaymentBalance = 12000;
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -106,14 +106,14 @@ export async function GET(req: Request) {
 
       if (inv) {
         currentInvoice = {
-          id: inv.id,
-          paymentReference: inv.paymentReference,
-          baseAmount: inv.baseAmount,
-          platformFee: inv.platformFee,
-          totalAmount: inv.totalAmount,
-          dueDate: new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-          status: inv.status,
-          billingPeriod: new Date(inv.billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+          id: (inv as any).id,
+          paymentReference: (inv as any).paymentReference,
+          baseAmount: (inv as any).baseAmount,
+          platformFee: (inv as any).platformFee,
+          totalAmount: (inv as any).totalAmount,
+          dueDate: new Date((inv as any).dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          status: (inv as any).status,
+          billingPeriod: new Date((inv as any).billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
         };
       }
     }
@@ -163,7 +163,7 @@ export async function GET(req: Request) {
           )
           .all();
 
-        const myLog = logsToday.find((l: any) => l.residentId === residentId);
+        const myLog = logsToday.find((l) => l.residentId === residentId);
 
         if (myLog) {
           nextCollection = {
@@ -172,7 +172,7 @@ export async function GET(req: Request) {
             route: routeName,
           };
         } else if (logsToday.length > 0) {
-          const maxVisitedSeq = logsToday.reduce((max: number, l: any) => Math.max(max, l.sequenceOrder || 0), 0);
+          const maxVisitedSeq = logsToday.reduce((max: number, l) => Math.max(max, l.sequenceOrder || 0), 0);
           const mySeq = routeRes.sequenceOrder || 1;
           
           if (mySeq > maxVisitedSeq) {
@@ -201,7 +201,7 @@ export async function GET(req: Request) {
       nextCollection = {
         date: routeSchedule,
         status: "Scheduled",
-        route: "Main District Route",
+        route: "No route assigned yet",
       };
     }
 

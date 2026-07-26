@@ -9,7 +9,7 @@ import { sendNotificationWithFallback } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { z } from "zod";
-
+import { config } from "@/lib/config";
 
 const importResidentsSchema = z.object({
   residents: z.array(z.object({
@@ -17,6 +17,8 @@ const importResidentsSchema = z.object({
     email: z.string().optional(),
     phone: z.string().min(1),
     address: z.string().min(1),
+    ward: z.string().optional(),
+    lga: z.string().optional(),
     billingCategory: z.enum(["commercial", "residential", "industrial", "health"]),
     baseRate: z.number().positive(),
     route: z.string().optional(),
@@ -24,18 +26,18 @@ const importResidentsSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
 
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = importResidentsSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     const { residents } = parsed.data;
 
     // Verify Route Ownership for all imported residents
-    const routeIds = [...new Set(residents.map((r: any) => r.route).filter(Boolean))] as string[];
+    const routeIds = [...new Set(residents.map((r) => r.route).filter(Boolean))] as string[];
     const routeMap = new Map<string, any>();
 
     if (routeIds.length > 0) {
@@ -113,14 +115,14 @@ export async function POST(req: Request) {
       }));
 
       batchOps.push(db.insert(residentProfiles).values({
-        userId,
+        userId: userId as any,
         address: res.address,
-        ward: "Ward A",
-        lga: "Eti-Osa",
+        ward: res.ward || null,
+        lga: res.lga || null,
         billingCategory: res.billingCategory || "residential",
         customMonthlyRate: res.baseRate || null,
         advancePaymentBalance: 0,
-      }));
+      } as any));
 
       const hashedPassword = await betterAuthCrypto.hashPassword(tempPassword);
       batchOps.push(db.insert(accounts).values({
@@ -151,7 +153,7 @@ export async function POST(req: Request) {
         address: res.address,
         route: res.route || null,
         billingCategory: res.billingCategory || "residential",
-        baseRate: res.baseRate || 6000,
+        baseRate: res.baseRate || config.DEFAULT_MONTHLY_RATE_NGN,
         isOverride: false,
         status: "active",
       });
@@ -166,7 +168,7 @@ export async function POST(req: Request) {
     }
 
     // Write audit log
-    const session = await auth(env.DB).api.getSession({ headers: req.headers });
+    const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     batchOps.push(db.insert(auditLogs).values({
       id: generateId(),
       actorId: session?.user?.id || pspId,
@@ -180,7 +182,7 @@ export async function POST(req: Request) {
     if (batchOps.length > 0) {
       const CHUNK_SIZE = 90;
       for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
-        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as any);
+        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as never);
       }
     }
 
@@ -200,7 +202,7 @@ export async function POST(req: Request) {
         const msgText = `Hello ${notif.name}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${notif.tempPassword}. Please update your email on login.`;
         notificationPromises.push(
           sendNotificationWithFallback({
-            dbBinding: env.DB,
+            dbBinding: env.DB as any,
             termiiApiKey: env.TERMII_API_KEY || "",
             pspId,
             residentId: notif.userId,
@@ -220,7 +222,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return new Response(JSON.stringify({ status: "success", count: insertedCount.length, residents: insertedCount }), {
+    return new Response(JSON.stringify({ status: "success" as any, count: insertedCount.length, residents: insertedCount }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });

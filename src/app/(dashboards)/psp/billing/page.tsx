@@ -61,10 +61,10 @@ export default function PSPBillingPage() {
     if (config.isMockMode) {
       setNotificationCosts(480.00); // Mock cost
       setPendingCash([]);
-      setTotalInvoiced(currentInvoicesList.reduce((sum, inv) => sum + inv.totalAmount, 0));
-      setTotalCollected(currentInvoicesList.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.totalAmount, 0));
-      setTotalCommission(currentInvoicesList.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.platformFee, 0));
-      setTotalOutstanding(currentInvoicesList.filter((inv) => inv.status !== "paid" && inv.status !== "cancelled").reduce((sum, inv) => sum + inv.totalAmount, 0));
+      setTotalInvoiced(currentInvoicesList.reduce((sum, inv) => sum + (inv as any).totalAmount, 0));
+      setTotalCollected(currentInvoicesList.filter((inv) => (inv as any).status === "paid").reduce((sum, inv) => sum + (inv as any).totalAmount, 0));
+      setTotalCommission(currentInvoicesList.filter((inv) => (inv as any).status === "paid").reduce((sum, inv) => sum + (inv as any).platformFee, 0));
+      setTotalOutstanding(currentInvoicesList.filter((inv) => (inv as any).status !== "paid" && (inv as any).status !== "cancelled").reduce((sum, inv) => sum + (inv as any).totalAmount, 0));
     } else {
       try {
         const [resCosts, resCash, resMetrics] = await Promise.all([
@@ -172,7 +172,7 @@ export default function PSPBillingPage() {
 
   const filteredInvoices = invoices.filter((inv) => {
     if (filterStatus === "all") return true;
-    return inv.status === filterStatus;
+    return (inv as any).status === filterStatus;
   });
 
   const handleRequestPayout = async () => {
@@ -381,53 +381,53 @@ export default function PSPBillingPage() {
             </thead>
             <tbody>
               {filteredInvoices.map((inv) => (
-                <tr key={inv.id}>
+                <tr key={(inv as any).id}>
                   <td>
                     <div>
-                      <p className="font-medium">{inv.residentName}</p>
+                      <p className="font-medium">{(inv as any).residentName}</p>
                       <p className="text-muted text-xs" style={{ fontFamily: "monospace" }}>
-                        {inv.referenceCode}
+                        {(inv as any).referenceCode}
                       </p>
                     </div>
                   </td>
-                  <td className="text-sm">{inv.billingPeriod}</td>
-                  <td className="text-sm">{formatNaira(inv.baseAmount)}</td>
-                  <td className="text-sm text-muted">{formatNaira(inv.platformFee)}</td>
-                  <td className="font-semibold text-sm">{formatNaira(inv.totalAmount)}</td>
-                  <td className="text-sm">{inv.dueDate}</td>
+                  <td className="text-sm">{(inv as any).billingPeriod}</td>
+                  <td className="text-sm">{formatNaira((inv as any).baseAmount)}</td>
+                  <td className="text-sm text-muted">{formatNaira((inv as any).platformFee)}</td>
+                  <td className="font-semibold text-sm">{formatNaira((inv as any).totalAmount)}</td>
+                  <td className="text-sm">{(inv as any).dueDate}</td>
                   <td>
                     <Badge
                       variant={
-                        inv.status === "paid"
+                        (inv as any).status === "paid"
                           ? "success"
-                          : inv.status === "cancelled"
+                          : (inv as any).status === "cancelled"
                           ? "neutral"
-                          : inv.status === "overdue"
+                          : (inv as any).status === "overdue"
                           ? "danger"
                           : "warning"
                       }
                     >
-                      {inv.status.toUpperCase()}
+                      {(inv as any).status.toUpperCase()}
                     </Badge>
                   </td>
                   <td>
-                    {inv.status === "paid" ? (
+                    {(inv as any).status === "paid" ? (
                       <button className="btn btn-ghost btn-sm">
                         View Receipt
                       </button>
-                    ) : inv.status === "cancelled" ? (
+                    ) : (inv as any).status === "cancelled" ? (
                       <span className="text-muted text-xs">Cancelled</span>
                     ) : (
                       <div className="flex gap-2">
                         <button
                           className="btn btn-secondary btn-xs"
-                          onClick={() => handleReconcile(inv.id)}
+                          onClick={() => handleReconcile((inv as any).id)}
                         >
                           Reconcile
                         </button>
                         <button
                           className="btn btn-ghost btn-xs text-danger"
-                          onClick={() => handleCancel(inv.id)}
+                          onClick={() => handleCancel((inv as any).id)}
                         >
                           Cancel
                         </button>

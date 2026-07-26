@@ -7,12 +7,12 @@ import { getActivePspId, requireRole } from "@/lib/session";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -34,10 +34,10 @@ export async function GET(req: Request) {
       .all();
 
     // Aggregate costs
-    const totalCost = logs.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
-    const smsCount = logs.filter((log: any) => log.channel === "sms" && log.status === "sent").length;
-    const whatsappCount = logs.filter((log: any) => log.channel === "whatsapp" && log.status === "sent").length;
-    const failedCount = logs.filter((log: any) => log.status === "failed").length;
+    const totalCost = logs.reduce((sum: number, log) => sum + (log.costNgn || 0), 0);
+    const smsCount = logs.filter((log) => log.channel === "sms" && log.status === "sent").length;
+    const whatsappCount = logs.filter((log) => log.channel === "whatsapp" && log.status === "sent").length;
+    const failedCount = logs.filter((log) => log.status === "failed").length;
 
     return new Response(
       JSON.stringify({

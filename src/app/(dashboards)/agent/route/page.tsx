@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { MOCK_COLLECTIONS, type CollectionRun, MOCK_PSP_ID, MOCK_ROUTE_ID } from "@/lib/mockdata";
 import { Badge } from "@/components/ui/Badge";
 import { MapPin, Navigation, CheckCircle2, XCircle, AlertCircle, Camera, Check } from "lucide-react";
@@ -9,6 +10,7 @@ import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
 
 export default function AgentRoutePage() {
+  const { toast } = useToast();
   const { user } = useSession();
   const [collections, setCollections] = useState<CollectionRun[]>(config.isMockMode ? MOCK_COLLECTIONS : []);
   const [selectedTask, setSelectedTask] = useState<CollectionRun | null>(null);
@@ -103,7 +105,7 @@ export default function AgentRoutePage() {
       });
 
       if (res.ok) {
-        alert("Collection logged successfully!");
+        toast("Collection logged successfully!", "success");
         fetchCollections();
         setSelectedTask(null);
         setNotes("");
@@ -120,7 +122,7 @@ export default function AgentRoutePage() {
     if (!reference) return;
 
     if (config.isMockMode) {
-      alert("Transfer verified in mock mode.");
+      toast("Transfer verified in mock mode.", "success");
       return;
     }
 
@@ -131,15 +133,15 @@ export default function AgentRoutePage() {
         body: JSON.stringify({ reference }),
       });
       if (res.ok) {
-        alert("Transfer verified and invoice reconciled successfully!");
+        toast("Transfer verified and invoice reconciled successfully!", "success");
         fetchCollections();
       } else {
         const text = await res.text();
-        alert(`Verification failed: ${text}`);
+        toast(`Verification failed: ${text}`, "error");
       }
     } catch (err) {
       console.error(err);
-      alert("An error occurred during verification.");
+      toast("An error occurred during verification.", "error");
     }
   };
 
@@ -375,7 +377,7 @@ export default function AgentRoutePage() {
                 Use these options if the resident has an unpaid bill and wishes to pay on the spot.
               </p>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => alert("Redirecting to Cash Logging...")}>
+                <button className="btn btn-secondary btn-sm" onClick={() => toast("Redirecting to Cash Logging...", "info")}>
                   Receive Cash Payment
                 </button>
                 <button className="btn btn-ghost btn-sm" onClick={handleConfirmTransfer}>

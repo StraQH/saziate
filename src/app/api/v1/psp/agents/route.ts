@@ -5,12 +5,12 @@ import { eq, and } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }

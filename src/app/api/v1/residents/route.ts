@@ -14,12 +14,12 @@ import { emailTemplates } from "@/lib/email-templates";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator", "field_agent"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator", "field_agent"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
     const totalCount = Number(countResult?.count || 0);
 
     // Fetch invoice aggregates to calculate payment details
-    const residentIds = profiles.map((p: any) => p.id);
+    const residentIds = profiles.map((p) => p.id);
     let invoicesList: any[] = [];
     if (residentIds.length > 0) {
       invoicesList = await db
@@ -86,21 +86,21 @@ export async function GET(req: Request) {
 
     const invoicesMap = new Map<string, any[]>();
     for (const inv of invoicesList) {
-      if (!invoicesMap.has(inv.residentId)) {
-        invoicesMap.set(inv.residentId, []);
+      if (!invoicesMap.has((inv as any).residentId)) {
+        invoicesMap.set((inv as any).residentId, []);
       }
-      invoicesMap.get(inv.residentId)!.push(inv);
+      invoicesMap.get((inv as any).residentId)!.push(inv);
     }
 
-    const mappedData = profiles.map((p: any) => {
+    const mappedData = profiles.map((p) => {
       const pInvoices = invoicesMap.get(p.id) || [];
       const pendingOrOverdue = pInvoices.filter((i) => ["pending", "overdue"].includes(i.status));
-      const outstandingBalance = pendingOrOverdue.reduce((sum: number, i: any) => sum + i.totalAmount, 0);
+      const outstandingBalance = pendingOrOverdue.reduce((sum: number, i) => sum + i.totalAmount, 0);
       
       let status = "paid";
       let activeInvoiceId = null;
       
-      const activeInvoice = pendingOrOverdue.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
+      const activeInvoice = pendingOrOverdue.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
       if (activeInvoice) {
         activeInvoiceId = activeInvoice.id;
         status = activeInvoice.status === "overdue" ? "overdue" : "unpaid";
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
 
       const paidInvoices = pInvoices
         .filter((i) => i.status === "paid")
-        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
       const lastPaymentAmount = paidInvoices[0]?.totalAmount || 0;
       const lastPaymentDate = paidInvoices[0] ? new Date(paidInvoices[0].createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : null;
@@ -140,17 +140,17 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = createResidentSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -257,7 +257,7 @@ export async function POST(req: Request) {
         if (termiiKey) {
           const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
           await sendNotificationWithFallback({
-            dbBinding: env.DB,
+            dbBinding: env.DB as any,
             termiiApiKey: termiiKey,
             pspId,
             residentId: userId,
@@ -274,7 +274,7 @@ export async function POST(req: Request) {
       console.error("Non-blocking notification warning: Onboarding notification failed:", notifErr);
     }
 
-    const session = await auth(env.DB).api.getSession({ headers: req.headers });
+    const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
       id: generateId(),
       actorId: session?.user?.id || pspId,
@@ -286,7 +286,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         resident: {
           id: userId,
           firstName,
@@ -310,17 +310,17 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const { userId } = await req.json() as { userId: string };
+    const { userId } = await req.json() as any as { userId: string };
     if (!userId) {
       return new Response("Missing userId parameter.", { status: 400 });
     }
@@ -359,7 +359,7 @@ export async function DELETE(req: Request) {
       .delete(routeResidents)
       .where(eq(routeResidents.residentId, userId));
 
-    const session = await auth(env.DB).api.getSession({ headers: req.headers });
+    const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
       id: generateId(),
       actorId: session?.user?.id || pspId,
@@ -369,7 +369,7 @@ export async function DELETE(req: Request) {
       meta: JSON.stringify({ pspId }),
     });
 
-    return new Response(JSON.stringify({ status: "success", userId }), {
+    return new Response(JSON.stringify({ status: "success" as any, userId }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

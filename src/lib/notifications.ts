@@ -5,7 +5,7 @@ import { generateId } from "./utils";
 import { eq, and } from "drizzle-orm";
 
 export interface NotificationParams {
-  dbBinding: any;
+  dbBinding: D1Database;
   termiiApiKey: string;
   pspId: string;
   residentId: string | null;
@@ -23,17 +23,12 @@ export async function sendNotificationWithFallback(params: NotificationParams) {
   const logId = generateId();
   
   const isSystemNotification = params.messageType === "setup" || params.messageType === "due_invoice";
-  const costNgn = isSystemNotification ? 0.00 : (params.channel === "whatsapp" ? 12.00 : 4.00);
+  const costNgn = isSystemNotification ? 0.00 : 6.00;
   const cleanedPhone = params.phone.replace("+", "");
 
   try {
     const termii = new TermiiClient(params.termiiApiKey);
-    let result;
-    if (params.channel === "whatsapp") {
-      result = await termii.sendWhatsApp({ to: cleanedPhone, sms: params.messageText });
-    } else {
-      result = await termii.sendSMS({ to: cleanedPhone, sms: params.messageText });
-    }
+    const result = await termii.sendSMS({ to: cleanedPhone, sms: params.messageText });
 
     // Success log
     await db.insert(notificationLogs).values({
@@ -75,17 +70,17 @@ export async function sendNotificationWithFallback(params: NotificationParams) {
       messageText: params.messageText,
       attempts: 1,
       lastAttemptAt: new Date(),
-      error: err.message || "Unknown gateway error",
+      error: (err as Error).message || "Unknown gateway error",
     });
 
-    return { status: "queued", error: err.message };
+    return { status: "queued", error: (err as Error).message };
   }
 }
 
 /**
  * Cron trigger function to process all pending retries from D1
  */
-export async function processPendingRetries(dbBinding: any, termiiApiKey: string) {
+export async function processPendingRetries(dbBinding: D1Database, termiiApiKey: string) {
   const db = getDb(dbBinding);
 
   // Retrieve pending queue items where attempts < 5
@@ -104,16 +99,11 @@ export async function processPendingRetries(dbBinding: any, termiiApiKey: string
     }
 
     try {
-      let result;
-      if (item.channel === "whatsapp") {
-        result = await termii.sendWhatsApp({ to: item.recipientPhone, sms: item.messageText });
-      } else {
-        result = await termii.sendSMS({ to: item.recipientPhone, sms: item.messageText });
-      }
+      const result = await termii.sendSMS({ to: item.recipientPhone, sms: item.messageText });
 
       // Re-log success to notification logs
       const logId = generateId();
-      const costNgn = item.channel === "whatsapp" ? 12.00 : 4.00;
+      const costNgn = 6.00;
       await db.insert(notificationLogs).values({
         id: logId,
         pspId: item.pspId,
@@ -134,7 +124,7 @@ export async function processPendingRetries(dbBinding: any, termiiApiKey: string
         .set({
           attempts: item.attempts + 1,
           lastAttemptAt: new Date(),
-          error: err.message || "Unknown gateway error",
+          error: (err as Error).message || "Unknown gateway error",
         })
         .where(eq(pendingNotifications.id, item.id));
     }

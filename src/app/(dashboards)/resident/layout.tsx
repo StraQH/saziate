@@ -33,7 +33,7 @@ export default function ResidentLayout({ children }: { children: React.ReactNode
 
   return (
     <div className="app-shell pb-16 sm:pb-0">
-      {(user as any).mustChangePassword && <ForceChangePasswordModal />}
+      {(user as { mustChangePassword?: boolean }).mustChangePassword && <ForceChangePasswordModal />}
       <ResidentSidebar residentName={user.name || "Resident"} />
       <main className="main-content">
         <OfflineSyncBanner />

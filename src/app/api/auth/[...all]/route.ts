@@ -8,7 +8,7 @@ import { getAppEnv } from "@/lib/env";
 
 async function handleAuthRequest(request: Request) {
   const env = getAppEnv();
-  const dbBinding = env?.DB as D1Database;
+  const dbBinding = env?.DB as unknown as D1Database;
 
   if (!dbBinding) {
     return new Response(
@@ -20,8 +20,21 @@ async function handleAuthRequest(request: Request) {
   const url = new URL(request.url);
   const authInstance = getAuth(dbBinding, url.origin);
 
+  const ip = request.headers.get("x-forwarded-for") || "unknown";
+
   // Intercept sign-up and sign-in requests
   if (request.method === "POST") {
+    
+    if (url.pathname.includes("/api/auth/sign-in") || url.pathname.includes("/api/auth/sign-up")) {
+      const { checkRateLimit } = await import("@/lib/rate-limit");
+      const isAllowed = await checkRateLimit(ip, dbBinding, "auth", { max: 10, windowMs: 60000 });
+      if (!isAllowed) {
+        return new Response(JSON.stringify({ error: "Too many attempts. Please try again later." }), {
+          status: 429,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+    }
 
     // Intercept sign-in request to allow email OR phone number login
     if (url.pathname.endsWith("/api/auth/sign-in/email")) {
@@ -97,9 +110,9 @@ async function handleAuthRequest(request: Request) {
 export async function POST(request: Request) {
   try {
     return await handleAuthRequest(request);
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("[AUTH_POST_ERROR]", error instanceof Error ? error.stack : error);
-    const details = error instanceof Error ? error.message : String(error);
+    const details = error instanceof Error ? (error as Error).message : String(error);
     return new Response(
       JSON.stringify({ error: "Authentication failed", details }),
       { status: 500, statusText: "AUTH_HANDLER_ERROR", headers: { "Content-Type": "application/json" } }
@@ -110,9 +123,9 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   try {
     return await handleAuthRequest(request);
-  } catch (error: unknown) {
+  } catch (error: any) {
     console.error("[AUTH_GET_ERROR]", error instanceof Error ? error.stack : error);
-    const details = error instanceof Error ? error.message : String(error);
+    const details = error instanceof Error ? (error as Error).message : String(error);
     return new Response(
       JSON.stringify({ error: "Authentication failed", details }),
       { status: 500, statusText: "AUTH_HANDLER_ERROR", headers: { "Content-Type": "application/json" } }

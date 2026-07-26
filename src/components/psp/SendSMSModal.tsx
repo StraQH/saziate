@@ -9,11 +9,11 @@ interface SendSMSModalProps {
 
 export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalProps) {
   const [message, setMessage] = useState("");
-  const [channel, setChannel] = useState<"email" | "sms" | "whatsapp">("email");
+  const [channel, setChannel] = useState<"email" | "sms">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const costPerRecipient = channel === "whatsapp" ? 12.00 : channel === "sms" ? 4.00 : 0.00;
+  const costPerRecipient = channel === "sms" ? 6.00 : 0.00;
   const estimatedCost = residentIds.length * costPerRecipient;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,12 +39,12 @@ export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalPr
 
       if (!res.ok) {
         const errData = await res.json() as any;
-        throw new Error(errData.error || "Failed to send message");
+        throw new Error(String(errData.error || "Failed to send message"));
       }
 
       onSuccess();
     } catch (err: any) {
-      setError(err.message);
+      setError((err as Error).message);
       setLoading(false);
     }
   };
@@ -84,12 +84,11 @@ export function SendSMSModal({ residentIds, onClose, onSuccess }: SendSMSModalPr
             <select 
               className="form-input" 
               value={channel} 
-              onChange={(e) => setChannel(e.target.value as any)}
+              onChange={(e) => setChannel(e.target.value as never)}
               style={{ padding: "0.5rem" }}
             >
               <option value="email">Email (Free)</option>
-              <option value="sms">SMS (₦4.00 per recipient)</option>
-              <option value="whatsapp">WhatsApp (₦12.00 per recipient)</option>
+              <option value="sms">SMS (₦6.00 per recipient)</option>
             </select>
           </div>
 

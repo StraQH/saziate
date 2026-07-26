@@ -59,8 +59,8 @@ export default function SignupPage() {
       }
 
       router.push("/psp");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "An unexpected signup error occurred.";
+    } catch (err: any) {
+      const message = err instanceof Error ? (err as Error).message : "An unexpected signup error occurred.";
       setError(message);
     } finally {
       setLoading(false);

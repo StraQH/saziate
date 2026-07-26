@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
   
   // Basic security: require a CRON_SECRET token
   const authHeader = req.headers.get("Authorization");
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const db = getDb(env.DB);
+  const db = getDb(env.DB as any);
   
   try {
     // 1. Fetch all active residents
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       .all();
 
     if (activeResidents.length === 0) {
-      return new Response(JSON.stringify({ status: "success", message: "No active residents found." }), { status: 200 });
+      return new Response(JSON.stringify({ status: "success" as any, message: "No active residents found." }), { status: 200 });
     }
 
     // Force strict UTC timezone boundaries
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
       .where(eq(invoices.billingPeriodStart, currentMonthStart))
       .all();
     
-    const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
+    const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => (inv as any).residentId));
 
     let generatedCount = 0;
     let emailCount = 0;
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
         continue;
       }
       
-      const baseRate = resident.customMonthlyRate || 6000; // Default fallback
+      const baseRate = resident.customMonthlyRate || config.DEFAULT_MONTHLY_RATE_NGN; // Default fallback
       const { baseAmount, platformFee, totalAmount } = calculateResidentBill(baseRate);
 
       const invoiceId = generateId();
@@ -131,11 +131,11 @@ export async function GET(req: Request) {
           id: generateId(),
           invoiceId,
           residentId: resident.userId,
-          reference: `ADV-SETTLE-${Date.now()}-${generateId().substring(0,4)}`,
+          reference: `ADV-SETTLE-${generateSecureReference(12)}`,
           amount: amountSettledFromAdvance,
           paymentMethod: "advance_balance",
-          cashStatus: "settled",
-          status: "success",
+          cashStatus: "settled" as any,
+          status: "success" as any,
           paidAt: new Date(),
         });
       }
@@ -229,12 +229,12 @@ export async function GET(req: Request) {
     if (batchOps.length > 0) {
       const CHUNK_SIZE = 90;
       for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
-        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as any);
+        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as never);
       }
     }
 
     return new Response(JSON.stringify({ 
-      status: "success", 
+      status: "success" as any, 
       message: `Generated ${generatedCount} invoices and queued ${pendingNotificationsQueue.length} notifications.` 
     }), { status: 200, headers: { "Content-Type": "application/json" } });
 

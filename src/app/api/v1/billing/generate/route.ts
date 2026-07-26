@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { getActivePspId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { z } from "zod";
-
+import { config } from "@/lib/config";
 
 const generateBillingSchema = z.object({
   year: z.number().int().min(2000).max(2100),
@@ -14,13 +14,13 @@ const generateBillingSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
     
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = generateBillingSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       return new Response("Cannot generate invoices for future billing periods.", { status: 400 });
     }
 
-    const pspId = await getActivePspId(req, env.DB);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
         eq(invoices.billingPeriodStart, new Date(billingPeriodStart))
       ));
     
-    const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
+    const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => (inv as any).residentId));
 
     const newInvoices: any[] = [];
     const newTransactions: any[] = [];
@@ -85,8 +85,8 @@ export async function POST(req: Request) {
         continue;
       }
       // Base rate fallback or override check
-      const baseRate = profile.customMonthlyRate || profile.routeMonthlyRate || 6000;
-      const platformFee = Math.round((baseRate * 0.05) * 100) / 100;
+      const baseRate = profile.customMonthlyRate || profile.routeMonthlyRate || config.DEFAULT_MONTHLY_RATE_NGN;
+      const platformFee = Math.round((baseRate * config.PLATFORM_FEE_RATE) * 100) / 100;
       const totalAmount = Math.round((baseRate + platformFee) * 100) / 100;
 
       const advanceBalance = Math.round((profile.advancePaymentBalance || 0) * 100) / 100;
@@ -140,8 +140,8 @@ export async function POST(req: Request) {
           reference: `ADV-SETTLE-${Date.now()}-${generateId().slice(0,4)}`,
           amount: amountSettledFromAdvance,
           paymentMethod: "advance_balance",
-          cashStatus: "settled",
-          status: "success",
+          cashStatus: "settled" as any,
+          status: "success" as any,
           paidAt: new Date(),
         });
       }
@@ -180,7 +180,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         invoicesCreatedCount: newInvoices.length,
       }),
       { status: 201, headers: { "Content-Type": "application/json" } }

@@ -12,17 +12,17 @@ const cancelInvoiceSchema = z.object({
 });
 
 export async function PATCH(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = cancelInvoiceSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -65,7 +65,7 @@ export async function PATCH(req: Request) {
     refundAmount = Math.round(refundAmount * 100) / 100;
 
     // Execute mutations inside a transaction block
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       if (refundAmount > 0) {
         const profile = await tx
           .select()
@@ -84,7 +84,7 @@ export async function PATCH(req: Request) {
             residentId: profile.userId,
             reference: `REFUND-${Date.now()}-${generateId().slice(0, 4)}`,
             amount: refundAmount,
-            status: "success",
+            status: "success" as any,
             paymentMethod: "advance_surplus",
             paidAt: new Date(),
           });
@@ -97,7 +97,7 @@ export async function PATCH(req: Request) {
         .where(eq(invoices.id, invoiceId));
     });
 
-    return new Response(JSON.stringify({ status: "success", message: "Invoice cancelled." }), {
+    return new Response(JSON.stringify({ status: "success" as any, message: "Invoice cancelled." }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

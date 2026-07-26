@@ -8,7 +8,7 @@ import { config } from "@/lib/config";
 import { generateId } from "@/lib/utils";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
   
   // Basic security: require a CRON_SECRET token
   const authHeader = req.headers.get("Authorization");
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const db = getDb(env.DB);
+  const db = getDb(env.DB as any);
   
   try {
     // 1. Fetch up to 100 pending notifications that haven't failed more than 3 times
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       .limit(100);
 
     if (queue.length === 0) {
-      return new Response(JSON.stringify({ status: "success", message: "Queue is empty." }), { status: 200 });
+      return new Response(JSON.stringify({ status: "success" as any, message: "Queue is empty." }), { status: 200 });
     }
 
     let successCount = 0;
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     for (let i = 0; i < queue.length; i += BATCH_SIZE) {
       const batch = queue.slice(i, i + BATCH_SIZE);
       
-      await Promise.allSettled(batch.map(async (notification: any) => {
+      await Promise.allSettled(batch.map(async (notification) => {
         try {
           if (notification.channel === "email") {
             const { subject, html } = JSON.parse(notification.messageText);
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
           } else {
             // SMS / WhatsApp fallback
             await sendNotificationWithFallback({
-              dbBinding: env.DB,
+              dbBinding: env.DB as any,
               termiiApiKey: env.TERMII_API_KEY || "",
               pspId: notification.pspId,
               residentId: notification.residentId || "",
@@ -87,7 +87,7 @@ export async function GET(req: Request) {
             .set({ 
               attempts: notification.attempts + 1, 
               lastAttemptAt: new Date(),
-              error: error.message || "Unknown error"
+              error: (error as Error).message || "Unknown error"
             })
             .where(eq(pendingNotifications.id, notification.id));
             
@@ -106,7 +106,7 @@ export async function GET(req: Request) {
     }
     
     return new Response(JSON.stringify({ 
-      status: "success", 
+      status: "success" as any, 
       message: `Dispatched ${successCount} successfully. Failed: ${failCount}.` 
     }), { status: 200, headers: { "Content-Type": "application/json" } });
 

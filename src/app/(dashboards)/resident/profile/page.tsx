@@ -68,7 +68,7 @@ export default function ResidentProfilePage() {
       setPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+      setError((err as Error).message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

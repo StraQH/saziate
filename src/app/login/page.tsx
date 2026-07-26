@@ -59,8 +59,8 @@ export default function LoginPage() {
       else if (role === "field_agent") router.push("/agent");
       else if (role === "resident") router.push("/resident");
       else router.push("/psp");
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Sign in failed. Check credentials.";
+    } catch (err: any) {
+      const message = err instanceof Error ? (err as Error).message : "Sign in failed. Check credentials.";
       setError(message);
     } finally {
       setLoading(false);
@@ -173,7 +173,10 @@ export default function LoginPage() {
             </div>
 
             <div className="form-group">
-              <label className="label">Password</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label className="label">Password</label>
+                <Link href="/forgot-password" style={{ fontSize: "0.875rem", color: "var(--color-primary, #2563eb)", textDecoration: "none" }}>Forgot password?</Link>
+              </div>
               <div style={{ position: "relative" }}>
                 <input
                   type="password"

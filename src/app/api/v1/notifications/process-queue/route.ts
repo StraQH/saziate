@@ -4,7 +4,7 @@ import { config } from "@/lib/config";
 
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -18,11 +18,11 @@ export async function POST(req: Request) {
     if (!termiiKey) {
       throw new Error("TERMII_API_KEY is required.");
     }
-    await processPendingRetries(env.DB, termiiKey);
+    await processPendingRetries(env.DB as any, termiiKey);
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Pending notification retry queue processed.",
       }),
       {

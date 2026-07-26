@@ -6,8 +6,8 @@ import { config } from "@/lib/config";
 
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Overdue invoices processed successfully.",
       }),
       {

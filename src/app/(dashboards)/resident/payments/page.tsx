@@ -23,7 +23,7 @@ export default function ResidentPaymentsPage() {
     try {
       const res = await fetch("/api/v1/resident/payments");
       if (res.ok) {
-        const body = await res.json() as Transaction[];
+        const body = await res.json() as any as Transaction[];
         setPayments(body);
       }
     } catch (err) {

@@ -45,7 +45,7 @@ export function AdvancePaymentModal({ onClose, onSuccess }: AdvancePaymentModalP
 
       onSuccess();
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+      setError((err as Error).message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

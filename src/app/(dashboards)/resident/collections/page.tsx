@@ -21,7 +21,7 @@ export default function ResidentCollectionsPage() {
     try {
       const res = await fetch("/api/v1/resident/collections");
       if (res.ok) {
-        const body = await res.json() as Collection[];
+        const body = await res.json() as any as Collection[];
         setCollections(body);
       }
     } catch (err) {

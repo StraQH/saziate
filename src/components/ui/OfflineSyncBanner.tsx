@@ -27,8 +27,8 @@ export function OfflineSyncBanner() {
       setSyncing(true);
       try {
         const reg = await navigator.serviceWorker.ready;
-        if ((reg as any).sync) {
-          await (reg as any).sync.register("sync-collections");
+        if ((reg as ServiceWorkerRegistration & { sync?: any }).sync) {
+          await (reg as ServiceWorkerRegistration & { sync?: any }).sync.register("sync-collections");
           // check if synced
           setTimeout(async () => {
             const logs = await getOfflineLogs();

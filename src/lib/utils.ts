@@ -15,13 +15,15 @@ export function formatNaira(amount: number): string {
   }).format(amount);
 }
 
+import { config } from "./config";
+
 /** Calculate resident-facing bill from PSP base rate (adds Saziate 5% fee) */
 export function calculateResidentBill(baseRate: number): {
   baseAmount: number;
   platformFee: number;
   totalAmount: number;
 } {
-  const platformFee = parseFloat((baseRate * 0.05).toFixed(2));
+  const platformFee = parseFloat((baseRate * config.PLATFORM_FEE_RATE).toFixed(2));
   const totalAmount = parseFloat((baseRate + platformFee).toFixed(2));
   return { baseAmount: baseRate, platformFee, totalAmount };
 }

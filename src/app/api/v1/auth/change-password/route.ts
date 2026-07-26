@@ -5,11 +5,11 @@ import { users, accounts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    const betterAuth = auth(env.DB);
+    const betterAuth = auth(env.DB as any);
     const session = await betterAuth.api.getSession({
       headers: req.headers,
     });
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     const userId = session.user.id;
-    const { newPassword } = await req.json() as { newPassword?: string };
+    const { newPassword } = await req.json() as any as { newPassword?: string };
 
     if (!newPassword || newPassword.length < 6) {
       return new Response("Password must be at least 6 characters.", { status: 400 });
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Password updated successfully.",
       }),
       {

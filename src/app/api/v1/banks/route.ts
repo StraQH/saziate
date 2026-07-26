@@ -32,7 +32,7 @@ const MOCK_BANKS = [
 ];
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
 
   if (config.isMockMode) {
     return new Response(JSON.stringify(MOCK_BANKS), {

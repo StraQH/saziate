@@ -1,38 +1,60 @@
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
-import { psps, transactions, auditLogs, invoices, notificationLogs, users } from "@/db/schema";
+import { psps, transactions, auditLogs, invoices, notificationLogs, users, accounts } from "@/db/schema";
 import { eq, and, like, inArray } from "drizzle-orm";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 import { z } from "zod";
-
+import { verifyPassword } from "@/lib/hash";
 
 const payoutSchema = z.object({
   amount: z.number().positive().transform(val => Math.round(val * 100) / 100),
+  password: z.string().min(1, "Password is required"),
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    const sessionResponse = await requireRole(req, env.DB, ["psp_operator"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["psp_operator"]);
     const pspId = (sessionResponse.user as any).pspId;
 
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = payoutSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
 
-    const { amount } = parsed.data;
+    const { amount, password } = parsed.data;
+
+    // Verify confirmation password
+    if (!config.isMockMode) {
+      const userRecord = await db
+        .select({ password: accounts.password })
+        .from(accounts)
+        .where(and(
+          eq(accounts.userId, sessionResponse.user.id),
+          inArray(accounts.providerId, ["email", "credential"])
+        ))
+        .get();
+
+      if (!userRecord || !userRecord.password) {
+        return new Response("Unauthorized.", { status: 401 });
+      }
+
+      const isPasswordCorrect = await verifyPassword(password, userRecord.password);
+      if (!isPasswordCorrect) {
+        return new Response("Incorrect authorization password.", { status: 401 });
+      }
+    }
 
     // Get PSP details to verify settlement account
     const psp = await db
@@ -50,7 +72,7 @@ export async function POST(req: Request) {
 
     try {
       // 1. Check balance and reserve inside Drizzle transaction
-      await db.transaction(async (tx: any) => {
+      await db.transaction(async (tx) => {
         const digitalTxs = await tx
           .select({ amount: transactions.amount })
           .from(transactions)
@@ -61,8 +83,8 @@ export async function POST(req: Request) {
             eq(transactions.status, "success")
           ))
           .all();
-        const totalDigitalCollections = digitalTxs.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-        const pspDigitalEntitlement = totalDigitalCollections / 1.05;
+        const totalDigitalCollections = digitalTxs.reduce((sum: number, t) => sum + (t.amount || 0), 0);
+        const pspDigitalEntitlement = totalDigitalCollections / config.PLATFORM_FEE_DIVISOR;
 
         const cashTxs = await tx
           .select({ amount: transactions.amount })
@@ -74,26 +96,26 @@ export async function POST(req: Request) {
             inArray(transactions.cashStatus, ["verified", "settled"])
           ))
           .all();
-        const totalCashCollections = cashTxs.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-        const saziateCashFee = totalCashCollections - (totalCashCollections / 1.05);
+        const totalCashCollections = cashTxs.reduce((sum: number, t) => sum + (t.amount || 0), 0);
+        const saziateCashFee = totalCashCollections - (totalCashCollections / config.PLATFORM_FEE_DIVISOR);
 
         const pastPayouts = await tx
           .select({ amount: transactions.amount })
           .from(transactions)
           .where(and(
-            eq(transactions.residentId, psp.id),
+            eq(transactions.pspId, psp.id),
             like(transactions.reference, "PAYOUT-%"),
             inArray(transactions.status, ["initiated", "success"])
           ))
           .all();
-        const totalPaidOut = pastPayouts.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+        const totalPaidOut = pastPayouts.reduce((sum: number, t) => sum + (t.amount || 0), 0);
 
         const notificationCosts = await tx
           .select({ costNgn: notificationLogs.costNgn })
           .from(notificationLogs)
           .where(eq(notificationLogs.pspId, psp.id))
           .all();
-        const totalNotificationCosts = notificationCosts.reduce((sum: number, log: any) => sum + (log.costNgn || 0), 0);
+        const totalNotificationCosts = notificationCosts.reduce((sum: number, log) => sum + (log.costNgn || 0), 0);
 
         // Standardize calculations with 2 decimal precision
         const roundedDigital = Math.round(pspDigitalEntitlement * 100) / 100;
@@ -107,20 +129,23 @@ export async function POST(req: Request) {
           throw new Error("INSUFFICIENT_BALANCE");
         }
 
-        // Insert the initiated transaction to lock the balance
+        // Insert the initiated transaction to lock the balance.
+        // residentId stores the operator's user ID (satisfies NOT NULL FK), while
+        // pspId is the authoritative field for all payout lookups.
         await tx.insert(transactions).values({
           id: txId,
-          residentId: psp.id,
+          pspId: psp.id,
+          residentId: sessionResponse.user.id,
           reference,
           amount,
-          paymentMethod: "bank_transfer",
+          paymentMethod: "bank_transfer" as any,
           status: "initiated",
-          cashStatus: "settled",
+          cashStatus: "settled" as any,
           paidAt: new Date(),
         });
       });
     } catch (txErr: any) {
-      if (txErr.message === "INSUFFICIENT_BALANCE") {
+      if ((txErr as any).message === "INSUFFICIENT_BALANCE") {
         return new Response("Insufficient balance. Transaction aborted.", { status: 400 });
       }
       throw txErr;
@@ -128,7 +153,7 @@ export async function POST(req: Request) {
 
     // 2. Proceed with Paystack Transfer
     let isSuccess = false;
-    if (!config.isMockMode && process.env.NODE_ENV !== "development") {
+    if (!config.isMockMode) {
       if (!env.PAYSTACK_SECRET_KEY) {
         await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));
         return new Response("Payment provider not configured.", { status: 500 });
@@ -181,7 +206,7 @@ export async function POST(req: Request) {
     }
 
     if (isSuccess) {
-      await db.transaction(async (tx: any) => {
+      await db.transaction(async (tx) => {
         await tx.update(transactions).set({ status: "success" }).where(eq(transactions.id, txId));
         await tx.insert(auditLogs).values({
           id: generateId(),
@@ -208,7 +233,7 @@ export async function POST(req: Request) {
       }
     }
 
-    return new Response(JSON.stringify({ status: "success", message: "Payout initiated successfully." }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ status: "success" as any, message: "Payout initiated successfully." }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
     console.error("Payout Error:", error);
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });

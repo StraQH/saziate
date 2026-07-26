@@ -31,7 +31,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="app-shell pb-16 sm:pb-0">
-      {(user as any).mustChangePassword && <ForceChangePasswordModal />}
+      {(user as { mustChangePassword?: boolean }).mustChangePassword && <ForceChangePasswordModal />}
       <AgentSidebar agentName={user.name || "Field Agent"} />
       <main className="main-content">
         <OfflineSyncBanner />

@@ -64,7 +64,7 @@ export default function PSPDashboardPage() {
 
     setLoading(true);
     fetch("/api/v1/psp/metrics")
-      .then((res) => res.json())
+      .then((res) => res.json() as any)
       .then((data: any) => {
         setMetrics(data.metrics || []);
         setIsDvaPending(data.isDvaPending || false);
@@ -169,7 +169,7 @@ export default function PSPDashboardPage() {
                     />
                     <Tooltip 
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value: any) => [`₦${Number(value).toLocaleString()}`, 'Revenue']}
+                      formatter={(value) => [`₦${Number(value).toLocaleString()}`, 'Revenue']}
                     />
                     <Area 
                       type="monotone" 

@@ -13,14 +13,14 @@ const verifySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
     // Only agents and operators can manually trigger verification
-    await requireRole(req, env.DB, ["field_agent", "psp_operator"]);
+    await requireRole(req, env.DB as any, ["field_agent", "psp_operator"]);
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = verifySchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -45,12 +45,12 @@ export async function POST(req: Request) {
       return new Response("Failed to verify transaction with Paystack.", { status: 400 });
     }
 
-    const verifyData = await verifyRes.json() as any;
-    if (!verifyData.status || verifyData.data.status !== "success") {
+    const verifyData = await verifyRes.json() as unknown;
+    if (!(verifyData as any).status || (verifyData as any).data.status !== "success") {
       return new Response(JSON.stringify({ status: "failed", message: "Transaction is not successful on Paystack." }), { status: 400 });
     }
 
-    const narration = verifyData.data.metadata?.custom_fields?.[0]?.value || verifyData.data.reference;
+    const narration = (verifyData as any).data.metadata?.custom_fields?.[0]?.value || (verifyData as any).data.reference;
     const match = narration.match(/\b[a-f0-9]{10}\b/i);
     const paymentRef = match ? match[0] : null;
 
@@ -69,20 +69,20 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ status: "failed", message: "Matching invoice not found for this reference." }), { status: 404 });
     }
 
-    const amountInNaira = Math.round(verifyData.data.amount) / 100;
+    const amountInNaira = Math.round((verifyData as any).data.amount) / 100;
     const txId = generateId();
 
     // Perform database operations within a Drizzle transaction
-    await db.transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       // 1. Insert transaction with EXACT amount from Paystack
       await tx.insert(transactions).values({
         id: txId,
         invoiceId: invoice.id,
         residentId: invoice.residentId,
-        reference: verifyData.data.reference,
+        reference: (verifyData as any).data.reference,
         amount: amountInNaira,
-        status: "success",
-        paymentMethod: "bank_transfer",
+        status: "success" as any,
+        paymentMethod: "bank_transfer" as any,
         paidAt: new Date(),
       });
 
@@ -112,9 +112,9 @@ export async function POST(req: Request) {
               await tx.insert(transactions).values({
                 id: generateId(),
                 residentId: profile.userId,
-                reference: `${verifyData.data.reference}-SURPLUS`,
+                reference: `${(verifyData as any).data.reference}-SURPLUS`,
                 amount: surplus,
-                status: "success",
+                status: "success" as any,
                 paymentMethod: "advance_surplus",
                 paidAt: new Date(),
               });
@@ -145,29 +145,29 @@ export async function POST(req: Request) {
           await tx.insert(transactions).values({
             id: generateId(),
             residentId: profile.userId,
-            reference: `${verifyData.data.reference}-SURPLUS`,
+            reference: `${(verifyData as any).data.reference}-SURPLUS`,
             amount: amountInNaira,
-            status: "success",
+            status: "success" as any,
             paymentMethod: "advance_surplus",
             paidAt: new Date(),
           });
         }
       }
 
-      const session = await auth(env.DB).api.getSession({ headers: req.headers });
+      const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
       await tx.insert(auditLogs).values({
         id: generateId(),
         actorId: session?.user?.id || "unknown",
         action: "invoice.reconciled",
         entityType: "invoice",
         entityId: invoice.id,
-        meta: JSON.stringify({ txId, reference: verifyData.data.reference, method: "manual_verify" }),
+        meta: JSON.stringify({ txId, reference: (verifyData as any).data.reference, method: "manual_verify" }),
       });
     });
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Transaction verified and invoice reconciled.",
       }),
       {

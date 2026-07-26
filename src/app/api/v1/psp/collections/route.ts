@@ -6,13 +6,13 @@ import { getActivePspId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator", "field_agent"]);
+    await requireRole(req, env.DB as any, ["psp_operator", "field_agent"]);
 
-    const betterAuth = auth(env.DB);
+    const betterAuth = auth(env.DB as any);
     const session = await betterAuth.api.getSession({ headers: req.headers });
     if (!session || !session.user) {
       return new Response("Unauthorized.", { status: 401 });
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
         });
       }
 
-      const routeIds = agentRoutes.map((r: any) => r.id);
+      const routeIds = agentRoutes.map((r) => r.id);
 
       // 2. Get residents assigned to these routes
       const routeResList = await db
@@ -93,10 +93,10 @@ export async function GET(req: Request) {
         )
         .all();
 
-      const logsMap = new Map<string, any>(logsToday.map((l: any) => [l.residentId, l]));
+      const logsMap = new Map<string, any>(logsToday.map((l) => [l.residentId, l]));
 
-      const formattedResults = routeResList.map((r: any) => {
-        const log = logsMap.get(r.residentId) as any;
+      const formattedResults = routeResList.map((r) => {
+        const log = logsMap.get(r.residentId) as any | undefined;
         return {
           id: r.residentId,
           residentName: r.residentName,
@@ -129,7 +129,7 @@ export async function GET(req: Request) {
     }
 
     // Default flow for psp_operator (historical log listing)
-    const pspId = await getActivePspId(req, env.DB);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -171,7 +171,7 @@ export async function GET(req: Request) {
       
     const totalCount = Number(countResult?.count || 0);
 
-    const formattedResults = results.map((c: any) => ({
+    const formattedResults = results.map((c) => ({
       id: c.id,
       residentName: c.residentName,
       address: c.address,

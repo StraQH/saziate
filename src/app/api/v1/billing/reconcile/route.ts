@@ -10,17 +10,17 @@ import { generateId } from "@/lib/utils";
 
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const { invoiceId } = await req.json() as { invoiceId: string };
+    const { invoiceId } = await req.json() as any as { invoiceId: string };
     if (!invoiceId) {
       return new Response("Missing invoice ID.", { status: 400 });
     }
@@ -44,10 +44,10 @@ export async function POST(req: Request) {
     const txId = generateId();
     const paystackRef = `MAN-REC-${Date.now()}`;
 
-    // Mark invoice paid
+    // Mark invoice paid and zero out totalAmount to be consistent with all other payment paths
     await db
       .update(invoices)
-      .set({ status: "paid" })
+      .set({ status: "paid", totalAmount: 0 })
       .where(eq(invoices.id, invoiceId));
 
     // Record successful transaction
@@ -57,13 +57,13 @@ export async function POST(req: Request) {
       residentId: invoice.residentId,
       reference: paystackRef,
       amount: invoice.totalAmount,
-      status: "success",
+      status: "success" as any,
       paymentMethod: "cash",
-      cashStatus: "settled",
+      cashStatus: "settled" as any,
       paidAt: new Date(),
     });
 
-    const session = await auth(env.DB).api.getSession({ headers: req.headers });
+    const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
       id: generateId(),
       actorId: session?.user?.id || pspId,
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Invoice successfully reconciled and marked as paid.",
         transaction: { id: txId, reference: paystackRef },
       }),

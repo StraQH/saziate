@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { formatNaira } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -46,6 +47,7 @@ interface DashboardData {
 }
 
 export default function ResidentDashboard() {
+  const { toast } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -56,7 +58,7 @@ export default function ResidentDashboard() {
     try {
       const res = await fetch("/api/v1/resident/dashboard");
       if (res.ok) {
-        const body = await res.json() as DashboardData;
+        const body = await res.json() as any as DashboardData;
         setData(body);
       }
     } catch (err) {
@@ -118,9 +120,9 @@ export default function ResidentDashboard() {
           onSuccess={(mockUrl) => {
             setShowTopUp(false);
             if (mockUrl) {
-              alert(`Simulated Top-Up Success! Paystack Redirect: ${mockUrl}`);
+              toast(`Simulated Top-Up Success! Paystack Redirect: ${mockUrl}`, "success");
             } else {
-              alert("Top-Up Successful!");
+              toast("Top-Up Successful!", "success");
             }
             fetchDashboardData();
           }}

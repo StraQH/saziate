@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { MessageSquare, AlertCircle, Clock, CheckCircle, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { config } from "@/lib/config";
 
 export default function PSPComplaintsPage() {
+  const { toast } = useToast();
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -62,7 +64,7 @@ export default function PSPComplaintsPage() {
 
   const handleUpdateStatus = async (complaintId: string, newStatus: string) => {
     if (config.isMockMode) {
-      alert(`Status updated to ${newStatus} in mock mode.`);
+      toast(`Status updated to ${newStatus} in mock mode.`, "info");
       setComplaints(complaints.map(c => c.id === complaintId ? { ...c, status: newStatus } : c));
       return;
     }
@@ -74,15 +76,15 @@ export default function PSPComplaintsPage() {
         body: JSON.stringify({ complaintId, status: newStatus }),
       });
       if (res.ok) {
-        alert("Complaint status updated.");
+        toast("Complaint status updated.", "info");
         fetchComplaints();
       } else {
         const text = await res.text();
-        alert(`Error: ${text}`);
+        toast(`Error: ${text}`, "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to update status.");
+      toast("Failed to update status.", "error");
     }
   };
 

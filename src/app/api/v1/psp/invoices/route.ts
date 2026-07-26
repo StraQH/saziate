@@ -5,12 +5,12 @@ import { eq, and, sql, like } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -60,16 +60,16 @@ export async function GET(req: Request) {
       
     const totalCount = Number(countResult?.count || 0);
 
-    const formattedResults = results.map((inv: any) => ({
-      id: inv.id,
-      residentName: inv.residentName,
-      referenceCode: inv.paymentReference || inv.id,
-      baseAmount: inv.baseAmount,
-      platformFee: inv.platformFee,
-      totalAmount: inv.totalAmount,
-      dueDate: new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-      status: inv.status,
-      billingPeriod: new Date(inv.billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+    const formattedResults = results.map((inv) => ({
+      id: (inv as any).id,
+      residentName: (inv as any).residentName,
+      referenceCode: (inv as any).paymentReference || (inv as any).id,
+      baseAmount: (inv as any).baseAmount,
+      platformFee: (inv as any).platformFee,
+      totalAmount: (inv as any).totalAmount,
+      dueDate: new Date((inv as any).dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      status: (inv as any).status,
+      billingPeriod: new Date((inv as any).billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
     }));
 
     return new Response(JSON.stringify({

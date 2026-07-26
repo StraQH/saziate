@@ -14,12 +14,12 @@ export class TermiiClient {
 
   constructor(apiKey: string) {
     if (!apiKey) {
-      throw new Error("Termii API Key is required.");
+      throw new Error(String("Termii API Key is required."));
     }
     this.apiKey = apiKey;
   }
 
-  private async request<T>(endpoint: string, payload: any): Promise<T> {
+  private async request<T>(endpoint: string, payload: Record<string, unknown>): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: "POST",
       headers: {
@@ -34,7 +34,7 @@ export class TermiiClient {
     const data = await response.json() as any;
 
     if (!response.ok) {
-      throw new Error(data.message || `Termii API error: ${response.statusText}`);
+      throw new Error(String(data.message || `Termii API error: ${response.statusText}`));
     }
 
     return data as T;

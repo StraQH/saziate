@@ -127,9 +127,9 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
       }
 
       const resBody = await response.json() as any;
-      onSuccess(resBody.resident);
+      onSuccess(resBody.resident as any);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+      setError((err as Error).message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -277,7 +277,7 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
             <select
               className="select"
               value={billingModel}
-              onChange={(e) => setBillingModel(e.target.value as any)}
+              onChange={(e) => setBillingModel(e.target.value as never)}
             >
               <option value="subscription">Subscription (Flat Monthly Rate)</option>
               <option value="on_demand">On-Demand (Pay-As-You-Go)</option>

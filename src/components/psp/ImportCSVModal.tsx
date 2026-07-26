@@ -62,6 +62,8 @@ export function ImportCSVModal({ onClose, onSuccess }: ImportCSVModalProps) {
         const phoneIndex = headers.indexOf("phone");
         const addressIndex = headers.indexOf("address");
         const routeIndex = headers.indexOf("route");
+        const wardIndex = headers.indexOf("ward");
+        const lgaIndex = headers.indexOf("lga");
         const categoryIndex = headers.indexOf("category");
         const rateIndex = headers.indexOf("rate");
 
@@ -71,20 +73,22 @@ export function ImportCSVModal({ onClose, onSuccess }: ImportCSVModalProps) {
           const cols = lines[i].split(",").map((c) => c.trim());
           if (cols.length < requiredHeaders.length) continue;
 
-          const baseRate = rateIndex !== -1 ? parseFloat(cols[rateIndex]) || 6000 : 6000;
+          const baseRate = rateIndex !== -1 ? parseFloat(cols[rateIndex]) || config.DEFAULT_MONTHLY_RATE_NGN : config.DEFAULT_MONTHLY_RATE_NGN;
           parsedResidents.push({
             name: cols[nameIndex] || "Unknown Resident",
             email: cols[emailIndex] || "",
             phone: cols[phoneIndex] || "",
             address: cols[addressIndex] || "",
             route: cols[routeIndex] || "",
+            ward: wardIndex !== -1 ? cols[wardIndex] : "",
+            lga: lgaIndex !== -1 ? cols[lgaIndex] : "",
             billingCategory: (categoryIndex !== -1 ? cols[categoryIndex] : "residential") || "residential",
             baseRate,
           });
         }
 
         if (config.isMockMode) {
-          const mockData = parsedResidents.map((r, i) => ({
+          const mockData = parsedResidents.map((r: any, i: number) => ({
             ...r,
             id: crypto.randomUUID(),
             isOverride: false,
@@ -116,7 +120,7 @@ export function ImportCSVModal({ onClose, onSuccess }: ImportCSVModalProps) {
           onSuccess(resBody.residents);
         }, 1500);
       } catch (err: any) {
-        setError(err.message || "Failed to process the CSV file. Please check its formatting.");
+        setError((err as Error).message || "Failed to process the CSV file. Please check its formatting.");
       } finally {
         setLoading(false);
       }

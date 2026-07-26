@@ -87,7 +87,7 @@ export default function AdminDashboardPage() {
       const res = await fetch("/api/v1/admin/psps");
       if (res.ok) {
         const body = await res.json() as any[];
-        const mapped: OnboardedPSP[] = body.map((item) => ({
+        const mapped: OnboardedPSP[] = body.map((item: any) => ({
           id: item.id,
           name: item.name,
           rcNumber: item.rcNumber || "N/A",
@@ -113,8 +113,8 @@ export default function AdminDashboardPage() {
            setAuditLogs(data as AuditLog[]);
         } else {
            setAuditLogs(data.data as AuditLog[]);
-           setAuditTotalPages(data.totalPages);
-           setAuditTotalCount(data.totalCount);
+           setAuditTotalPages(Number(data.totalPages));
+           setAuditTotalCount(Number(data.totalCount));
         }
       }
     } catch (err) {
@@ -128,8 +128,8 @@ export default function AdminDashboardPage() {
       const res = await fetch("/api/v1/admin/metrics");
       if (res.ok) {
         const body = await res.json() as any;
-        setTotalVolume(body.totalPlatformVolume || 0);
-        setSaziateRevenue(body.saziateRevenue || 0);
+        setTotalVolume(Number(body.totalPlatformVolume) || 0);
+        setSaziateRevenue(Number(body.saziateRevenue) || 0);
       }
     } catch (err) {
       console.error(err);

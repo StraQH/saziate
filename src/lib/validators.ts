@@ -101,6 +101,7 @@ export const pspSettingsSchema = z.object({
   settlementBankCode: z.string().optional(),
   settlementAccountNumber: z.string().optional(),
   settlementAccountName: z.string().optional(),
+  password: z.string().min(1, "Password confirmation is required"),
 });
 
 // Admin

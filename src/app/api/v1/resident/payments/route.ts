@@ -9,16 +9,16 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["resident"]);
+    await requireRole(req, env.DB as any, ["resident"]);
     let residentId = "";
     if (config.isMockMode) {
       residentId = "r1";
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -38,15 +38,15 @@ export async function GET(req: Request) {
             id: "tx-001",
             reference: "PAYSTACK-9902341",
             amount: 6300,
-            status: "success",
-            paymentMethod: "bank_transfer",
+            status: "success" as any,
+            paymentMethod: "bank_transfer" as any,
             paidAt: "26 Jun 2026",
           },
           {
             id: "tx-002",
             reference: "CASH-29104",
             amount: 6300,
-            status: "success",
+            status: "success" as any,
             paymentMethod: "cash",
             paidAt: "25 May 2026",
           },
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
       .orderBy(transactions.createdAt)
       .all();
 
-    const formatted = results.map((tx: any) => ({
+    const formatted = results.map((tx) => ({
       id: tx.id,
       reference: tx.reference,
       amount: tx.amount,

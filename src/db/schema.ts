@@ -64,6 +64,19 @@ export const verifications = sqliteTable("verifications", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(sql`(unixepoch() * 1000)`),
 });
 
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull(),
+  windowStart: integer("window_start", { mode: "timestamp_ms" }).notNull(),
+});
+
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  token: text("token").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
+});
+
 // ─── PSP Operators ─────────────────────────────────────────────────────────
 
 export const psps = sqliteTable("psps", {
@@ -180,10 +193,11 @@ export const transactions = sqliteTable("transactions", {
   id: text("id").primaryKey(),
   invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
   residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  pspId: text("psp_id").references(() => psps.id, { onDelete: "cascade" }), // used for payouts
   reference: text("reference").notNull().unique(), // Paystack ref or "CASH-xxx"
   amount: real("amount").notNull(),
   status: text("status", { enum: ["initiated", "success", "failed"] }).notNull().default("initiated"),
-  paymentMethod: text("payment_method", { enum: ["bank_transfer", "cash"] }).notNull(),
+  paymentMethod: text("payment_method", { enum: ["bank_transfer", "cash", "advance_balance", "advance_surplus"] }).notNull(),
   // Cash flow state machine: collected → pending_cash_verification → verified → settled
   cashStatus: text("cash_status", {
     enum: ["collected", "pending_cash_verification", "verified", "settled"],

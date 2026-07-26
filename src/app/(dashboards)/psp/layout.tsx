@@ -31,7 +31,7 @@ export default function PSPLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell pb-16 sm:pb-0">
-      {(user as any).mustChangePassword && <ForceChangePasswordModal />}
+      {(user as { mustChangePassword?: boolean }).mustChangePassword && <ForceChangePasswordModal />}
       <PSPSidebar pspName={user.name || "PSP Operator"} />
       <main className="main-content">
         <OfflineSyncBanner />

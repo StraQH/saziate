@@ -12,16 +12,16 @@ import { psps, routes, routeResidents } from "@/db/schema";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["resident"]);
+    await requireRole(req, env.DB as any, ["resident"]);
     let residentId = "";
     if (config.isMockMode) {
       residentId = "r1";
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -104,16 +104,16 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["resident"]);
+    await requireRole(req, env.DB as any, ["resident"]);
     let residentId = "";
     if (config.isMockMode) {
       residentId = "r1";
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -125,7 +125,7 @@ export async function PATCH(req: Request) {
       residentId = session.user.id;
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = updateProfileSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -133,7 +133,7 @@ export async function PATCH(req: Request) {
     const { name, email, newPassword } = parsed.data;
 
     if (config.isMockMode) {
-      return new Response(JSON.stringify({ status: "success", message: "Mock profile updated successfully." }), {
+      return new Response(JSON.stringify({ status: "success" as any, message: "Mock profile updated successfully." }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -180,7 +180,7 @@ export async function PATCH(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Profile updated successfully.",
       }),
       {

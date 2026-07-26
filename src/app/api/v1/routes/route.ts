@@ -8,12 +8,12 @@ import { getActivePspId, requireRole } from "@/lib/session";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
       return new Response(JSON.stringify([]), { status: 200 });
     }
 
-    const routeIds = list.map((r: any) => r.id);
+    const routeIds = list.map((r) => r.id);
     
     // In drizzle with SQLite, using inArray is safe.
     // Fetch rates for these routes
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
       });
     }
 
-    const routesWithRates = list.map((route: any) => ({
+    const routesWithRates = list.map((route) => ({
       ...route,
       rates: ratesMap.get(route.id) || []
     }));
@@ -70,17 +70,17 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = createRouteSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     );
 
     if (rates && rates.length > 0) {
-      const batchRates = rates.map((rate: any) => ({
+      const batchRates = rates.map((rate) => ({
         routeId,
         billingCategory: rate.category,
         monthlyRate: Math.round(rate.monthlyRate * 100) / 100,
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     // @ts-ignore: Drizzle batch typing with dynamic arrays causes TS to hang
     await db.batch(inserts);
 
-    return new Response(JSON.stringify({ status: "success", routeId }), { status: 201 });
+    return new Response(JSON.stringify({ status: "success" as any, routeId }), { status: 201 });
   } catch (error: any) {
     console.error("Create Route Error:", error);
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });

@@ -37,7 +37,7 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
       enabled: true,
       password: {
         hash: async (password: string) => await hashPassword(password),
-        verify: async ({ password, hash }: any) => await verifyPassword(password, hash),
+        verify: async ({ password, hash }: Record<string, unknown>) => await verifyPassword(password as string, hash as string),
       },
     },
     user: {
@@ -49,6 +49,10 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
         pspId: { type: "string", required: false },
         mustChangePassword: { type: "boolean", required: false, defaultValue: false },
       }
+    },
+    session: {
+      expiresIn: 60 * 60 * 12, // 12 hours absolute session lifetime
+      updateAge: 60 * 15,      // Sliding window updates cookie every 15 minutes
     },
     trustedOrigins: [
       "http://localhost:3000",

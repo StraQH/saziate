@@ -6,13 +6,13 @@ import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["field_agent", "psp_operator"]);
+    await requireRole(req, env.DB as any, ["field_agent", "psp_operator"]);
 
-    const betterAuth = auth(env.DB);
+    const betterAuth = auth(env.DB as any);
     const session = await betterAuth.api.getSession({ headers: req.headers });
     if (!session?.user) {
       return new Response("Unauthorized", { status: 401 });
@@ -28,18 +28,18 @@ export async function GET(req: Request) {
       return new Response(JSON.stringify({ zone: "Unassigned", schedule: "-" }), { status: 200 });
     }
 
-    const zone = agentRoutes.map((r: any) => r.name).join(", ");
-    const schedule = agentRoutes.map((r: any) => r.collectionSchedule).join(", ");
+    const zone = agentRoutes.map((r) => r.name).join(", ");
+    const schedule = agentRoutes.map((r) => r.collectionSchedule).join(", ");
 
     return new Response(JSON.stringify({ zone, schedule }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    if (error.message === "Unauthorized") {
+    if ((error as Error).message === "Unauthorized") {
       return new Response("Unauthorized", { status: 401 });
     }
-    if (error.message === "Forbidden") {
+    if ((error as Error).message === "Forbidden") {
       return new Response("Forbidden", { status: 403 });
     }
     console.error("GET Agent Route details error:", error);

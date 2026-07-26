@@ -96,8 +96,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             id: data.user.id,
             name: data.user.name,
             email: data.user.email,
-            role: (data.user as any).role || "psp_operator",
-            pspId: (data.user as any).pspId || null,
+            role: ((data.user as { role?: string, pspId?: string }).role || "psp_operator") as any,
+            pspId: (data.user as { role?: string, pspId?: string }).pspId || null,
           });
         }
       } catch {
@@ -108,7 +108,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
 
     fetchSession();
-  }, [pathname]);
+  }, []);
 
   const user = config.isMockMode ? getMockUser(pathname) : liveUser;
   const loading = config.isMockMode ? false : liveLoading;

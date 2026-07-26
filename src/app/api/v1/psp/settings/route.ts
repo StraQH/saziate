@@ -1,21 +1,22 @@
 import { getAppEnv } from "@/lib/env";
 import { pspSettingsSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { psps } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { psps, users, accounts } from "@/db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
+import { verifyPassword } from "@/lib/hash";
 import { PaystackClient } from "@/lib/paystack";
 import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
@@ -40,27 +41,48 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    const session = await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = pspSettingsSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
-    const body = parsed.data;
     const {
       settlementBankCode,
       settlementAccountNumber,
       settlementAccountName,
-    } = body;
+      password
+    } = parsed.data;
+
+    // Verify confirmation password
+    if (!config.isMockMode) {
+      const userRecord = await db
+        .select({ password: accounts.password })
+        .from(accounts)
+        .where(and(
+          eq(accounts.userId, session.user.id),
+          inArray(accounts.providerId, ["email", "credential"])
+        ))
+        .get();
+
+      if (!userRecord || !userRecord.password) {
+        return new Response("Unauthorized.", { status: 401 });
+      }
+
+      const isPasswordCorrect = await verifyPassword(password, userRecord.password);
+      if (!isPasswordCorrect) {
+        return new Response("Incorrect authorization password.", { status: 401 });
+      }
+    }
 
     // Verify record exists
     const psp = await db
@@ -124,7 +146,7 @@ export async function PATCH(req: Request) {
           dvaCustomerCode = customer.customer_code;
         } catch (paystackErr: any) {
           console.error("Failed to provision Paystack DVA on settings update:", paystackErr);
-          return new Response(`Paystack DVA provisioning failed: ${paystackErr.message || paystackErr}`, { status: 500 });
+          return new Response(`Paystack DVA provisioning failed: ${(paystackErr as any).message || paystackErr}`, { status: 500 });
         }
       } else {
         return new Response("Paystack configuration missing.", { status: 500 });
@@ -161,7 +183,7 @@ export async function PATCH(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Payout account and DVA details updated successfully.",
         dva: dvaAccountNumber ? { bank: dvaBankName, accountNumber: dvaAccountNumber } : null,
       }),

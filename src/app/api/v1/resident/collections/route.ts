@@ -9,16 +9,16 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["resident"]);
+    await requireRole(req, env.DB as any, ["resident"]);
     let residentId = "";
     if (config.isMockMode) {
       residentId = "r1";
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
       .orderBy(collectionLogs.loggedAt)
       .all();
 
-    const formatted = results.map((col: any) => ({
+    const formatted = results.map((col) => ({
       id: col.id,
       status: col.status,
       notes: col.notes || "None",

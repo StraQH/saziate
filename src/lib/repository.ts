@@ -36,7 +36,7 @@ export class SaziateRepository {
       throw new Error("Failed to fetch residents");
     }
     
-    const result = await response.json() as any;
+    const result = await response.json() as unknown as { data: Resident[], totalPages: number, totalCount: number };
     return result; // Expected format: { data: [...], totalCount, totalPages, page, limit }
   }
 
@@ -53,7 +53,7 @@ export class SaziateRepository {
       throw new Error("Failed to fetch routes");
     }
     
-    const result = await response.json() as any;
+    const result = await response.json() as unknown as Route[];
     return result;
   }
 
@@ -70,7 +70,7 @@ export class SaziateRepository {
       throw new Error("Failed to fetch invoices");
     }
     
-    const result = await response.json() as any;
+    const result = await response.json() as unknown as { data: Invoice[], totalPages: number, totalCount: number };
     return result;
   }
 
@@ -87,7 +87,7 @@ export class SaziateRepository {
       throw new Error("Failed to fetch collections");
     }
     
-    const result = await response.json() as any;
+    const result = await response.json() as unknown as { data: CollectionRun[], totalPages: number, totalCount: number };
     return result;
   }
 
@@ -114,7 +114,7 @@ export class SaziateRepository {
       throw new Error("Failed to fetch metrics");
     }
     
-    const result = await response.json() as any;
+    const result = await response.json() as unknown as { metrics: { label: string; value: string }[] };
     return result.metrics;
   }
 }

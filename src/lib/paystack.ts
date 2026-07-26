@@ -28,7 +28,7 @@ export class PaystackClient {
 
   constructor(secretKey: string) {
     if (!secretKey) {
-      throw new Error("Paystack Secret Key is required.");
+      throw new Error(String("Paystack Secret Key is required."));
     }
     this.secretKey = secretKey;
   }
@@ -48,7 +48,7 @@ export class PaystackClient {
     const data = await response.json() as any;
 
     if (!response.ok || !data.status) {
-      throw new Error(data.message || `Paystack API error: ${response.statusText}`);
+      throw new Error(String(data.message || `Paystack API error: ${response.statusText}`));
     }
 
     return data.data as T;

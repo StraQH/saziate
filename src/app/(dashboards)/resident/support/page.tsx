@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { MessageSquare, Plus, AlertCircle, Clock, CheckCircle, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { config } from "@/lib/config";
 
 export default function ResidentSupportPage() {
+  const { toast } = useToast();
   const [complaints, setComplaints] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -63,12 +65,12 @@ export default function ResidentSupportPage() {
   const handleSubmitComplaint = async () => {
     const description = prompt("Describe your issue:");
     if (!description || description.length < 5) {
-      alert("Description must be at least 5 characters.");
+      toast("Description must be at least 5 characters.", "error");
       return;
     }
 
     if (config.isMockMode) {
-      alert("Complaint submitted in mock mode.");
+      toast("Complaint submitted in mock mode.", "info");
       return;
     }
 
@@ -79,15 +81,15 @@ export default function ResidentSupportPage() {
         body: JSON.stringify({ description }),
       });
       if (res.ok) {
-        alert("Complaint submitted successfully.");
+        toast("Complaint submitted successfully.", "success");
         fetchComplaints();
       } else {
         const text = await res.text();
-        alert(`Error: ${text}`);
+        toast(`Error: ${text}`, "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to submit complaint.");
+      toast("Failed to submit complaint.", "error");
     }
   };
 

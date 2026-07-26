@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { z } from "zod";
+import { sendNotificationWithFallback } from "@/lib/notifications";
 
 
 const cashVerifySchema = z.object({
@@ -15,18 +16,18 @@ const cashVerifySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = cashVerifySchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
     }
 
     // Wrap multiple updates in transaction block
-    await db.transaction(async (dbTx: any) => {
+    await db.transaction(async (dbTx) => {
       // Update transaction cashStatus to 'verified'
       await dbTx
         .update(transactions)
@@ -105,15 +106,33 @@ export async function POST(req: Request) {
               .where(eq(invoices.id, invoice.id));
           }
         } else {
-          // Invoice is already paid! The ENTIRE cash amount goes to advance balance
+          // Invoice is already paid. Check if this is a genuine double-payment situation
+          // (e.g. resident also paid via bank transfer after cash was logged).
+          // The cash amount goes to advance balance, and we log an audit warning.
           await dbTx
             .update(residentProfiles)
             .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${tx.amount}` })
             .where(eq(residentProfiles.userId, invoice.residentId));
+
+          // Audit the double-payment for operator visibility
+          const session2 = await auth(env.DB as any).api.getSession({ headers: req.headers });
+          await dbTx.insert(auditLogs).values({
+            id: generateId(),
+            actorId: session2?.user?.id || pspId,
+            action: "cash.double_payment_warning",
+            entityType: "transaction",
+            entityId: transactionId,
+            meta: JSON.stringify({
+              pspId,
+              invoiceId: tx.invoiceId,
+              cashAmount: tx.amount,
+              note: "Invoice was already paid when cash was verified. Cash amount credited to advance balance.",
+            }),
+          });
         }
       }
       
-      const session = await auth(env.DB).api.getSession({ headers: req.headers });
+      const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
       await dbTx.insert(auditLogs).values({
         id: generateId(),
         actorId: session?.user?.id || pspId,
@@ -124,24 +143,43 @@ export async function POST(req: Request) {
       });
     });
 
-    // Send Email Receipt (non-blocking)
+    // Send Receipt (non-blocking)
     if (invoice) {
       const residentUser = await db.select().from(users).where(eq(users.id, invoice.residentId)).get();
-      if (residentUser && residentUser.email) {
+      if (residentUser) {
         const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
+        const hasRealEmail = residentUser.email && residentUser.email.includes("@") && !residentUser.email.endsWith("@saziate.com");
+        
         try {
-          await sendEmail({
-            to: residentUser.email,
-            subject: "Saziate Payment Receipt",
-            html: emailTemplates.paymentReceipt(firstName, tx.amount),
-          });
-        } catch (emailErr) {
-          console.error("Failed to send cash verification email receipt:", emailErr);
+          if (hasRealEmail) {
+            await sendEmail({
+              to: residentUser.email,
+              subject: "Saziate Payment Receipt",
+              html: emailTemplates.paymentReceipt(firstName, tx.amount),
+            });
+          } else if (residentUser.phone) {
+            const termiiKey = env.TERMII_API_KEY;
+            if (termiiKey) {
+              const msgText = `Hello ${firstName}, your cash payment of ₦${tx.amount} has been verified and applied to your invoice. Thank you!`;
+              await sendNotificationWithFallback({
+                dbBinding: env.DB as any,
+                termiiApiKey: termiiKey,
+                pspId,
+                residentId: invoice.residentId,
+                phone: residentUser.phone,
+                messageText: msgText,
+                messageType: "setup",
+                channel: "sms",
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Failed to send cash verification receipt:", err);
         }
       }
     }
 
-    return new Response(JSON.stringify({ status: "success", message: "Cash verified." }), {
+    return new Response(JSON.stringify({ status: "success" as any, message: "Cash verified." }), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     });
@@ -152,12 +190,12 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB);
+    await requireRole(req, env.DB as any, ["psp_operator"]);
+    const pspId = await getActivePspId(req, env.DB as any);
     
     if (!pspId) {
       return new Response("Unauthorized.", { status: 401 });

@@ -18,7 +18,7 @@ export class SaziateLogger {
 
   constructor(dbBinding: D1Database) {
     if (!dbBinding) {
-      throw new Error("Cloudflare D1 Database binding is required for auditing.");
+      throw new Error(String("Cloudflare D1 Database binding is required for auditing."));
     }
     this.dbBinding = dbBinding;
   }
@@ -42,7 +42,7 @@ export class SaziateLogger {
 
       console.info(`[AUDIT] ${params.action} on ${params.entityType}:${params.entityId}`);
     } catch (err: any) {
-      console.error(`[AUDIT_ERROR] Failed to write audit log: ${err.message}`);
+      console.error(`[AUDIT_ERROR] Failed to write audit log: ${(err as Error).message}`);
     }
   }
 
@@ -56,7 +56,7 @@ export class SaziateLogger {
   /**
    * Log critical error entry.
    */
-  error(message: string, error?: Error | any, context?: any): void {
+  error(message: string, error?: any, context?: any): void {
     console.error(
       `[ERROR] ${message} | Details: ${error?.message || String(error)}`,
       context ? JSON.stringify(context) : ""

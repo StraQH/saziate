@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="app-shell">
-      {(user as any).mustChangePassword && <ForceChangePasswordModal />}
+      {(user as { mustChangePassword?: boolean }).mustChangePassword && <ForceChangePasswordModal />}
       <AdminSidebar adminName={user.name || "Platform Admin"} />
       <main className="main-content">
         <OfflineSyncBanner />

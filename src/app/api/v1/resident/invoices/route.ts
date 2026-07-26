@@ -9,16 +9,16 @@ import { config } from "@/lib/config";
 
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["resident"]);
+    await requireRole(req, env.DB as any, ["resident"]);
     let residentId = "";
     if (config.isMockMode) {
       residentId = "r1";
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -36,9 +36,9 @@ export async function GET(req: Request) {
         JSON.stringify([
           {
             id: "inv-001",
-            baseAmount: 6000,
-            platformFee: 300,
-            totalAmount: 6300,
+            baseAmount: config.DEFAULT_MONTHLY_RATE_NGN,
+            platformFee: Math.round(config.DEFAULT_MONTHLY_RATE_NGN * config.PLATFORM_FEE_RATE),
+            totalAmount: config.DEFAULT_MONTHLY_RATE_NGN + Math.round(config.DEFAULT_MONTHLY_RATE_NGN * config.PLATFORM_FEE_RATE),
             dueDate: "25 Jul 2026",
             status: "pending",
             billingPeriod: "July 2026",
@@ -46,9 +46,9 @@ export async function GET(req: Request) {
           },
           {
             id: "inv-002",
-            baseAmount: 6000,
-            platformFee: 300,
-            totalAmount: 6300,
+            baseAmount: config.DEFAULT_MONTHLY_RATE_NGN,
+            platformFee: Math.round(config.DEFAULT_MONTHLY_RATE_NGN * config.PLATFORM_FEE_RATE),
+            totalAmount: config.DEFAULT_MONTHLY_RATE_NGN + Math.round(config.DEFAULT_MONTHLY_RATE_NGN * config.PLATFORM_FEE_RATE),
             dueDate: "25 Jun 2026",
             status: "paid",
             billingPeriod: "June 2026",
@@ -56,9 +56,9 @@ export async function GET(req: Request) {
           },
           {
             id: "inv-003",
-            baseAmount: 6000,
-            platformFee: 300,
-            totalAmount: 6300,
+            baseAmount: config.DEFAULT_MONTHLY_RATE_NGN,
+            platformFee: Math.round(config.DEFAULT_MONTHLY_RATE_NGN * config.PLATFORM_FEE_RATE),
+            totalAmount: config.DEFAULT_MONTHLY_RATE_NGN + Math.round(config.DEFAULT_MONTHLY_RATE_NGN * config.PLATFORM_FEE_RATE),
             dueDate: "25 May 2026",
             status: "paid",
             billingPeriod: "May 2026",
@@ -89,15 +89,15 @@ export async function GET(req: Request) {
       .orderBy(invoices.dueDate)
       .all();
 
-    const formatted = results.map((inv: any) => ({
-      id: inv.id,
-      baseAmount: inv.baseAmount,
-      platformFee: inv.platformFee,
-      totalAmount: inv.totalAmount,
-      dueDate: new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-      status: inv.status,
-      billingPeriod: new Date(inv.billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
-      referenceCode: inv.paymentReference,
+    const formatted = results.map((inv) => ({
+      id: (inv as any).id,
+      baseAmount: (inv as any).baseAmount,
+      platformFee: (inv as any).platformFee,
+      totalAmount: (inv as any).totalAmount,
+      dueDate: new Date((inv as any).dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      status: (inv as any).status,
+      billingPeriod: new Date((inv as any).billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+      referenceCode: (inv as any).paymentReference,
     }));
 
     return new Response(JSON.stringify(formatted), {

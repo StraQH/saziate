@@ -5,11 +5,11 @@ import { auditLogs, users } from "@/db/schema";
 import { desc, eq, sql, and, like } from "drizzle-orm";
 
 export async function GET(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["admin"]);
+    await requireRole(req, env.DB as any, ["admin"]);
 
     const url = new URL(req.url);
     const page = parseInt(url.searchParams.get("page") || "1");
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       limit
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (err: any) {
-    if (err.message === "Unauthorized.") {
+    if ((err as Error).message === "Unauthorized.") {
       return new Response("Unauthorized", { status: 401 });
     }
     console.error("Failed to fetch audit logs:", err);

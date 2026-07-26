@@ -59,7 +59,7 @@ export default function PSPSettingsPage() {
         setBanksLoadingError(text || "Failed to load settlement banks.");
       }
     } catch (err: any) {
-      setBanksLoadingError(err.message || "Failed to load settlement banks.");
+      setBanksLoadingError((err as Error).message || "Failed to load settlement banks.");
     }
   };
 
@@ -73,6 +73,13 @@ export default function PSPSettingsPage() {
     setError("");
     setSuccess("");
     setLoading(true);
+
+    const password = prompt("Enter your account password to authorize changing settlement details:");
+    if (!password) {
+      setError("Password confirmation is required to save settlement details.");
+      setLoading(false);
+      return;
+    }
 
     if (config.isMockMode) {
       setSuccess("Mock settings updated successfully.");
@@ -88,6 +95,7 @@ export default function PSPSettingsPage() {
           settlementBankCode: bankCode,
           settlementAccountNumber: accountNumber,
           settlementAccountName: accountName,
+          password,
         }),
       });
 
@@ -99,7 +107,7 @@ export default function PSPSettingsPage() {
       setSuccess("Payout account details updated successfully.");
       await loadSettings();
     } catch (err: any) {
-      setError(err.message || "Failed to save settings.");
+      setError((err as Error).message || "Failed to save settings.");
     } finally {
       setLoading(false);
     }

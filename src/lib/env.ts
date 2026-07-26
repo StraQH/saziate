@@ -1,11 +1,14 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+// src/lib/env.ts
+export type CloudflareEnv = {
+  DB: import("@cloudflare/workers-types").D1Database;
+  NEXT_PUBLIC_MOCK_MODE?: string;
+  BETTER_AUTH_SECRET?: string;
+  RESEND_API_KEY?: string;
+};
 
-export function getAppEnv() {
-  let env: any = process.env;
-  try {
-    env = getCloudflareContext().env || process.env;
-  } catch (e: any) {
-    // Silently fallback for Next.js local development
-  }
+// In Next.js Node.js environment, we polyfill CloudflareEnv
+let env: Record<string, string | undefined> = process.env as Record<string, string | undefined>;
+
+export function getAppEnv(): Record<string, string | undefined> {
   return env;
 }

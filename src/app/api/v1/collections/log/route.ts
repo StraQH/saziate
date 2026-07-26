@@ -11,16 +11,16 @@ import { config } from "@/lib/config";
 import { emailTemplates } from "@/lib/email-templates";
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["field_agent"]);
+    await requireRole(req, env.DB as any, ["field_agent"]);
     let actorId = "";
     if (config.isMockMode) {
       actorId = MOCK_AGENT_ID;
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       actorId = session.user.id;
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = collectionLogSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
       }
 
       if (baseAmount > 0) {
-        const platformFee = Math.round(baseAmount * 0.05 * 100) / 100;
+        const platformFee = Math.round(baseAmount * config.PLATFORM_FEE_RATE * 100) / 100;
         const totalAmount = baseAmount + platformFee;
 
         const advanceBalance = residentProfile.advancePaymentBalance || 0;
@@ -146,51 +146,54 @@ export async function POST(req: Request) {
           finalAmount = Math.round((totalAmount - advanceBalance) * 100) / 100;
         }
 
-        // Deduct from wallet balance
-        await db
-          .update(residentProfiles)
-          .set({ advancePaymentBalance: newWalletBalance })
-          .where(eq(residentProfiles.userId, residentId));
-
-        // Create on-demand invoice
+        // Hoist IDs and dates so they're in scope for notifications below
         const invoiceId = generateId();
         const paymentReference = `INV-OD-${generateId().substring(0, 8).toUpperCase()}`;
-
         const currentMonthStart = new Date();
         currentMonthStart.setDate(1);
         currentMonthStart.setHours(0, 0, 0, 0);
         const currentMonthEnd = new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() + 1, 0, 23, 59, 59, 999);
         const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 3); // 3 days to pay on-demand pickup invoice
+        dueDate.setDate(dueDate.getDate() + config.ONDEMAND_DUE_DAYS); // Use config for on-demand due days
 
-        await db.insert(invoices).values({
-          id: invoiceId,
-          residentId,
-          pspId: route.pspId,
-          paymentReference,
-          baseAmount,
-          platformFee,
-          totalAmount: finalAmount,
-          status: invoiceStatus,
-          dueDate,
-          billingPeriodStart: currentMonthStart,
-          billingPeriodEnd: currentMonthEnd,
-        });
+        // Wrap all billing mutations atomically to prevent partial state
+        await db.transaction(async (billingTx) => {
+          // Deduct from wallet balance
+          await billingTx
+            .update(residentProfiles)
+            .set({ advancePaymentBalance: newWalletBalance })
+            .where(eq(residentProfiles.userId, residentId));
 
-        // Record wallet deduction transaction
-        if (amountSettledFromAdvance > 0) {
-          await db.insert(transactions).values({
-            id: generateId(),
-            invoiceId,
+          // Create on-demand invoice
+          await billingTx.insert(invoices).values({
+            id: invoiceId,
             residentId,
-            reference: `ADV-SETTLE-${Date.now()}-${generateId().substring(0, 4)}`,
-            amount: amountSettledFromAdvance,
-            paymentMethod: "bank_transfer",
-            status: "success",
-            cashStatus: "settled",
-            paidAt: new Date(),
+            pspId: route.pspId,
+            paymentReference,
+            baseAmount,
+            platformFee,
+            totalAmount: finalAmount,
+            status: invoiceStatus as any,
+            dueDate,
+            billingPeriodStart: currentMonthStart,
+            billingPeriodEnd: currentMonthEnd,
           });
-        }
+
+          // Record wallet deduction transaction
+          if (amountSettledFromAdvance > 0) {
+            await billingTx.insert(transactions).values({
+              id: generateId() as any,
+              invoiceId,
+              residentId,
+              reference: `ADV-SETTLE-${Date.now()}-${generateId().substring(0, 4)}`,
+              amount: amountSettledFromAdvance,
+              paymentMethod: "advance_balance",
+              status: "success" as any,
+              cashStatus: "settled" as any,
+              paidAt: new Date(),
+            });
+          }
+        });
 
         // Dispatch notifications
         const hasRealEmail = residentProfile.email && residentProfile.email.includes("@") && !residentProfile.email.endsWith("@saziate.com");
@@ -216,7 +219,7 @@ export async function POST(req: Request) {
           }
 
           await db.insert(pendingNotifications).values({
-            id: generateId(),
+            id: generateId() as any,
             pspId: route.pspId,
             residentId,
             channel: "email",
@@ -235,7 +238,7 @@ export async function POST(req: Request) {
           }
 
           await db.insert(pendingNotifications).values({
-            id: generateId(),
+            id: generateId() as any,
             pspId: route.pspId,
             residentId,
             channel: "sms",
@@ -287,7 +290,7 @@ export async function POST(req: Request) {
 
           if (hasEmail) {
             alertNotifications.push({
-              id: generateId(),
+              id: generateId() as any,
               pspId: route.pspId,
               residentId: res.id,
               channel: "email" as const,
@@ -300,7 +303,7 @@ export async function POST(req: Request) {
             });
           } else if (res.phone) {
             alertNotifications.push({
-              id: generateId(),
+              id: generateId() as any,
               pspId: route.pspId,
               residentId: res.id,
               channel: "sms" as const,
@@ -324,7 +327,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Collection log stored successfully.",
         logId,
       }),

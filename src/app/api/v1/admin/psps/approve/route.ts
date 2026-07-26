@@ -10,12 +10,12 @@ import { emailTemplates } from "@/lib/email-templates";
 import { PaystackClient } from "@/lib/paystack";
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["admin"]);
-    const { pspId } = await req.json() as { pspId: string };
+    await requireRole(req, env.DB as any, ["admin"]);
+    const { pspId } = await req.json() as any as { pspId: string };
     if (!pspId) {
       return new Response("Missing PSP ID.", { status: 400 });
     }
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
         dvaCustomerCode = customer.customer_code;
       } catch (paystackErr: any) {
         console.error("Failed to provision Paystack DVA:", paystackErr);
-        return new Response(`Paystack DVA provisioning failed: ${paystackErr.message || paystackErr}`, { status: 500 });
+        return new Response(`Paystack DVA provisioning failed: ${(paystackErr as any).message || paystackErr}`, { status: 500 });
       }
     } else {
       return new Response("Paystack configuration missing.", { status: 500 });
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
 
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "PSP operator approved and virtual bank account provisioned successfully.",
         dva: { bank: dvaBankName, accountNumber: dvaAccountNumber },
       }),

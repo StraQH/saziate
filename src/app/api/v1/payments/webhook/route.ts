@@ -32,7 +32,7 @@ async function verifyPaystackSignature(
 }
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
+  const env = getAppEnv() as Record<string, string | undefined>;
   try {
     const signature = req.headers.get("x-paystack-signature");
     if (!signature) {
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
     const eventPayload = JSON.parse(rawBody);
     const event = eventPayload.event;
-    const db = getDb(env.DB);
+    const db = getDb(env.DB as any);
 
     // Dedicated virtual account assignment success
     if (event === "dedicatedaccount.assign.success") {
@@ -79,7 +79,11 @@ export async function POST(req: Request) {
         .get();
 
       if (existingTx) {
-        return new Response(JSON.stringify({ status: "duplicate" }), { status: 200 });
+        // If it's already a success or failed, skip (true duplicate)
+        if (existingTx.status === "success" || existingTx.status === "failed") {
+          return new Response(JSON.stringify({ status: "duplicate" }), { status: 200 });
+        }
+        // If it's an "initiated" pre-log (e.g. from a top-up flow), continue processing
       }
 
       let profile: any = null;
@@ -152,18 +156,30 @@ export async function POST(req: Request) {
       const invoiceId = invoice ? invoice.id : null;
 
       // Wrap all database operations in a transaction
-      await db.transaction(async (tx: any) => {
-        // Insert transaction record
-        await tx.insert(transactions).values({
-          id: txId,
-          invoiceId,
-          residentId: profile.userId,
-          reference,
-          amount: amountInNaira,
-          status: "success",
-          paymentMethod: "bank_transfer",
-          paidAt: new Date(),
-        });
+      await db.transaction(async (tx) => {
+        // If there's a pre-logged "initiated" transaction, update it; otherwise insert fresh
+        if (existingTx && existingTx.status === "initiated") {
+          await tx
+            .update(transactions)
+            .set({
+              invoiceId: invoiceId,
+              amount: amountInNaira,
+              status: "success" as any,
+              paidAt: new Date(),
+            })
+            .where(eq(transactions.id, existingTx.id));
+        } else {
+          await tx.insert(transactions).values({
+            id: txId,
+            invoiceId,
+            residentId: profile.userId,
+            reference,
+            amount: amountInNaira,
+            status: "success" as any,
+            paymentMethod: "bank_transfer" as any,
+            paidAt: new Date(),
+          });
+        }
 
         if (invoice) {
           if (amountInNaira >= invoice.totalAmount) {
@@ -181,7 +197,7 @@ export async function POST(req: Request) {
                 residentId: profile.userId,
                 reference: `${reference}-SURPLUS`,
                 amount: surplus,
-                status: "success",
+                status: "success" as any,
                 paymentMethod: "advance_surplus",
                 paidAt: new Date(),
               });

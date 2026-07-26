@@ -38,9 +38,9 @@ export function TopUpModal({ onClose, onSuccess }: TopUpModalProps) {
       }
 
       const data = await response.json() as any;
-      onSuccess(data.mockCheckoutUrl);
+      onSuccess(data.mockCheckoutUrl as any);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+      setError((err as Error).message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }

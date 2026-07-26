@@ -27,7 +27,7 @@ export default function ResidentInvoicesPage() {
     try {
       const res = await fetch("/api/v1/resident/invoices");
       if (res.ok) {
-        const body = await res.json() as Invoice[];
+        const body = await res.json() as any as Invoice[];
         setInvoices(body);
       }
     } catch (err) {
@@ -43,7 +43,7 @@ export default function ResidentInvoicesPage() {
 
   const filtered = invoices.filter((inv) => {
     if (filterStatus === "all") return true;
-    return inv.status === filterStatus;
+    return (inv as any).status === filterStatus;
   });
 
   const handlePrint = () => {
@@ -89,26 +89,26 @@ export default function ResidentInvoicesPage() {
       ) : (
         <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "1rem" }}>
           {filtered.map((inv) => (
-            <div key={inv.id} className="card" style={{ padding: "1.25rem" }}>
+            <div key={(inv as any).id} className="card" style={{ padding: "1.25rem" }}>
               <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   <div style={{ background: "var(--color-bg)", padding: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-border)" }}>
                     <FileText className="text-muted" size={20} />
                   </div>
                   <div>
-                    <p className="font-semibold">{inv.billingPeriod} Waste Bill</p>
-                    <p className="text-muted text-xs">Reference: {inv.referenceCode}</p>
+                    <p className="font-semibold">{(inv as any).billingPeriod} Waste Bill</p>
+                    <p className="text-muted text-xs">Reference: {(inv as any).referenceCode}</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4 flex-wrap">
                   <div className="text-right">
-                    <p className="font-bold">{formatNaira(inv.totalAmount)}</p>
-                    <p className="text-xs text-muted">Due {inv.dueDate}</p>
+                    <p className="font-bold">{formatNaira((inv as any).totalAmount)}</p>
+                    <p className="text-xs text-muted">Due {(inv as any).dueDate}</p>
                   </div>
 
-                  <Badge variant={inv.status === "paid" ? "success" : "warning"}>
-                    {inv.status.toUpperCase()}
+                  <Badge variant={(inv as any).status === "paid" ? "success" : "warning"}>
+                    {(inv as any).status.toUpperCase()}
                   </Badge>
 
                   <button

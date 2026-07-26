@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
 import { formatNaira } from "@/lib/utils";
 import { Search, DollarSign, CheckCircle2, User, Landmark, HelpCircle } from "lucide-react";
@@ -53,6 +54,7 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
 ];
 
 export default function AgentPaymentsPage() {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statuses, setStatuses] = useState<ResidentPaymentStatus[]>(config.isMockMode ? MOCK_STATUSES : []);
   const [selectedResident, setSelectedResident] = useState<ResidentPaymentStatus | null>(null);
@@ -62,32 +64,30 @@ export default function AgentPaymentsPage() {
   const [pspDvaNumber, setPspDvaNumber] = useState(config.isMockMode ? "9920192834" : "Not provisioned yet");
   const [pspDvaBank, setPspDvaBank] = useState(config.isMockMode ? "Wema Bank" : "Not provisioned yet");
 
-  const fetchPspSettings = async () => {
+  const loadData = useCallback(async () => {
     if (config.isMockMode) return;
     try {
-      const res = await fetch("/api/v1/psp/settings");
-      if (res.ok) {
-        const body = await res.json() as any;
-        setPspDvaNumber(body.dvaAccountNumber || "Not provisioned yet");
-        setPspDvaBank(body.dvaBankName || "Not provisioned yet");
+      let currentDva = "Not provisioned yet";
+      let currentBank = "Not provisioned yet";
+      
+      const resSettings = await fetch("/api/v1/psp/settings");
+      if (resSettings.ok) {
+        const body = await resSettings.json() as any;
+        currentDva = body.dvaAccountNumber || "Not provisioned yet";
+        currentBank = body.dvaBankName || "Not provisioned yet";
+        setPspDvaNumber(currentDva);
+        setPspDvaBank(currentBank);
       }
-    } catch (err) {
-      console.error("Failed to load PSP settings for DVA:", err);
-    }
-  };
 
-  const fetchResidents = async () => {
-    if (config.isMockMode) return;
-    try {
-      const res = await fetch("/api/v1/residents");
-      if (res.ok) {
-        const json = await res.json() as any;
+      const resRes = await fetch("/api/v1/residents");
+      if (resRes.ok) {
+        const json = await resRes.json() as any;
         const body = Array.isArray(json) ? json : (json.data || []);
         const mapped: ResidentPaymentStatus[] = body.map((r: any) => ({
           residentId: r.id,
           name: r.name,
-          dvaAccountNumber: pspDvaNumber,
-          dvaBankName: pspDvaBank,
+          dvaAccountNumber: currentDva,
+          dvaBankName: currentBank,
           lastPaymentAmount: r.lastPaymentAmount || 0,
           lastPaymentDate: r.lastPaymentDate || null,
           outstandingBalance: r.outstandingBalance || 0,
@@ -97,14 +97,13 @@ export default function AgentPaymentsPage() {
         setStatuses(mapped);
       }
     } catch (err) {
-      console.error("Failed to load residents for payment check:", err);
+      console.error("Failed to load agent payments data:", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchPspSettings();
-    fetchResidents();
-  }, [pspDvaNumber, pspDvaBank]);
+    loadData();
+  }, [loadData]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,13 +162,13 @@ export default function AgentPaymentsPage() {
       });
 
       if (res.ok) {
-        alert("Cash payment logged successfully!");
-        fetchResidents();
+        toast("Cash payment logged successfully!", "success");
+        loadData();
         setSelectedResident(null);
         setCashAmount("");
       } else {
         const text = await res.text();
-        alert(`Failed to log payment: ${text}`);
+        toast(`Failed to log payment: ${text}`, "error");
       }
     } catch (err) {
       console.error(err);

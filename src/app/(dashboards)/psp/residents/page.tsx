@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { Users, PlusCircle, Upload, MessageSquare, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
@@ -25,6 +26,7 @@ const CATEGORY_LABELS: Record<BillingCategory, string> = {
 };
 
 export default function PSPResidentsPage() {
+  const { toast } = useToast();
   const [residents, setResidents] = useState<Resident[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -93,7 +95,7 @@ export default function PSPResidentsPage() {
 
       setResidents((prev) => prev.filter((r) => r.id !== id));
     } catch (err: any) {
-      alert(err.message || "Could not complete deletion.");
+      toast((err as Error).message || "Could not complete deletion.", "info");
     }
   };
 

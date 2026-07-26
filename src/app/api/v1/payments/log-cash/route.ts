@@ -8,19 +8,21 @@ import { transactions, invoices, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
+import { sendEmail } from "@/lib/email";
+import { sendNotificationWithFallback } from "@/lib/notifications";
 
 
 export async function POST(req: Request) {
-  const env = getAppEnv() as any;
-  const db = getDb(env.DB);
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB, ["field_agent", "psp_operator"]);
+    await requireRole(req, env.DB as any, ["field_agent", "psp_operator"]);
     let actorId = "";
     if (config.isMockMode) {
       actorId = MOCK_AGENT_ID;
     } else {
-      const betterAuth = auth(env.DB);
+      const betterAuth = auth(env.DB as any);
       const session = await betterAuth.api.getSession({
         headers: req.headers,
       });
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
       actorId = session.user.id;
     }
 
-    const rawBody = await req.json();
+    const rawBody = await req.json() as any;
     const parsed = logCashSchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
       return new Response("Actor does not belong to a PSP.", { status: 403 });
     }
     
-    if (inv.pspId !== actorUser.pspId) {
+    if ((inv as any).pspId !== actorUser.pspId) {
       return new Response("Unauthorized to log cash for this invoice.", { status: 403 });
     }
 
@@ -81,16 +83,65 @@ export async function POST(req: Request) {
       residentId,
       reference: cashRef,
       amount,
-      status: "success",
+      status: "success" as any,
       paymentMethod: "cash",
       cashStatus: "pending_cash_verification",
       loggedById: actorId,
       paidAt: new Date(),
     });
 
+    // Dispatch instant notification of logged cash (non-blocking)
+    try {
+      const residentUser = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, residentId))
+        .get();
+
+      if (residentUser) {
+        const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
+        const hasRealEmail = residentUser.email && residentUser.email.includes("@") && !residentUser.email.endsWith("@saziate.com");
+        const agentName = actorUser ? actorUser.name : "Field Agent";
+
+        if (hasRealEmail) {
+          await sendEmail({
+            to: residentUser.email,
+            subject: "Cash Payment Logged (Pending Verification)",
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.5;">
+                <h3 style="color: #2563eb;">Saziate Cash Payment Logged</h3>
+                <p>Hello ${firstName},</p>
+                <p>A cash payment of <strong>₦${amount.toLocaleString("en-NG")}</strong> has been logged at your address by field agent <strong>${agentName}</strong>.</p>
+                <p>It is currently awaiting office verification by your operator. Reference: <strong>${cashRef}</strong></p>
+                <br/>
+                <p style="font-size: 12px; color: #6b7280; border-top: 1px solid #eee; padding-top: 1rem;">This is an automated transaction acknowledgement from Saziate.</p>
+              </div>
+            `,
+          });
+        } else if (residentUser.phone) {
+          const termiiKey = env.TERMII_API_KEY;
+          if (termiiKey) {
+            const msgText = `Hello ${firstName}, a cash payment of ₦${amount} has been logged by agent ${agentName}. It is awaiting verification. Ref: ${cashRef}`;
+            await sendNotificationWithFallback({
+              dbBinding: env.DB as any,
+              termiiApiKey: termiiKey,
+              pspId: actorUser?.pspId || "system",
+              residentId: residentId,
+              phone: residentUser.phone,
+              messageText: msgText,
+              messageType: "setup",
+              channel: "sms",
+            });
+          }
+        }
+      }
+    } catch (notifErr) {
+      console.error("Non-blocking cash logged notification warning:", notifErr);
+    }
+
     return new Response(
       JSON.stringify({
-        status: "success",
+        status: "success" as any,
         message: "Cash payment logged successfully.",
         transactionId: txId,
         reference: cashRef,
