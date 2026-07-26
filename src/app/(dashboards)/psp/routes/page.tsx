@@ -9,6 +9,17 @@ import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
 import { useSession } from "@/components/providers/SessionProvider";
 
+const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const WEEKDAYS_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
+
+const formatScheduleString = (days: string[]) => {
+  if (days.length === 0) return "No collection scheduled";
+  const mapped = days.map((d) => `${d}s`);
+  if (mapped.length === 1) return mapped[0];
+  if (mapped.length === 2) return `${mapped[0]} & ${mapped[1]}`;
+  return mapped.slice(0, -1).join(", ") + " & " + mapped[mapped.length - 1];
+};
+
 export default function PSPRoutesPage() {
   const { user } = useSession();
   const [routes, setRoutes] = useState<Route[]>([]);
@@ -21,7 +32,7 @@ export default function PSPRoutesPage() {
   // Form states
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [collectionSchedule, setCollectionSchedule] = useState("Mondays & Thursdays");
+  const [selectedDays, setSelectedDays] = useState<string[]>(["Monday", "Thursday"]);
   const [assignedAgent, setAssignedAgent] = useState("");
   const [residentialRate, setResidentialRate] = useState("6000");
   const [commercialRate, setCommercialRate] = useState("15000");
@@ -71,12 +82,14 @@ export default function PSPRoutesPage() {
       const indRate = parseFloat(industrialRate) || 0;
       const hRate = parseFloat(healthRate) || 0;
 
+      const computedSchedule = formatScheduleString(selectedDays);
+
       if (config.isMockMode) {
         const newRoute: Route = {
           id: crypto.randomUUID(),
           name,
           description,
-          collectionSchedule,
+          collectionSchedule: computedSchedule,
           assignedAgent: agents.find((a) => a.id === assignedAgent)?.name || "Unassigned",
           rates: [
             { category: "residential", monthlyRate: resRate },
@@ -88,7 +101,7 @@ export default function PSPRoutesPage() {
         setRoutes((prev) => [...prev, newRoute]);
         setName("");
         setDescription("");
-        setCollectionSchedule("Mondays & Thursdays");
+        setSelectedDays(["Monday", "Thursday"]);
         setShowAddForm(false);
         return;
       }
@@ -100,7 +113,7 @@ export default function PSPRoutesPage() {
         body: JSON.stringify({
           name,
           description,
-          collectionSchedule,
+          collectionSchedule: computedSchedule,
           agentId: assignedAgent || undefined,
           rates: [
             { category: "residential", monthlyRate: resRate },
@@ -121,7 +134,7 @@ export default function PSPRoutesPage() {
         id: resBody.routeId,
         name,
         description,
-        collectionSchedule,
+        collectionSchedule: computedSchedule,
         assignedAgent: "",
         assignedAgentName: agents.find((a) => a.id === assignedAgent)?.name || "Unassigned",
         rates: [
@@ -135,7 +148,7 @@ export default function PSPRoutesPage() {
       setRoutes((prev) => [...prev, newRoute]);
       setName("");
       setDescription("");
-      setCollectionSchedule("Mondays & Thursdays");
+      setSelectedDays(["Monday", "Thursday"]);
       setShowAddForm(false);
     } catch (err: any) {
       setError(err.message || "An error occurred.");
@@ -190,15 +203,45 @@ export default function PSPRoutesPage() {
             </div>
 
             <div className="form-group">
-              <label className="label">Collection Schedule</label>
-              <input
-                type="text"
-                className="input"
-                value={collectionSchedule}
-                onChange={(e) => setCollectionSchedule(e.target.value)}
-                placeholder="e.g. Mondays & Thursdays"
-                required
-              />
+              <label className="label" style={{ marginBottom: "0.5rem" }}>Collection Schedule</label>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem", flexWrap: "wrap" }}>
+                {WEEKDAYS.map((day, index) => {
+                  const isSelected = selectedDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDays((prev) =>
+                          prev.includes(day)
+                            ? prev.filter((d) => d !== day)
+                            : [...prev, day].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b))
+                        );
+                      }}
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "50%",
+                        border: isSelected ? "1px solid var(--color-primary, #2563eb)" : "1px solid var(--color-border, #334155)",
+                        backgroundColor: isSelected ? "var(--color-primary, #2563eb)" : "transparent",
+                        color: isSelected ? "#ffffff" : "var(--color-text-muted, #94a3b8)",
+                        fontSize: "0.875rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {WEEKDAYS_SHORT[index]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-muted text-xs" style={{ marginTop: "0.25rem" }}>
+                Generated Schedule: <span className="font-semibold text-primary" style={{ color: "var(--color-primary, #2563eb)" }}>{formatScheduleString(selectedDays)}</span>
+              </p>
             </div>
 
             <div className="form-group">
