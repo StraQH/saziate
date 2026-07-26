@@ -168,7 +168,7 @@ export async function POST(req: Request) {
                 residentId: invoice.residentId,
                 phone: residentUser.phone,
                 messageText: msgText,
-                messageType: "setup",
+                messageType: "payment_receipt",
                 channel: "sms",
               });
             }

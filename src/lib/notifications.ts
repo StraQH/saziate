@@ -103,7 +103,8 @@ export async function processPendingRetries(dbBinding: D1Database, termiiApiKey:
 
       // Re-log success to notification logs
       const logId = generateId();
-      const costNgn = 6.00;
+      const isSystemNotification = item.messageType === "setup" || item.messageType === "due_invoice";
+      const costNgn = isSystemNotification ? 0.00 : 6.00;
       await db.insert(notificationLogs).values({
         id: logId,
         pspId: item.pspId,

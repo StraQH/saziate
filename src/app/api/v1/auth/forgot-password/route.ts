@@ -69,10 +69,8 @@ export async function POST(req: Request) {
         subject: "Password Reset Request",
         html: emailTemplates.passwordReset(token)
       });
-    } 
-    
-    if (!isEmail && user.phone) {
-      // SMS for residents/agents
+    } else if (user.phone) {
+      // SMS for residents/agents ONLY if no email is provided
       const message = `Your Saziate password reset code is: ${token}. Valid for 10 minutes.`;
       await sendNotificationWithFallback({
         dbBinding: env.DB as any,
