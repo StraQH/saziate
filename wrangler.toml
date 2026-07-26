@@ -1,5 +1,5 @@
 name = "saziate"
-main = ".open-next/worker.js"
+main = "worker.ts"
 compatibility_date = "2025-07-01"
 compatibility_flags = ["nodejs_compat"]
 
