@@ -304,8 +304,19 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
                   className="input"
                   value={baseRate}
                   onChange={(e) => setBaseRate(e.target.value)}
+                  disabled={!isOverride}
+                  style={{
+                    backgroundColor: !isOverride ? "var(--color-bg-subtle)" : undefined,
+                    cursor: !isOverride ? "not-allowed" : "text",
+                    opacity: !isOverride ? 0.7 : 1
+                  }}
                   required
                 />
+                {!isOverride && (
+                  <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                    * Dynamically inherited from the selected route's category rate.
+                  </span>
+                )}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
