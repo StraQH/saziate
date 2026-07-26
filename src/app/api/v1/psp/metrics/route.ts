@@ -1,7 +1,7 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, collectionLogs, psps, users, notificationLogs, transactions, routes } from "@/db/schema";
-import { eq, and, like } from "drizzle-orm";
+import { eq, and, like, sql } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 
 export async function GET(req: Request) {
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
     // Sum total paid amount
     const paidSums = await db
-      .select({ total: invoices.totalAmount })
+      .select({ total: invoices.totalAmount, createdAt: invoices.createdAt })
       .from(invoices)
       .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "paid")))
       .all();
@@ -35,6 +35,14 @@ export async function GET(req: Request) {
       .from(invoices)
       .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "pending")))
       .all();
+
+    // Sum unpaid invoices amount
+    const unpaidSums = await db
+      .select({ total: invoices.totalAmount })
+      .from(invoices)
+      .where(and(eq(invoices.pspId, pspId), eq(invoices.status, "pending")))
+      .all();
+    const totalUnpaidSum = unpaidSums.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
 
     // Count residents for this PSP
     const residentUsers = await db
@@ -87,6 +95,53 @@ export async function GET(req: Request) {
 
     const availableSettlement = Math.max(0, (totalPaidSum * 0.95) - totalPaidOut - totalNotificationCosts);
 
+    // Weekly collections logs (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const weeklyLogs = await db
+      .select({ loggedAt: collectionLogs.loggedAt })
+      .from(collectionLogs)
+      .innerJoin(routes, eq(collectionLogs.routeId, routes.id))
+      .where(and(
+        eq(routes.pspId, pspId),
+        sql`${collectionLogs.loggedAt} >= ${sevenDaysAgo.getTime()}`
+      ))
+      .all();
+
+    // Group monthly revenue
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthlyRevMap: Record<string, number> = {};
+    for (const m of monthNames) {
+      monthlyRevMap[m] = 0;
+    }
+    for (const inv of paidSums) {
+      const date = new Date(inv.createdAt);
+      const mName = monthNames[date.getMonth()];
+      monthlyRevMap[mName] += (inv.total || 0);
+    }
+    const revenueTrend = monthNames.map((m) => ({
+      month: m,
+      revenue: monthlyRevMap[m]
+    }));
+
+    // Group weekly collections
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dailyMap: Record<string, number> = {};
+    for (const d of dayNames) {
+      dailyMap[d] = 0;
+    }
+    for (const log of weeklyLogs) {
+      const date = new Date(log.loggedAt);
+      const dName = dayNames[date.getDay()];
+      dailyMap[dName]++;
+    }
+    const weeklyCollections = dayNames.map((d) => ({
+      day: d,
+      collections: dailyMap[d]
+    }));
+
     const metrics = [
       { label: "Collections This Month", value: `₦${totalPaidSum.toLocaleString("en-NG")}` },
       { label: "Settled Today",          value: `₦${settledToday.toLocaleString("en-NG")}` },
@@ -106,7 +161,23 @@ export async function GET(req: Request) {
 
     const isDvaPending = !psp?.dvaAccountNumber;
 
-    return new Response(JSON.stringify({ metrics, isDvaPending }), {
+    return new Response(JSON.stringify({ 
+      metrics, 
+      isDvaPending,
+      revenueTrend,
+      weeklyCollections,
+      raw: {
+        totalPaidSum,
+        totalUnpaidSum,
+        settledToday,
+        availableSettlement,
+        totalActiveResidents: residentUsers.length,
+        paidInvoicesCount: paidInvoices.length,
+        unpaidInvoicesCount: unpaidInvoices.length,
+        activeRoutesCount: pspRoutes.length,
+        totalNotificationCosts
+      }
+    }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

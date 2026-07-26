@@ -36,6 +36,8 @@ const collectionData = [
 export default function PSPDashboardPage() {
   const { user } = useSession();
   const [metrics, setMetrics] = useState<{ label: string; value: string }[]>([]);
+  const [revenueTrend, setRevenueTrend] = useState<any[]>(revenueData);
+  const [weeklyCollections, setWeeklyCollections] = useState<any[]>(collectionData);
   const [loading, setLoading] = useState(true);
   const [isDvaPending, setIsDvaPending] = useState(false);
 
@@ -53,6 +55,8 @@ export default function PSPDashboardPage() {
         { label: "Unpaid Invoices",        value: "42" },
         { label: "Active Routes",          value: "14" },
       ]);
+      setRevenueTrend(revenueData);
+      setWeeklyCollections(collectionData);
       setIsDvaPending(false);
       setLoading(false);
       return;
@@ -64,6 +68,8 @@ export default function PSPDashboardPage() {
       .then((data: any) => {
         setMetrics(data.metrics || []);
         setIsDvaPending(data.isDvaPending || false);
+        if (data.revenueTrend) setRevenueTrend(data.revenueTrend);
+        if (data.weeklyCollections) setWeeklyCollections(data.weeklyCollections);
       })
       .catch((err) => console.error("Failed to load metrics:", err))
       .finally(() => setLoading(false));
@@ -139,7 +145,7 @@ export default function PSPDashboardPage() {
               </div>
               <div style={{ height: "300px", width: "100%" }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <AreaChart data={revenueTrend} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3}/>
@@ -186,7 +192,7 @@ export default function PSPDashboardPage() {
               </div>
               <div style={{ height: "300px", width: "100%" }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={collectionData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <BarChart data={weeklyCollections} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                     <XAxis 
                       dataKey="day" 

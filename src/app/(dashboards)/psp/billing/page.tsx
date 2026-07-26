@@ -20,6 +20,11 @@ export default function PSPBillingPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showAdvanceModal, setShowAdvanceModal] = useState(false);
 
+  const [totalInvoiced, setTotalInvoiced] = useState(0);
+  const [totalCollected, setTotalCollected] = useState(0);
+  const [totalCommission, setTotalCommission] = useState(0);
+  const [totalOutstanding, setTotalOutstanding] = useState(0);
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
@@ -42,22 +47,30 @@ export default function PSPBillingPage() {
     const res = await repo.getInvoices(page, limit, debouncedSearch);
     
     // Support either old array format or new paginated object format
+    let currentInvoicesList: Invoice[] = [];
     if (Array.isArray(res)) {
       setInvoices(res);
+      currentInvoicesList = res;
     } else {
       setInvoices(res.data);
       setTotalPages(res.totalPages);
       setTotalCount(res.totalCount);
+      currentInvoicesList = res.data;
     }
 
     if (config.isMockMode) {
       setNotificationCosts(480.00); // Mock cost
       setPendingCash([]);
+      setTotalInvoiced(currentInvoicesList.reduce((sum, inv) => sum + inv.totalAmount, 0));
+      setTotalCollected(currentInvoicesList.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.totalAmount, 0));
+      setTotalCommission(currentInvoicesList.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.platformFee, 0));
+      setTotalOutstanding(currentInvoicesList.filter((inv) => inv.status !== "paid" && inv.status !== "cancelled").reduce((sum, inv) => sum + inv.totalAmount, 0));
     } else {
       try {
-        const [resCosts, resCash] = await Promise.all([
+        const [resCosts, resCash, resMetrics] = await Promise.all([
           fetch("/api/v1/psp/notification-costs"),
-          fetch("/api/v1/psp/cash-verify")
+          fetch("/api/v1/psp/cash-verify"),
+          fetch("/api/v1/psp/metrics")
         ]);
         if (resCosts.ok) {
           const costData = await resCosts.json() as any;
@@ -66,6 +79,16 @@ export default function PSPBillingPage() {
         if (resCash.ok) {
           const cashData = await resCash.json();
           setPendingCash(cashData as any);
+        }
+        if (resMetrics.ok) {
+          const metricsData = await resMetrics.json() as any;
+          if (metricsData.raw) {
+            const raw = metricsData.raw;
+            setTotalCollected(raw.totalPaidSum || 0);
+            setTotalCommission(Math.round(raw.totalPaidSum * 0.05 * 100) / 100);
+            setTotalOutstanding(raw.totalUnpaidSum || 0);
+            setTotalInvoiced((raw.totalPaidSum || 0) + (raw.totalUnpaidSum || 0));
+          }
         }
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -184,11 +207,7 @@ export default function PSPBillingPage() {
     }
   };
 
-  // Calculate dynamic metrics
-  const totalInvoiced = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const totalCollected = invoices.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const totalCommission = invoices.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.platformFee, 0);
-  const totalOutstanding = invoices.filter((inv) => inv.status !== "paid" && inv.status !== "cancelled").reduce((sum, inv) => sum + inv.totalAmount, 0);
+
 
   return (
     <div>

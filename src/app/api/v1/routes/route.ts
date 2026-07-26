@@ -19,9 +19,19 @@ export async function GET(req: Request) {
     }
 
     const list = await db
-      .select()
+      .select({
+        id: routes.id,
+        pspId: routes.pspId,
+        name: routes.name,
+        description: routes.description,
+        collectionSchedule: routes.collectionSchedule,
+        assignedAgentId: routes.assignedAgentId,
+        assignedAgentName: users.name,
+      })
       .from(routes)
-      .where(eq(routes.pspId, pspId));
+      .leftJoin(users, eq(routes.assignedAgentId, users.id))
+      .where(eq(routes.pspId, pspId))
+      .all();
 
     if (list.length === 0) {
       return new Response(JSON.stringify([]), { status: 200 });
@@ -34,7 +44,8 @@ export async function GET(req: Request) {
     const ratesList = await db
       .select()
       .from(routeBillingRates)
-      .where(inArray(routeBillingRates.routeId, routeIds));
+      .where(inArray(routeBillingRates.routeId, routeIds))
+      .all();
 
     // Group rates by routeId
     const ratesMap = new Map();

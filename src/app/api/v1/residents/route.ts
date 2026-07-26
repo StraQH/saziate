@@ -244,29 +244,34 @@ export async function POST(req: Request) {
     });
 
     // Send Welcome Email if real email exists; otherwise, fallback to SMS onboarding notification
-    const hasRealEmail = email && email.includes("@") && !email.endsWith("@saziate.com");
-    if (hasRealEmail) {
-      await sendEmail({
-        to: email,
-        subject: "Welcome to Saziate!",
-        html: emailTemplates.welcomeResident(firstName, tempPassword),
-      });
-    } else if (phone) {
-      const termiiKey = env.TERMII_API_KEY;
-      if (!termiiKey) {
-        throw new Error("TERMII_API_KEY is required for notifications.");
+    try {
+      const hasRealEmail = email && email.includes("@") && !email.endsWith("@saziate.com");
+      if (hasRealEmail) {
+        await sendEmail({
+          to: email,
+          subject: "Welcome to Saziate!",
+          html: emailTemplates.welcomeResident(firstName, tempPassword),
+        });
+      } else if (phone) {
+        const termiiKey = env.TERMII_API_KEY;
+        if (termiiKey) {
+          const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
+          await sendNotificationWithFallback({
+            dbBinding: env.DB,
+            termiiApiKey: termiiKey,
+            pspId,
+            residentId: userId,
+            phone,
+            messageText: msgText,
+            messageType: "setup",
+            channel: "sms",
+          });
+        } else {
+          console.warn("Termii API key is not configured. Skipping welcome SMS onboarding notification.");
+        }
       }
-      const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
-      await sendNotificationWithFallback({
-        dbBinding: env.DB,
-        termiiApiKey: termiiKey,
-        pspId,
-        residentId: userId,
-        phone,
-        messageText: msgText,
-        messageType: "setup",
-        channel: "sms",
-      });
+    } catch (notifErr) {
+      console.error("Non-blocking notification warning: Onboarding notification failed:", notifErr);
     }
 
     const session = await auth(env.DB).api.getSession({ headers: req.headers });

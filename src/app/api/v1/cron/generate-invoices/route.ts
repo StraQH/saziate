@@ -41,7 +41,8 @@ export async function GET(req: Request) {
           eq(users.role, "resident"),
           eq(residentProfiles.billingModel, "subscription")
         )
-      );
+      )
+      .all();
 
     if (activeResidents.length === 0) {
       return new Response(JSON.stringify({ status: "success", message: "No active residents found." }), { status: 200 });
@@ -60,7 +61,8 @@ export async function GET(req: Request) {
     const existingInvoices = await db
       .select({ residentId: invoices.residentId })
       .from(invoices)
-      .where(eq(invoices.billingPeriodStart, currentMonthStart));
+      .where(eq(invoices.billingPeriodStart, currentMonthStart))
+      .all();
     
     const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => inv.residentId));
 

@@ -12,6 +12,7 @@ import { useSession } from "@/components/providers/SessionProvider";
 export default function PSPRoutesPage() {
   const { user } = useSession();
   const [routes, setRoutes] = useState<Route[]>([]);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -21,7 +22,7 @@ export default function PSPRoutesPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [collectionSchedule, setCollectionSchedule] = useState("Mondays & Thursdays");
-  const [assignedAgent, setAssignedAgent] = useState("Field Agent Johnson");
+  const [assignedAgent, setAssignedAgent] = useState("");
   const [residentialRate, setResidentialRate] = useState("6000");
   const [commercialRate, setCommercialRate] = useState("15000");
   const [industrialRate, setIndustrialRate] = useState("45000");
@@ -37,8 +38,25 @@ export default function PSPRoutesPage() {
     });
   };
 
+  const fetchAgents = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/v1/psp/agents");
+      if (res.ok) {
+        const data = await res.json() as any[];
+        setAgents(data);
+        if (data.length > 0) {
+          setAssignedAgent(data[0].id);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load agents:", err);
+    }
+  };
+
   useEffect(() => {
     fetchRoutes();
+    fetchAgents();
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,7 +77,7 @@ export default function PSPRoutesPage() {
           name,
           description,
           collectionSchedule,
-          assignedAgent,
+          assignedAgent: agents.find((a) => a.id === assignedAgent)?.name || "Unassigned",
           rates: [
             { category: "residential", monthlyRate: resRate },
             { category: "commercial", monthlyRate: commRate },
@@ -83,6 +101,7 @@ export default function PSPRoutesPage() {
           name,
           description,
           collectionSchedule,
+          agentId: assignedAgent || undefined,
           rates: [
             { category: "residential", monthlyRate: resRate },
             { category: "commercial", monthlyRate: commRate },
@@ -103,7 +122,8 @@ export default function PSPRoutesPage() {
         name,
         description,
         collectionSchedule,
-        assignedAgent,
+        assignedAgent: "",
+        assignedAgentName: agents.find((a) => a.id === assignedAgent)?.name || "Unassigned",
         rates: [
           { category: "residential", monthlyRate: resRate },
           { category: "commercial", monthlyRate: commRate },
@@ -188,9 +208,12 @@ export default function PSPRoutesPage() {
                 value={assignedAgent}
                 onChange={(e) => setAssignedAgent(e.target.value)}
               >
-                <option value="Field Agent Johnson">Field Agent Johnson</option>
-                <option value="Field Agent Musa">Field Agent Musa</option>
-                <option value="Field Agent Okon">Field Agent Okon</option>
+                <option value="">Unassigned</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -320,7 +343,7 @@ export default function PSPRoutesPage() {
                   }}
                 >
                   <User size={16} style={{ color: "var(--color-text-muted)" }} />
-                  <span className="font-medium">{route.assignedAgent}</span>
+                  <span className="font-medium">{route.assignedAgentName || route.assignedAgent || "Unassigned"}</span>
                 </div>
               </div>
 

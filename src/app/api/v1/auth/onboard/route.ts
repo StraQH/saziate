@@ -81,11 +81,15 @@ export async function POST(req: Request) {
 
       // Send Welcome Email
       if (userRecord.email) {
-        await sendEmail({
-          to: userRecord.email,
-          subject: "Welcome to Saziate! (Action Required)",
-          html: emailTemplates.welcomePSP(pspName),
-        });
+        try {
+          await sendEmail({
+            to: userRecord.email,
+            subject: "Welcome to Saziate! (Action Required)",
+            html: emailTemplates.welcomePSP(pspName),
+          });
+        } catch (emailErr) {
+          console.error("Non-blocking email warning: Failed to dispatch onboarding welcome email:", emailErr);
+        }
       }
     } else if (role === "field_agent") {
       if (!inviteToken) {

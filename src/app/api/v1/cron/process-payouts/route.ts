@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     // Run the entire balance query & reservation in a single transaction block
     await db.transaction(async (tx: any) => {
       // 1. Fetch all active PSPs
-      const allPsps = await tx.select().from(psps);
+      const allPsps = await tx.select().from(psps).all();
       if (allPsps.length === 0) return;
 
       // 2. Optimization: Bulk fetch aggregates to eliminate N+1 queries
@@ -43,7 +43,8 @@ export async function GET(req: Request) {
           eq(transactions.paymentMethod, "bank_transfer"),
           eq(transactions.status, "success")
         ))
-        .groupBy(users.pspId);
+        .groupBy(users.pspId)
+        .all();
 
       const cashTotals = await tx
         .select({
@@ -56,7 +57,8 @@ export async function GET(req: Request) {
           eq(transactions.paymentMethod, "cash"),
           inArray(transactions.cashStatus, ["verified", "settled"])
         ))
-        .groupBy(users.pspId);
+        .groupBy(users.pspId)
+        .all();
 
       const payoutTotals = await tx
         .select({
@@ -68,7 +70,8 @@ export async function GET(req: Request) {
           like(transactions.reference, "PAYOUT-%"),
           inArray(transactions.status, ["initiated", "success"])
         ))
-        .groupBy(transactions.residentId);
+        .groupBy(transactions.residentId)
+        .all();
 
       const notificationTotals = await tx
         .select({
@@ -76,7 +79,8 @@ export async function GET(req: Request) {
           total: sql<number>`sum(${notificationLogs.costNgn})`,
         })
         .from(notificationLogs)
-        .groupBy(notificationLogs.pspId);
+        .groupBy(notificationLogs.pspId)
+        .all();
 
       // Convert lists to Maps for fast O(1) lookups
       const digitalMap = new Map(digitalTotals.map((t: any) => [t.pspId, Number(t.total || 0)]));

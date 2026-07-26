@@ -56,13 +56,6 @@ export async function requireRole(req: Request, dbBinding: D1Database, allowedRo
     if (!pspId) {
       throw new Error("Forbidden");
     }
-    const db = getDb(dbBinding);
-    const psp = await db.select().from(psps).where(eq(psps.id, pspId)).get();
-    
-    // Only allow operators whose PSP has been approved and provisioned a DVA
-    if (!psp || !psp.dvaAccountNumber) {
-      throw new Error("PSP operator account pending admin approval.");
-    }
   }
 
   return session;

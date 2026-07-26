@@ -12,6 +12,7 @@ import { useSession } from "@/components/providers/SessionProvider";
 export default function PSPCollectionsPage() {
   const { user } = useSession();
   const [collections, setCollections] = useState<CollectionRun[]>([]);
+  const [routeCount, setRouteCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
@@ -34,16 +35,24 @@ export default function PSPCollectionsPage() {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.pspId!);
-    const res = await repo.getCollections(page, limit, debouncedSearch);
-    
-    if (Array.isArray(res)) {
-      setCollections(res);
-    } else {
-      setCollections(res.data);
-      setTotalPages(res.totalPages);
-      setTotalCount(res.totalCount);
+    try {
+      const res = await repo.getCollections(page, limit, debouncedSearch);
+      
+      if (Array.isArray(res)) {
+        setCollections(res);
+      } else {
+        setCollections(res.data);
+        setTotalPages(res.totalPages);
+        setTotalCount(res.totalCount);
+      }
+
+      const routesData = await repo.getRoutes();
+      setRouteCount(routesData.length);
+    } catch (err) {
+      console.error("Failed to load collections/routes data:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -91,7 +100,7 @@ export default function PSPCollectionsPage() {
       <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
         <div className="metric-card">
           <p className="metric-label">Assigned Routes</p>
-          <p className="metric-value">3</p>
+          <p className="metric-value">{routeCount}</p>
         </div>
         <div className="metric-card">
           <p className="metric-label">Completed Drops</p>
