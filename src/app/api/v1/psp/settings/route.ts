@@ -98,7 +98,7 @@ export async function PATCH(req: Request) {
             email: psp.contactEmail,
             first_name: psp.name,
             last_name: "Operator",
-            phone: psp.contactPhone,
+            phone: psp.contactPhone || undefined,
           });
 
           // 2. Validate customer profile using payout settlement bank account details

@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const db = getDb(env.DB);
 
   try {
-    await requireRole(req, env.DB, ["field_agent"]);
+    await requireRole(req, env.DB, ["field_agent", "psp_operator"]);
 
     const betterAuth = auth(env.DB);
     const session = await betterAuth.api.getSession({ headers: req.headers });
@@ -36,6 +36,12 @@ export async function GET(req: Request) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
+    if (error.message === "Unauthorized") {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response("Forbidden", { status: 403 });
+    }
     console.error("GET Agent Route details error:", error);
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
