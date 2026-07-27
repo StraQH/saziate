@@ -5,6 +5,7 @@ import { useToast } from "@/components/ui/Toast";
 import { MessageSquare, Plus, AlertCircle, Clock, CheckCircle, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { config } from "@/lib/config";
+import { PromptModal, AlertModal } from "@/components/ui/Modal";
 
 export default function ResidentSupportPage() {
   const { toast } = useToast();
@@ -17,6 +18,9 @@ export default function ResidentSupportPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [promptModal, setPromptModal] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -62,15 +66,18 @@ export default function ResidentSupportPage() {
     fetchComplaints();
   }, [page, limit, debouncedSearch]);
 
-  const handleSubmitComplaint = async () => {
-    const description = prompt("Describe your issue:");
+  const handleSubmitComplaintClick = () => {
+    setPromptModal(true);
+  };
+
+  const executeSubmitComplaint = async (description: string) => {
     if (!description || description.length < 5) {
-      toast("Description must be at least 5 characters.", "error");
+      setAlertModal({ isOpen: true, title: "Invalid Input", message: "Description must be at least 5 characters.", type: "danger" });
       return;
     }
 
     if (config.isMockMode) {
-      toast("Complaint submitted in mock mode.", "info");
+      setAlertModal({ isOpen: true, title: "Mock Mode", message: "Complaint submitted in mock mode.", type: "info" });
       return;
     }
 
@@ -81,15 +88,15 @@ export default function ResidentSupportPage() {
         body: JSON.stringify({ description }),
       });
       if (res.ok) {
-        toast("Complaint submitted successfully.", "success");
+        setAlertModal({ isOpen: true, title: "Success", message: "Complaint submitted successfully.", type: "success" });
         fetchComplaints();
       } else {
         const text = await res.text();
-        toast(`Error: ${text}`, "error");
+        setAlertModal({ isOpen: true, title: "Error", message: `Error: ${text}`, type: "danger" });
       }
     } catch (err) {
       console.error(err);
-      toast("Failed to submit complaint.", "error");
+      setAlertModal({ isOpen: true, title: "Submission Failed", message: "Failed to submit complaint.", type: "danger" });
     }
   };
 
@@ -118,9 +125,9 @@ export default function ResidentSupportPage() {
             <RefreshCw size={16} />
             Refresh
           </button>
-          <button className="btn btn-primary btn-sm" onClick={handleSubmitComplaint}>
-            <Plus size={16} />
-            New Complaint
+          <button className="btn btn-primary btn-sm" onClick={handleSubmitComplaintClick}>
+            <MessageSquare size={16} />
+            Submit Complaint
           </button>
         </div>
       </div>
@@ -185,6 +192,24 @@ export default function ResidentSupportPage() {
           </div>
         </div>
       )}
+
+      <PromptModal
+        isOpen={promptModal}
+        onClose={() => setPromptModal(false)}
+        onSubmit={executeSubmitComplaint}
+        title="Submit Complaint"
+        message="Describe your issue:"
+        placeholder="E.g., Missed pickup, broken bin..."
+        submitText="Submit"
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { MOCK_COLLECTIONS, type CollectionRun, MOCK_PSP_ID, MOCK_ROUTE_ID } from
 import { Badge } from "@/components/ui/Badge";
 import { MapPin, Navigation, CheckCircle2, XCircle, AlertCircle, Camera, Check } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
+import { PromptModal, AlertModal } from "@/components/ui/Modal";
 import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
 
@@ -22,6 +23,9 @@ export default function AgentRoutePage() {
   const [collectionSchedule, setCollectionSchedule] = useState(config.isMockMode ? "Mondays & Thursdays" : "");
   const [binsCollected, setBinsCollected] = useState(0);
   const [drumsCollected, setDrumsCollected] = useState(0);
+
+  const [promptModal, setPromptModal] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
 
   useEffect(() => {
     setStatus("collected");
@@ -105,7 +109,7 @@ export default function AgentRoutePage() {
       });
 
       if (res.ok) {
-        toast("Collection logged successfully!", "success");
+        setAlertModal({ isOpen: true, title: "Success", message: "Collection logged successfully!", type: "success" });
         fetchCollections();
         setSelectedTask(null);
         setNotes("");
@@ -117,12 +121,15 @@ export default function AgentRoutePage() {
     }
   };
 
-  const handleConfirmTransfer = async () => {
-    const reference = prompt("Enter the Paystack Transfer Reference provided by the resident:");
+  const handleConfirmTransferClick = () => {
+    setPromptModal(true);
+  };
+
+  const executeConfirmTransfer = async (reference: string) => {
     if (!reference) return;
 
     if (config.isMockMode) {
-      toast("Transfer verified in mock mode.", "success");
+      setAlertModal({ isOpen: true, title: "Mock Mode", message: "Transfer verified in mock mode.", type: "success" });
       return;
     }
 
@@ -133,15 +140,15 @@ export default function AgentRoutePage() {
         body: JSON.stringify({ reference }),
       });
       if (res.ok) {
-        toast("Transfer verified and invoice reconciled successfully!", "success");
+        setAlertModal({ isOpen: true, title: "Verified", message: "Transfer verified and invoice reconciled successfully!", type: "success" });
         fetchCollections();
       } else {
         const text = await res.text();
-        toast(`Verification failed: ${text}`, "error");
+        setAlertModal({ isOpen: true, title: "Verification Failed", message: `Verification failed: ${text}`, type: "danger" });
       }
     } catch (err) {
       console.error(err);
-      toast("An error occurred during verification.", "error");
+      setAlertModal({ isOpen: true, title: "Error", message: "An error occurred during verification.", type: "danger" });
     }
   };
 
@@ -380,14 +387,32 @@ export default function AgentRoutePage() {
                 <button className="btn btn-secondary btn-sm" onClick={() => toast("Redirecting to Cash Logging...", "info")}>
                   Receive Cash Payment
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={handleConfirmTransfer}>
-                  Confirm Transfer
+                <button className="btn btn-secondary btn-sm" onClick={handleConfirmTransferClick}>
+                  Verify Transfer
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      <PromptModal
+        isOpen={promptModal}
+        onClose={() => setPromptModal(false)}
+        onSubmit={executeConfirmTransfer}
+        title="Verify Transfer"
+        message="Enter the Paystack Transfer Reference provided by the resident:"
+        placeholder="e.g. T49929291"
+        submitText="Verify"
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

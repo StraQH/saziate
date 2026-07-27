@@ -12,6 +12,7 @@ import { SendSMSModal } from "@/components/psp/SendSMSModal";
 import { MOCK_RESIDENTS, type Resident, MOCK_PSP_ID } from "@/lib/mockdata";
 import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
+import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
 import { useSession } from "@/components/providers/SessionProvider";
 
 // --- Types ---
@@ -31,6 +32,8 @@ export default function PSPResidentsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: "" });
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
   const [showSMSModal, setShowSMSModal] = useState(false);
   const [selectedResidents, setSelectedResidents] = useState<string[]>([]);
   
@@ -74,8 +77,12 @@ export default function PSPResidentsPage() {
     setShowImportModal(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this resident profile?")) return;
+  const handleDeleteClick = (id: string) => {
+    setConfirmModal({ isOpen: true, id });
+  };
+
+  const executeDelete = async () => {
+    const { id } = confirmModal;
 
     try {
       if (config.isMockMode) {
@@ -95,7 +102,7 @@ export default function PSPResidentsPage() {
 
       setResidents((prev) => prev.filter((r) => r.id !== id));
     } catch (err: any) {
-      toast((err as Error).message || "Could not complete deletion.", "info");
+      setAlertModal({ isOpen: true, title: "Deletion Failed", message: (err as Error).message || "Could not complete deletion.", type: "danger" });
     }
   };
 
@@ -233,10 +240,11 @@ export default function PSPResidentsPage() {
                     <td>
                       <div className="flex gap-2">
                         <button className="btn btn-ghost btn-sm">Edit</button>
-                        <button 
-                          className="btn btn-danger btn-sm"
-                          style={{ minHeight: "34px", padding: "0 0.75rem" }}
-                          onClick={() => handleDelete(r.id)}
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: "0.4rem", color: "var(--color-danger)", borderColor: "var(--color-danger)" }}
+                          title="Delete Resident"
+                          onClick={() => handleDeleteClick(r.id)}
                         >
                           Delete
                         </button>
@@ -298,6 +306,24 @@ export default function PSPResidentsPage() {
           }}
         />
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={executeDelete}
+        title="Delete Resident"
+        message="Are you sure you want to delete this resident profile? This action cannot be undone."
+        confirmText="Delete"
+        isDestructive={true}
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

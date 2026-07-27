@@ -8,6 +8,7 @@ import { MOCK_ROUTES, type Route, MOCK_PSP_ID } from "@/lib/mockdata";
 import { SaziateRepository } from "@/lib/repository";
 import { config } from "@/lib/config";
 import { useSession } from "@/components/providers/SessionProvider";
+import { AlertModal } from "@/components/ui/Modal";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const WEEKDAYS_SHORT = ["M", "T", "W", "T", "F", "S", "S"];
@@ -27,6 +28,7 @@ export default function PSPRoutesPage() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
   const [error, setError] = useState("");
 
   // Form states
@@ -83,7 +85,7 @@ export default function PSPRoutesPage() {
       fetchRoutes();
     } catch (err) {
       console.error(err);
-      alert("Failed to reassign agent.");
+      setAlertModal({ isOpen: true, title: "Reassignment Failed", message: "Failed to reassign agent.", type: "danger" });
     }
   };
 
@@ -420,6 +422,14 @@ export default function PSPRoutesPage() {
           </table>
         </div>
       )}
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

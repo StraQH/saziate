@@ -108,7 +108,7 @@ export default function PSPBillingPage() {
 
   const handleVerifyCash = async (transactionId: string) => {
     if (config.isMockMode) {
-      alert("Cash verified in mock mode.");
+      showAlert("Mock Mode", "Cash verified in mock mode.");
       return;
     }
     try {
@@ -221,7 +221,7 @@ export default function PSPBillingPage() {
           onClose={() => setShowAdvanceModal(false)}
           onSuccess={() => {
             setShowAdvanceModal(false);
-            alert("Advance payment logged successfully!");
+            showAlert("Success", "Advance payment logged successfully!");
             fetchInvoices();
           }}
         />

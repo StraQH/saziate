@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Mail, Plus, ShieldCheck, Phone, Calendar, User, X, Trash2 } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
 import { config } from "@/lib/config";
+import { ConfirmModal, AlertModal } from "@/components/ui/Modal";
 
 export default function PSPAgentsPage() {
   const { user } = useSession();
@@ -16,6 +17,11 @@ export default function PSPAgentsPage() {
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
+
+  // Modal states
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string; name: string }>({ isOpen: false, id: "", name: "" });
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
+
 
   useEffect(() => {
     if (user?.pspId) {
@@ -46,8 +52,12 @@ export default function PSPAgentsPage() {
     }
   };
 
-  const handleDeactivate = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to deactivate ${name}? They will lose access to all your routes.`)) return;
+  const handleDeactivateClick = (id: string, name: string) => {
+    setConfirmModal({ isOpen: true, id, name });
+  };
+
+  const executeDeactivate = async () => {
+    const { id } = confirmModal;
     setDeactivatingId(id);
     
     if (config.isMockMode) {
@@ -64,10 +74,10 @@ export default function PSPAgentsPage() {
         setAgents((prev) => prev.filter(a => a.id !== id));
       } else {
         const err = await res.text();
-        alert("Failed to deactivate agent: " + err);
+        setAlertModal({ isOpen: true, title: "Deactivation Failed", message: err, type: "danger" });
       }
     } catch (err) {
-      alert("Error deactivating agent.");
+      setAlertModal({ isOpen: true, title: "Error", message: "An unexpected error occurred while deactivating the agent.", type: "danger" });
     } finally {
       setDeactivatingId(null);
     }
@@ -224,7 +234,7 @@ export default function PSPAgentsPage() {
                       <button 
                         className="btn btn-secondary" 
                         style={{ padding: "0.4rem", color: "var(--color-danger)", borderColor: "var(--color-danger)" }}
-                        onClick={() => handleDeactivate(agent.id, agent.name)}
+                        onClick={() => handleDeactivateClick(agent.id, agent.name)}
                         disabled={deactivatingId === agent.id}
                         title="Deactivate Agent"
                       >
@@ -325,6 +335,24 @@ export default function PSPAgentsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={executeDeactivate}
+        title="Deactivate Agent"
+        message={`Are you sure you want to deactivate ${confirmModal.name}? They will lose access to all your routes.`}
+        confirmText="Deactivate"
+        isDestructive={true}
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }

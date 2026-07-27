@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Settings, Save, Key, CreditCard, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { config } from "@/lib/config";
+import { PromptModal } from "@/components/ui/Modal";
 
 export default function PSPSettingsPage() {
   const [pspName, setPspName] = useState(config.isMockMode ? "Lekki Green Cleaners Ltd" : "");
@@ -26,6 +27,7 @@ export default function PSPSettingsPage() {
   const [success, setSuccess] = useState("");
   const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
   const [banksLoadingError, setBanksLoadingError] = useState("");
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
 
   const loadSettings = async () => {
     if (config.isMockMode) return;
@@ -69,18 +71,20 @@ export default function PSPSettingsPage() {
     loadBanks();
   }, []);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    setShowPasswordPrompt(true);
+  };
+
+  const executeSave = async (password: string) => {
+    if (!password) {
+      setError("Password confirmation is required to save settlement details.");
+      return;
+    }
+
     setError("");
     setSuccess("");
     setLoading(true);
-
-    const password = prompt("Enter your account password to authorize changing settlement details:");
-    if (!password) {
-      setError("Password confirmation is required to save settlement details.");
-      setLoading(false);
-      return;
-    }
 
     if (config.isMockMode) {
       setSuccess("Mock settings updated successfully.");
@@ -311,6 +315,17 @@ export default function PSPSettingsPage() {
           </form>
         </div>
       </div>
+
+      <PromptModal
+        isOpen={showPasswordPrompt}
+        onClose={() => setShowPasswordPrompt(false)}
+        onSubmit={executeSave}
+        title="Authorization Required"
+        message="Enter your account password to authorize changing settlement details:"
+        inputType="password"
+        placeholder="Your Password"
+        submitText="Authorize & Save"
+      />
     </div>
   );
 }

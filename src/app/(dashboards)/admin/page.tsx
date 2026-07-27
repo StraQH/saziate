@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AlertModal } from "@/components/ui/Modal";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { Badge } from "@/components/ui/Badge";
 import { Landmark, ArrowRight, UserPlus, CheckCircle, ChevronLeft, ChevronRight, Search } from "lucide-react";
@@ -54,6 +55,7 @@ export default function AdminDashboardPage() {
   const [psps, setPsps] = useState<OnboardedPSP[]>(config.isMockMode ? INITIAL_PSPS : []);
   const [showAddForm, setShowAddForm] = useState(false);
   const [activeTab, setActiveTab] = useState<"operators" | "audit">("operators");
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [totalVolume, setTotalVolume] = useState<number>(config.isMockMode ? 1240000 : 0);
   const [saziateRevenue, setSaziateRevenue] = useState<number>(config.isMockMode ? 62000 : 0);
@@ -186,7 +188,7 @@ export default function AdminDashboardPage() {
       });
 
       if (res.ok) {
-        alert("Waste Operator registered successfully!");
+        setAlertModal({ isOpen: true, title: "Success", message: "Waste Operator registered successfully!", type: "success" });
         fetchPSPs();
         fetchMetrics();
         setName("");
@@ -218,12 +220,12 @@ export default function AdminDashboardPage() {
       });
 
       if (res.ok) {
-        alert("Operator verified and Virtual Bank Account provisioned successfully!");
+        setAlertModal({ isOpen: true, title: "Verified", message: "Operator verified and Virtual Bank Account provisioned successfully!", type: "success" });
         fetchPSPs();
         fetchMetrics();
       } else {
         const text = await res.text();
-        alert(`Failed to verify: ${text}`);
+        setAlertModal({ isOpen: true, title: "Verification Failed", message: `Failed to verify: ${text}`, type: "danger" });
       }
     } catch (err) {
       console.error(err);
@@ -466,6 +468,14 @@ export default function AdminDashboardPage() {
           )}
         </div>
       )}
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
     </div>
   );
 }
