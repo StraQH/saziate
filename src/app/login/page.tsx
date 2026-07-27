@@ -55,10 +55,10 @@ export default function LoginPage() {
       }
 
       const role = (data.user as { role?: string }).role || "psp_operator";
-      if (role === "admin") router.push("/admin");
-      else if (role === "field_agent") router.push("/agent");
-      else if (role === "resident") router.push("/resident");
-      else router.push("/psp");
+      if (role === "admin") window.location.href = "/admin";
+      else if (role === "field_agent") window.location.href = "/agent";
+      else if (role === "resident") window.location.href = "/resident";
+      else window.location.href = "/psp";
     } catch (err: any) {
       const message = err instanceof Error ? (err as Error).message : "Sign in failed. Check credentials.";
       setError(message);
@@ -68,10 +68,10 @@ export default function LoginPage() {
   };
 
   const handleQuickLogin = (role: "admin" | "psp_operator" | "field_agent" | "resident") => {
-    if (role === "admin") router.push("/admin");
-    else if (role === "field_agent") router.push("/agent");
-    else if (role === "resident") router.push("/resident");
-    else router.push("/psp");
+    if (role === "admin") window.location.href = "/admin";
+    else if (role === "field_agent") window.location.href = "/agent";
+    else if (role === "resident") window.location.href = "/resident";
+    else window.location.href = "/psp";
   };
 
   return (
