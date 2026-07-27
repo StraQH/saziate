@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <span style={{ fontSize: "1.75rem", fontWeight: 800, letterSpacing: "-0.025em" }}>Saziate</span>
+            <img src="/logo-white.svg" alt="Saziate Logo" style={{ height: "28px" }} />
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
             Secure account recovery.
