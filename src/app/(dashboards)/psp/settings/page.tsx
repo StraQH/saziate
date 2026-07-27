@@ -40,7 +40,7 @@ export default function PSPSettingsPage() {
         setDvaBankName(body.dvaBankName || "Not provisioned yet");
         setDvaAccountNumber(body.dvaAccountNumber || "Not provisioned yet");
         setDvaAccountName(body.dvaAccountName || "Not provisioned yet");
-        setBankCode(body.settlementBankCode || "035");
+        setBankCode(body.settlementBankCode || "");
         setAccountNumber(body.settlementAccountNumber || "");
         setAccountName(body.settlementAccountName || "");
       }
@@ -253,9 +253,10 @@ export default function PSPSettingsPage() {
             <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div className="form-group">
                 <label className="label">Bank Name</label>
-                <select className="select" value={bankCode} onChange={(e) => setBankCode(e.target.value)}>
+                <select className="select" value={bankCode} onChange={(e) => setBankCode(e.target.value)} required>
+                  <option value="" disabled>Select Bank</option>
                   {banks.length === 0 ? (
-                    <option value="">{banksLoadingError || "Loading banks..."}</option>
+                    <option value="" disabled>{banksLoadingError || "Loading banks..."}</option>
                   ) : (
                     banks.map((bank) => (
                       <option key={bank.code} value={bank.code}>

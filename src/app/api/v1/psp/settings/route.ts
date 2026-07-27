@@ -141,9 +141,10 @@ export async function PATCH(req: Request) {
           });
 
           // 3. Create dedicated account
+          const isTestMode = env.PAYSTACK_SECRET_KEY.startsWith("sk_test_");
           const dva = await paystack.createDedicatedAccount({
             customer: customer.customer_code,
-            preferred_bank: "wema-bank",
+            preferred_bank: isTestMode ? "test-bank" : "wema-bank",
           });
 
           dvaBankName = dva.bank.name;

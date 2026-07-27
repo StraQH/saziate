@@ -4,7 +4,7 @@ import { getDb } from "@/db";
 import { users, accounts, psps } from "@/db/schema";
 import { generateId, generateSecurePassword } from "@/lib/utils";
 import { hashPassword } from "@/lib/hash";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -46,32 +46,46 @@ export async function POST(req: Request) {
       return new Response("PSP not found.", { status: 404 });
     }
 
-    // 1. Create agent account directly
-    const userId = generateId();
+    // 1. Check if user already exists
+    let existingUser = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).get();
+    
+    let userId = "";
     const tempPassword = generateSecurePassword(10);
     const hashedPassword = await hashPassword(tempPassword);
 
-    await db.insert(users).values({
-      id: userId,
-      name,
-      email: email.toLowerCase().trim(),
-      role: "field_agent",
-      pspId: pspId,
-      emailVerified: true,
-      mustChangePassword: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    if (existingUser) {
+      if (existingUser.role !== "field_agent") {
+        return new Response("Email is already registered as a non-agent user.", { status: 400 });
+      }
+      // Reassign to the new PSP
+      userId = existingUser.id;
+      await db.update(users).set({ pspId: pspId, updatedAt: new Date() }).where(eq(users.id, userId)).run();
+      // Update their password
+      await db.update(accounts).set({ password: hashedPassword, updatedAt: new Date() }).where(and(eq(accounts.userId, userId), eq(accounts.providerId, "credential"))).run();
+    } else {
+      userId = generateId();
+      await db.insert(users).values({
+        id: userId,
+        name,
+        email: email.toLowerCase().trim(),
+        role: "field_agent",
+        pspId: pspId,
+        emailVerified: true,
+        mustChangePassword: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).run();
 
-    await db.insert(accounts).values({
-      id: generateId(),
-      accountId: userId,
-      providerId: "credential",
-      userId: userId,
-      password: hashedPassword,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+      await db.insert(accounts).values({
+        id: generateId(),
+        accountId: userId,
+        providerId: "credential",
+        userId: userId,
+        password: hashedPassword,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }).run();
+    }
 
     // 2. Dispatch onboarding email to agent
     try {

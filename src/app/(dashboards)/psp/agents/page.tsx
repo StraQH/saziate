@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Mail, Plus, ShieldCheck, Phone, Calendar, User, X } from "lucide-react";
+import { Mail, Plus, ShieldCheck, Phone, Calendar, User, X, Trash2 } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
 import { config } from "@/lib/config";
 
@@ -15,6 +15,7 @@ export default function PSPAgentsPage() {
   const [isInviting, setIsInviting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.pspId) {
@@ -42,6 +43,33 @@ export default function PSPAgentsPage() {
       console.error("Failed to load active agents:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeactivate = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to deactivate ${name}? They will lose access to all your routes.`)) return;
+    setDeactivatingId(id);
+    
+    if (config.isMockMode) {
+      setTimeout(() => {
+        setAgents((prev) => prev.filter(a => a.id !== id));
+        setDeactivatingId(null);
+      }, 500);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/v1/psp/agents/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setAgents((prev) => prev.filter(a => a.id !== id));
+      } else {
+        const err = await res.text();
+        alert("Failed to deactivate agent: " + err);
+      }
+    } catch (err) {
+      alert("Error deactivating agent.");
+    } finally {
+      setDeactivatingId(null);
     }
   };
 
@@ -161,6 +189,7 @@ export default function PSPAgentsPage() {
                   <th>Phone Number</th>
                   <th>Joined Date</th>
                   <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -190,6 +219,17 @@ export default function PSPAgentsPage() {
                     </td>
                     <td>
                       <Badge variant="success">Active</Badge>
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <button 
+                        className="btn btn-secondary" 
+                        style={{ padding: "0.4rem", color: "var(--color-danger)", borderColor: "var(--color-danger)" }}
+                        onClick={() => handleDeactivate(agent.id, agent.name)}
+                        disabled={deactivatingId === agent.id}
+                        title="Deactivate Agent"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
