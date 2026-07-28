@@ -44,6 +44,7 @@ interface DashboardData {
     route: string;
   };
   advancePaymentBalance: number;
+  totalOutstandingBalance?: number;
 }
 
 export default function ResidentDashboard() {
@@ -169,10 +170,10 @@ export default function ResidentDashboard() {
         <div className="card flex flex-col justify-between" style={{ padding: "1.5rem" }}>
           <div>
             <div className="flex justify-between items-start" style={{ marginBottom: "1rem" }}>
-              <h3 className="font-semibold text-lg">Current Invoice</h3>
+              <h3 className="font-semibold text-lg">Outstanding Balance</h3>
               {data.currentInvoice ? (
                 <Badge variant={data.currentInvoice.status === "pending" ? "warning" : "danger"}>
-                  {data.currentInvoice.status.toUpperCase()}
+                  {data.currentInvoice.status === "overdue" ? "OVERDUE" : "UNPAID"}
                 </Badge>
               ) : (
                 <Badge variant="success">PAID</Badge>
@@ -180,13 +181,13 @@ export default function ResidentDashboard() {
             </div>
             {data.currentInvoice ? (
               <div>
-                <p className="text-muted text-xs">Period: {data.currentInvoice.billingPeriod}</p>
+                <p className="text-muted text-xs">Oldest Unpaid: {data.currentInvoice.billingPeriod}</p>
                 <h2 style={{ fontSize: "2rem", fontWeight: 700, margin: "0.5rem 0", color: "var(--color-text)" }}>
-                  {formatNaira(data.currentInvoice.totalAmount)}
+                  {formatNaira(data.totalOutstandingBalance || data.currentInvoice.totalAmount)}
                 </h2>
                 <div className="flex items-center gap-1.5 text-xs text-muted">
-                  <Calendar size={14} />
-                  <span>Due on {data.currentInvoice.dueDate}</span>
+                  <AlertCircle size={14} className={data.currentInvoice.status === "overdue" ? "text-danger" : ""} />
+                  <span className={data.currentInvoice.status === "overdue" ? "text-danger" : ""}>Oldest due on {data.currentInvoice.dueDate}</span>
                 </div>
               </div>
             ) : (
@@ -201,7 +202,7 @@ export default function ResidentDashboard() {
               <span>View Invoices</span>
             </Link>
             <button className="btn btn-secondary flex-1 justify-center" onClick={() => setShowTopUp(true)}>
-              <span>Top-Up</span>
+              <span>{data.totalOutstandingBalance && data.totalOutstandingBalance > 0 ? "Pay Balance" : "Top-Up"}</span>
             </button>
           </div>
         </div>

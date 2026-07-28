@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
 import { users, residentProfiles, psps, invoices, routes, routeResidents, collectionLogs } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, inArray, asc } from "drizzle-orm";
 import { config } from "@/lib/config";
 
 
@@ -79,8 +79,9 @@ export async function GET(req: Request) {
       }
     }
 
-    // Fetch latest unpaid / pending invoice
+    // Fetch all unpaid / pending invoices
     let currentInvoice = null;
+    let totalOutstandingBalance = 0;
     if (config.isMockMode) {
       currentInvoice = {
         id: "inv-001",
@@ -92,20 +93,24 @@ export async function GET(req: Request) {
         status: "pending",
         billingPeriod: "July 2026",
       };
+      totalOutstandingBalance = 6300;
     } else {
-      const inv = await db
+      const unpaidInvoices = await db
         .select()
         .from(invoices)
         .where(
           and(
             eq(invoices.residentId, residentId),
-            eq(invoices.status, "pending")
+            inArray(invoices.status, ["pending", "overdue"])
           )
         )
-        .orderBy(invoices.dueDate)
-        .get();
+        .orderBy(asc(invoices.dueDate))
+        .all();
 
-      if (inv) {
+      if (unpaidInvoices && unpaidInvoices.length > 0) {
+        totalOutstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + Number((inv as any).totalAmount), 0);
+        
+        const inv = unpaidInvoices[0]; // Oldest unpaid invoice
         currentInvoice = {
           id: (inv as any).id,
           paymentReference: (inv as any).paymentReference,
@@ -214,6 +219,7 @@ export async function GET(req: Request) {
         currentInvoice,
         nextCollection,
         advancePaymentBalance,
+        totalOutstandingBalance,
       }),
       {
         status: 200,

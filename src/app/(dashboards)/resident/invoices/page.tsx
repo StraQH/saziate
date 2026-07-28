@@ -66,7 +66,7 @@ export default function ResidentInvoicesPage() {
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
-        {["all", "pending", "paid"].map((status) => (
+        {["all", "pending", "overdue", "paid"].map((status) => (
           <button
             key={status}
             className={`btn btn-sm ${filterStatus === status ? "btn-primary" : "btn-ghost"}`}
@@ -107,7 +107,7 @@ export default function ResidentInvoicesPage() {
                     <p className="text-xs text-muted">Due {(inv as any).dueDate}</p>
                   </div>
 
-                  <Badge variant={(inv as any).status === "paid" ? "success" : "warning"}>
+                  <Badge variant={(inv as any).status === "paid" ? "success" : (inv as any).status === "overdue" ? "danger" : "warning"}>
                     {(inv as any).status.toUpperCase()}
                   </Badge>
 

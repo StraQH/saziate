@@ -1,10 +1,11 @@
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, users, transactions, residentProfiles } from "@/db/schema";
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, sql, inArray } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { config } from "@/lib/config";
 
 
 async function verifyPaystackSignature(
@@ -59,6 +60,13 @@ export async function POST(req: Request) {
 
     const eventPayload = JSON.parse(rawBody);
     const event = eventPayload.event;
+
+    if (config.isMockMode) {
+      console.log(`[MOCK WEBHOOK] Received event: ${event}`);
+      console.log(`[MOCK WEBHOOK] Payload:`, JSON.stringify(eventPayload.data, null, 2));
+      return new Response(JSON.stringify({ status: "success", mock: true }), { status: 200 });
+    }
+
     const db = getDb(env.DB as any);
 
     // Dedicated virtual account assignment success
@@ -139,21 +147,20 @@ export async function POST(req: Request) {
         return new Response("Resident profile not found for reference code or email.", { status: 404 });
       }
 
-      // Fetch the invoice
-      const invoice = matchedInvoice || await db
+      // Fetch unpaid invoices
+      const invoiceList = matchedInvoice ? [matchedInvoice] : await db
         .select()
         .from(invoices)
         .where(
           and(
             eq(invoices.residentId, profile.userId),
-            eq(invoices.status, "pending")
+            inArray(invoices.status, ["pending", "overdue"])
           )
         )
         .orderBy(asc(invoices.dueDate))
-        .get();
+        .all();
 
       const txId = generateId();
-      const invoiceId = invoice ? invoice.id : null;
 
       // Wrap all database operations in a transaction
       await db.transaction(async (tx) => {
@@ -162,7 +169,7 @@ export async function POST(req: Request) {
           await tx
             .update(transactions)
             .set({
-              invoiceId: invoiceId,
+              invoiceId: invoiceList.length > 0 ? invoiceList[0].id : null,
               amount: amountInNaira,
               status: "success" as any,
               paidAt: new Date(),
@@ -171,7 +178,7 @@ export async function POST(req: Request) {
         } else {
           await tx.insert(transactions).values({
             id: txId,
-            invoiceId,
+            invoiceId: invoiceList.length > 0 ? invoiceList[0].id : null,
             residentId: profile.userId,
             reference,
             amount: amountInNaira,
@@ -181,46 +188,47 @@ export async function POST(req: Request) {
           });
         }
 
-        if (invoice) {
-          if (amountInNaira >= invoice.totalAmount) {
-            const surplus = Math.round((amountInNaira - invoice.totalAmount) * 100) / 100;
-            
-            if (surplus > 0) {
-              await tx
-                .update(residentProfiles)
-                .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${surplus}` })
-                .where(eq(residentProfiles.userId, profile.userId));
-              
-              // Log secondary transaction for ledger balance
-              await tx.insert(transactions).values({
-                id: generateId(),
-                residentId: profile.userId,
-                reference: `${reference}-SURPLUS`,
-                amount: surplus,
-                status: "success" as any,
-                paymentMethod: "advance_surplus",
-                paidAt: new Date(),
-              });
-            }
+        let remainingAmount = amountInNaira;
 
-            // Mark invoice paid
+        for (const inv of invoiceList) {
+          if (remainingAmount <= 0) break;
+
+          if (remainingAmount >= inv.totalAmount) {
+            // Fully pay this invoice
+            remainingAmount = Math.round((remainingAmount - inv.totalAmount) * 100) / 100;
             await tx
               .update(invoices)
               .set({ status: "paid", totalAmount: 0 })
-              .where(eq(invoices.id, invoice.id));
+              .where(eq(invoices.id, inv.id));
           } else {
-            // Partial Payment - reduce total amount but keep it pending
+            // Partially pay this invoice
             await tx
               .update(invoices)
-              .set({ totalAmount: sql`${invoices.totalAmount} - ${amountInNaira}` })
-              .where(eq(invoices.id, invoice.id));
+              .set({ totalAmount: sql`${invoices.totalAmount} - ${remainingAmount}` })
+              .where(eq(invoices.id, inv.id));
+            remainingAmount = 0;
           }
-        } else {
-          // Resident is pre-funding their account (no pending invoices)
+        }
+
+        if (remainingAmount > 0) {
+          // Resident is pre-funding their account (no pending invoices, or surplus left over)
           await tx
             .update(residentProfiles)
-            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amountInNaira}` })
+            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${remainingAmount}` })
             .where(eq(residentProfiles.userId, profile.userId));
+          
+          // Log secondary transaction for ledger balance (only if they actually paid invoices too, otherwise it's just one big pre-fund)
+          if (amountInNaira > remainingAmount) {
+            await tx.insert(transactions).values({
+              id: generateId(),
+              residentId: profile.userId,
+              reference: `${reference}-SURPLUS`,
+              amount: remainingAmount,
+              status: "success" as any,
+              paymentMethod: "advance_surplus",
+              paidAt: new Date(),
+            });
+          }
         }
       });
 
@@ -228,14 +236,14 @@ export async function POST(req: Request) {
       if (residentUser?.email) {
         const firstName = residentUser.firstName || residentUser.name.split(" ")[0];
         try {
-          if (invoice) {
+          if (invoiceList.length > 0) {
             await sendEmail({
               to: residentUser.email,
               subject: "Saziate Payment Receipt",
               html: emailTemplates.invoiceReceipt(
                 firstName,
                 amountInNaira,
-                invoice.paymentReference || invoice.id,
+                invoiceList[0].paymentReference || invoiceList[0].id,
                 reference
               ),
             });
