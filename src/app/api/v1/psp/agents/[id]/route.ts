@@ -33,21 +33,16 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
       return new Response("Agent not found or unauthorized.", { status: 404 });
     }
 
-    await db.transaction(async (tx) => {
+    await db.batch([
       // 1. Strip the agent of their pspId (Deactivate them)
-      await tx
-        .update(users)
+      db.update(users)
         .set({ pspId: null, updatedAt: new Date() })
-        .where(eq(users.id, agentId))
-        .run();
-
+        .where(eq(users.id, agentId)),
       // 2. Unassign them from any routes they were managing
-      await tx
-        .update(routes)
+      db.update(routes)
         .set({ assignedAgentId: null })
-        .where(and(eq(routes.assignedAgentId, agentId), eq(routes.pspId, pspId)))
-        .run();
-    });
+        .where(and(eq(routes.assignedAgentId, agentId), eq(routes.pspId, pspId))),
+    ]);
 
     return new Response(
       JSON.stringify({
