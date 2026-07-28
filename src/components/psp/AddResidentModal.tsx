@@ -39,6 +39,7 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
   const [address, setAddress] = useState("");
   const [route, setRoute] = useState("");
   const [billingCategory, setBillingCategory] = useState<BillingCategory>("residential");
+  const [propertyType, setPropertyType] = useState("");
   const [baseRate, setBaseRate] = useState("6000");
   const [isOverride, setIsOverride] = useState(false);
   const [billingModel, setBillingModel] = useState<"subscription" | "on_demand">("subscription");
@@ -99,6 +100,7 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           address,
           route,
           billingCategory,
+          propertyType,
           baseRate: rateNum,
           isOverride,
           referenceCode: generateSecureReference(8),
@@ -123,6 +125,7 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
           address,
           route,
           billingCategory,
+          propertyType,
           baseRate: rateNum,
           isOverride,
           billingModel,
@@ -249,6 +252,17 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
               onChange={(e) => setAddress(e.target.value)}
               placeholder="e.g., 10 Kingsway Road, Ikoyi"
               required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="label">Property Type (Optional)</label>
+            <input
+              type="text"
+              className="input"
+              value={propertyType}
+              onChange={(e) => setPropertyType(e.target.value)}
+              placeholder="e.g., Duplex, Bank Branch, Corner Shop"
             />
           </div>
 

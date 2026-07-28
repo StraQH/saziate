@@ -133,6 +133,7 @@ export const residentProfiles = sqliteTable("resident_profiles", {
   billingCategory: text("billing_category", {
     enum: ["commercial", "residential", "industrial", "health"],
   }).notNull(),
+  propertyType: text("property_type"),
   // NULL = inherit from route_billing_rates; set for custom override
   customMonthlyRate: real("custom_monthly_rate"),
   // Surplus payment balance to be applied to future invoices

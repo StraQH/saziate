@@ -39,6 +39,7 @@ export async function GET(req: Request) {
         phone: users.phone,
         address: residentProfiles.address,
         billingCategory: residentProfiles.billingCategory,
+        propertyType: residentProfiles.propertyType,
         customMonthlyRate: residentProfiles.customMonthlyRate,
         billingModel: residentProfiles.billingModel,
         onDemandTripRate: residentProfiles.onDemandTripRate,
@@ -157,7 +158,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { firstName, lastName, email, address, billingCategory, baseRate, isOverride, route, billingModel, onDemandTripRate, onDemandBinRate, onDemandDrumRate } = body;
+    const { firstName, lastName, email, address, billingCategory, propertyType, baseRate, isOverride, route, billingModel, onDemandTripRate, onDemandBinRate, onDemandDrumRate } = body;
     const phone = normalizePhoneNumber(body.phone);
 
     if (!firstName || !lastName || !phone || !address || !route) {
@@ -213,6 +214,7 @@ export async function POST(req: Request) {
       ward: "",
       lga: "",
       billingCategory,
+      propertyType: propertyType || null,
       customMonthlyRate: isOverride ? (typeof baseRate === "number" ? baseRate : parseFloat(baseRate)) : null,
       billingModel: billingModel || "subscription",
       onDemandTripRate: onDemandTripRate || 0,
@@ -298,7 +300,8 @@ export async function POST(req: Request) {
           address,
           route: routeRecord.name,
           billingCategory,
-          baseRate: typeof baseRate === "number" ? baseRate : parseFloat(baseRate),
+          propertyType: propertyType || null,
+          baseRate: isOverride ? (typeof baseRate === "number" ? baseRate : parseFloat(baseRate)) : 0,
           isOverride,
           status: "active",
         },

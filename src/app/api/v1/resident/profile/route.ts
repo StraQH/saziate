@@ -8,7 +8,7 @@ import { users, accounts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { config } from "@/lib/config";
 
-import { psps, routes, routeResidents } from "@/db/schema";
+import { psps, routes, routeResidents, residentProfiles } from "@/db/schema";
 
 
 
@@ -54,6 +54,7 @@ export async function GET(req: Request) {
     let pspPhone = "";
     let pspEmail = "";
     let routeName = "";
+    let propertyType = "";
 
     if (!config.isMockMode) {
       const residentUser = await db
@@ -85,12 +86,23 @@ export async function GET(req: Request) {
       if (routeRes) {
         routeName = routeRes.name;
       }
+      
+      const profileRes = await db
+        .select({ propertyType: residentProfiles.propertyType })
+        .from(residentProfiles)
+        .where(eq(residentProfiles.userId, residentId))
+        .get();
+        
+      if (profileRes && profileRes.propertyType) {
+        propertyType = profileRes.propertyType;
+      }
     }
 
     return new Response(
       JSON.stringify({
         name: residentName,
         email: residentEmail,
+        propertyType,
         psp: { name: pspName, phone: pspPhone, email: pspEmail },
         route: { name: routeName },
       }),

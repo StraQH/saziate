@@ -8,6 +8,7 @@ export interface Resident {
   address: string;
   route: string;
   billingCategory: "residential" | "commercial" | "industrial" | "health";
+  propertyType?: string;
   baseRate: number;
   isOverride: boolean;
   referenceCode: string;

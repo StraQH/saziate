@@ -1,0 +1,1 @@
+ALTER TABLE `resident_profiles` ADD `property_type` text;

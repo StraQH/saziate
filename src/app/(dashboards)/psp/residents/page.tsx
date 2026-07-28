@@ -222,6 +222,9 @@ export default function PSPResidentsPage() {
                       <Badge variant="primary">
                         {CATEGORY_LABELS[r.billingCategory]}
                       </Badge>
+                      {r.propertyType && (
+                        <div className="text-xs text-muted mt-1">{r.propertyType}</div>
+                      )}
                     </td>
                     <td className="text-sm">
                       {formatNaira(r.baseRate)}
