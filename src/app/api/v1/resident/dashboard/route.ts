@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
@@ -220,6 +221,13 @@ export async function GET(req: Request) {
       }
     );
   } catch (error: any) {
+    console.error("[Dashboard Error]", error);
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole, getPspAvailableBalance } from "@/lib/session";
 import { getDb } from "@/db";

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { users, passwordResetTokens, accounts } from "@/db/schema";

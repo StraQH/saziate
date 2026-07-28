@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { PaystackClient } from "@/lib/paystack";
 import { config } from "@/lib/config";

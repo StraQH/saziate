@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { createRouteSchema } from "@/lib/validators";
 import { getDb } from "@/db";
@@ -65,6 +66,13 @@ export async function GET(req: Request) {
     return new Response(JSON.stringify(routesWithRates), { status: 200 });
   } catch (error: any) {
     console.error("GET Routes Error:", error);
+    console.error("[API Error]", error);
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
@@ -133,6 +141,13 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ status: "success" as any, routeId }), { status: 201 });
   } catch (error: any) {
     console.error("Create Route Error:", error);
+    console.error("[API Error]", error);
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }
@@ -172,6 +187,13 @@ export async function PATCH(req: Request) {
     return new Response(JSON.stringify({ status: "success" }), { status: 200 });
   } catch (error: any) {
     console.error("Update Route Error:", error);
+    console.error("[API Error]", error);
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

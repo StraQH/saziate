@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole, getActivePspId } from "@/lib/session";
 import { getDb } from "@/db";
@@ -111,6 +112,13 @@ export async function POST(req: Request) {
     );
   } catch (error: any) {
     console.error("Onboard Agent Error:", error);
+    console.error("[API Error]", error);
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }
 }

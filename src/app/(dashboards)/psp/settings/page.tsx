@@ -17,9 +17,9 @@ export default function PSPSettingsPage() {
   const [dvaAccountName, setDvaAccountName] = useState(config.isMockMode ? "Saziate - Lekki Green Cleaners Ltd" : "");
 
   // Payout Settings
-  const [bankCode, setBankCode] = useState(config.isMockMode ? "035" : "");
-  const [accountNumber, setAccountNumber] = useState(config.isMockMode ? "0123456789" : "");
-  const [accountName, setAccountName] = useState(config.isMockMode ? "Lekki Green Cleaners Ltd" : "");
+  const [bankCode, setBankCode] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
   const [bvn, setBvn] = useState("");
 
   const [loading, setLoading] = useState(false);
