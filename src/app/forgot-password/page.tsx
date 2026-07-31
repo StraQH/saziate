@@ -103,7 +103,7 @@ export default function ForgotPasswordPage() {
             Secure account recovery.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "400px", lineHeight: 1.6 }}>
-            Get back to managing waste and billing efficiently with a secure password reset.
+            Get back to managing utilities and billing efficiently with a secure password reset.
           </p>
         </div>
 

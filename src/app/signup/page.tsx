@@ -89,7 +89,7 @@ export default function SignupPage() {
             <img src="/logo-white.svg" alt="Saziate Logo" style={{ height: "28px" }} />
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Digitize your waste operations today.
+            Digitize your utility operations today.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px" }}>
             Manage residents, automate recurring monthly invoicing, collect bills with <span style={{ fontWeight: 600 }}>Dedicated Virtual Accounts</span>, coordinate field agents, and secure automated settlements.
@@ -123,7 +123,7 @@ export default function SignupPage() {
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
             <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text, #f8fafc)" }}>Get Started</h2>
             <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-              Register your PSP waste operator account on Saziate
+              Register your utility provider account on Saziate
             </p>
           </div>
 

@@ -96,7 +96,7 @@ export default function LoginPage() {
             <img src="/logo-white.svg" alt="Saziate Logo" style={{ height: "28px" }} />
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Waste management, simplified.
+            Utility operations, simplified.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px", lineHeight: 1.6 }}>
             A unified platform for communities and service providers. Track collection schedules, manage operations seamlessly, and collaborate for a cleaner environment.
@@ -236,7 +236,7 @@ export default function LoginPage() {
           )}
 
           <p className="text-muted" style={{ textAlign: "center", marginTop: "1.5rem" }}>
-            New waste operator?{" "}
+            New utility provider?{" "}
             <Link href="/signup" style={{ color: "var(--color-primary, #2563eb)", fontWeight: 500 }}>
               Create Account
             </Link>
