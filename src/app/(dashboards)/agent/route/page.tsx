@@ -401,7 +401,7 @@ export default function AgentRoutePage() {
         onClose={() => setPromptModal(false)}
         onSubmit={executeConfirmTransfer}
         title="Verify Transfer"
-        message="Enter the Paystack Transfer Reference provided by the resident:"
+        message="Enter the Monnify Transfer Reference provided by the resident:"
         placeholder="e.g. T49929291"
         submitText="Verify"
       />

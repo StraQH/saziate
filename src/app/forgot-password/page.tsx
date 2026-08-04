@@ -97,13 +97,13 @@ export default function ForgotPasswordPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <img src="/logo-white.svg" alt="Saziate Logo" style={{ height: "28px" }} />
+            <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "#ffffff", letterSpacing: "-0.5px" }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Secure account recovery.
+            Regain access instantly.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "400px", lineHeight: 1.6 }}>
-            Get back to managing utilities and billing efficiently with a secure password reset.
+            Securely reset your password and get back to managing your services, collections, and growth.
           </p>
         </div>
 

@@ -7,7 +7,7 @@ import { eq, like, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
 import { z } from "zod";
-
+import { MonnifyClient } from "@/lib/monnify";
 
 const verifySchema = z.object({
   reference: z.string().min(1),
@@ -29,29 +29,23 @@ export async function POST(req: Request) {
 
     const { reference } = parsed.data;
 
-    const paystackSecret = env.PAYSTACK_SECRET_KEY;
-    if (!paystackSecret) {
-      throw new Error("Paystack secret key is missing from environment.");
+    if (!env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY || !env.MONNIFY_CONTRACT_CODE) {
+      throw new Error("Monnify configuration is missing from environment.");
     }
 
-    // Ping Paystack to verify
-    const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${paystackSecret}`,
-      },
-    });
-
-    if (!verifyRes.ok) {
-      return new Response("Failed to verify transaction with Paystack.", { status: 400 });
+    let verifyData: any;
+    try {
+      const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
+      verifyData = await monnify.getTransactionStatus(reference);
+    } catch (err: any) {
+      return new Response("Failed to verify transaction with Monnify.", { status: 400 });
     }
 
-    const verifyData = await verifyRes.json() as unknown;
-    if (!(verifyData as any).status || (verifyData as any).data.status !== "success") {
-      return new Response(JSON.stringify({ status: "failed", message: "Transaction is not successful on Paystack." }), { status: 400 });
+    if (verifyData.paymentStatus !== "PAID") {
+      return new Response(JSON.stringify({ status: "failed", message: "Transaction is not successful on Monnify." }), { status: 400 });
     }
 
-    const narration = (verifyData as any).data.metadata?.custom_fields?.[0]?.value || (verifyData as any).data.reference;
+    const narration = verifyData.paymentDescription || verifyData.paymentReference;
     const match = narration.match(/\b[a-f0-9]{10}\b/i);
     const paymentRef = match ? match[0] : null;
 
@@ -70,17 +64,17 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ status: "failed", message: "Matching invoice not found for this reference." }), { status: 404 });
     }
 
-    const amountInNaira = Math.round((verifyData as any).data.amount) / 100;
+    const amountInNaira = verifyData.amountPaid;
     const txId = generateId();
 
     // Perform database operations within a Drizzle transaction
     await db.transaction(async (tx) => {
-      // 1. Insert transaction with EXACT amount from Paystack
+      // 1. Insert transaction with EXACT amount from Monnify
       await tx.insert(transactions).values({
         id: txId,
         invoiceId: invoice.id,
         residentId: invoice.residentId,
-        reference: (verifyData as any).data.reference,
+        reference: verifyData.paymentReference,
         amount: amountInNaira,
         status: "success" as any,
         paymentMethod: "bank_transfer" as any,
@@ -113,7 +107,7 @@ export async function POST(req: Request) {
               await tx.insert(transactions).values({
                 id: generateId(),
                 residentId: profile.userId,
-                reference: `${(verifyData as any).data.reference}-SURPLUS`,
+                reference: `${verifyData.paymentReference}-SURPLUS`,
                 amount: surplus,
                 status: "success" as any,
                 paymentMethod: "advance_surplus",
@@ -146,7 +140,7 @@ export async function POST(req: Request) {
           await tx.insert(transactions).values({
             id: generateId(),
             residentId: profile.userId,
-            reference: `${(verifyData as any).data.reference}-SURPLUS`,
+            reference: `${verifyData.paymentReference}-SURPLUS`,
             amount: amountInNaira,
             status: "success" as any,
             paymentMethod: "advance_surplus",
@@ -162,7 +156,7 @@ export async function POST(req: Request) {
         action: "invoice.reconciled",
         entityType: "invoice",
         entityId: invoice.id,
-        meta: JSON.stringify({ txId, reference: (verifyData as any).data.reference, method: "manual_verify" }),
+        meta: JSON.stringify({ txId, reference: verifyData.paymentReference, method: "manual_verify" }),
       });
     });
 

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { users, residentProfiles, transactions, auditLogs } from "@/db/schema";
+
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateId, generateSecureReference } from "@/lib/utils";
@@ -10,6 +11,7 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
+import { MonnifyClient } from "@/lib/monnify";
 
 
 const topUpSchema = z.object({
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
         await tx.insert(transactions).values({
           id: txId,
           residentId,
-          reference: `PAYSTACK-TOPUP-${generateSecureReference(10)}`,
+          reference: `MONNIFY-TOPUP-${generateSecureReference(10)}`,
           amount,
           status: "success" as any,
           paymentMethod: "bank_transfer" as any,
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
           action: "resident_topup",
           entityType: "resident",
           entityId: residentId,
-          meta: JSON.stringify({ amount, provider: "paystack", mode: "mock" }),
+          meta: JSON.stringify({ amount, provider: "monnify", mode: "mock" }),
         });
       });
 
@@ -96,64 +98,49 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({
         status: "success" as any,
         message: "Digital top-up simulated successfully.",
-        mockCheckoutUrl: "https://checkout.paystack.com/mock-url-12345"
+        mockCheckoutUrl: "https://sandbox.monnify.com/checkout/mock-url-12345"
       }), { status: 200, headers: { "Content-Type": "application/json" } });
 
     } else {
-      // ─── Live Mode: create Paystack payment link ────────────────────────
-      if (!env.PAYSTACK_SECRET_KEY) {
+      // ─── Live Mode: create Monnify payment link ────────────────────────
+      if (!env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY || !env.MONNIFY_CONTRACT_CODE) {
         return new Response(JSON.stringify({ error: "Payment provider not configured." }), { status: 500 });
       }
 
       const reference = `TOPUP-${generateSecureReference(16)}`;
+      const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
 
-      // Initialize Paystack transaction
-      const paystackRes = await fetch("https://api.paystack.co/transaction/initialize", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: resident.email,
-          // Paystack expects amount in kobo (smallest NGN unit)
-          amount: Math.round(amount * 100),
+      try {
+        const monnifyData = await monnify.initializeTransaction({
+          amount,
+          customerName: resident.firstName || resident.name.split(" ")[0] || "Resident",
+          customerEmail: resident.email,
+          paymentReference: reference,
+          paymentDescription: "Saziate Wallet Top-Up",
+          redirectUrl: callbackUrl || `${req.headers.get("origin") || ""}/resident/wallet`,
+          paymentMethods: ["CARD", "ACCOUNT_TRANSFER"],
+        });
+
+        // Pre-log an initiated transaction so we can track it via webhook
+        await db.insert(transactions).values({
+          id: generateId(),
+          residentId,
           reference,
-          // The webhook will credit the resident's advance balance upon payment.success
-          // We store metadata so the webhook knows this is a top-up vs an invoice payment.
-          metadata: {
-            type: "advance_topup",
-            residentId,
-            pspId: resident.pspId,
-          },
-          callback_url: callbackUrl || `${req.headers.get("origin") || ""}/resident/wallet`,
-        }),
-      });
+          amount,
+          status: "initiated",
+          paymentMethod: "bank_transfer" as any,
+          paidAt: new Date(),
+        });
 
-      if (!paystackRes.ok) {
-        const errBody = await paystackRes.text();
-        console.error("Paystack initialize failed:", errBody);
+        return new Response(JSON.stringify({
+          status: "success" as any,
+          checkoutUrl: monnifyData.checkoutUrl,
+          reference,
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      } catch (monnifyErr: any) {
+        console.error("Monnify initialize failed:", monnifyErr);
         return new Response(JSON.stringify({ error: "Failed to initialize payment." }), { status: 502 });
       }
-
-      const paystackData = await paystackRes.json() as unknown;
-
-      // Pre-log an initiated transaction so we can track it via webhook
-      await db.insert(transactions).values({
-        id: generateId(),
-        residentId,
-        reference,
-        amount,
-        status: "initiated",
-        paymentMethod: "bank_transfer" as any,
-        paidAt: new Date(),
-      });
-
-      return new Response(JSON.stringify({
-        status: "success" as any,
-        checkoutUrl: (paystackData as any).data.authorization_url,
-        reference,
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
   } catch (error: any) {

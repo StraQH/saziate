@@ -1,14 +1,13 @@
 export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
-import { approvePspSchema } from "@/lib/validators";
 import { getDb } from "@/db";
 import { psps } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
-import { PaystackClient } from "@/lib/paystack";
+import { MonnifyClient } from "@/lib/monnify";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as Record<string, string | undefined>;
@@ -39,7 +38,7 @@ export async function POST(req: Request) {
     let dvaBankName = "";
     let dvaAccountNumber = "";
     let dvaAccountName = "";
-    let dvaCustomerCode = "";
+    let dvaAccountReference = "";
 
     if (config.isMockMode) {
       dvaBankName = "Wema Bank";
@@ -48,53 +47,34 @@ export async function POST(req: Request) {
       const digits = (array[0] * 16777216 + array[1] * 65536 + array[2] * 256 + array[3]).toString().padStart(7, '0').slice(0, 7);
       dvaAccountNumber = `992${digits}`;
       dvaAccountName = `Saziate / ${psp.name}`;
-      dvaCustomerCode = "CUST_99014";
-    } else if (env.PAYSTACK_SECRET_KEY) {
-      // In live production, calls Paystack APIs to create customer + dva dedicated account
+      dvaAccountReference = `DVA-${pspId}-${Date.now()}`;
+    } else if (env.MONNIFY_API_KEY && env.MONNIFY_SECRET_KEY && env.MONNIFY_CONTRACT_CODE) {
       try {
-        const paystack = new PaystackClient(env.PAYSTACK_SECRET_KEY);
-
-        // 1. Create customer
-        const customer = await paystack.createCustomer({
-          email: psp.contactEmail,
-          first_name: psp.name,
-          last_name: "Operator",
-          phone: psp.contactPhone || undefined,
+        const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
+        const accountRef = `DVA-${pspId}-${Date.now()}`;
+        
+        const dva = await monnify.createReservedAccount({
+          accountReference: accountRef,
+          accountName: `Saziate / ${psp.name}`,
+          customerEmail: psp.contactEmail,
+          customerName: psp.name,
+          getAllAvailableBanks: true
         });
 
-        // 2. Validate customer identification if not in test mode
-        // Paystack DVAs in production require customer validation
-        if (psp.settlementAccountNumber && psp.settlementBankCode) {
-          await paystack.validateCustomer(customer.customer_code, {
-            first_name: psp.name.split(" ")[0] || psp.name,
-            last_name: psp.name.split(" ").slice(1).join(" ") || "Operator",
-            type: "bank_account",
-            value: psp.settlementAccountNumber,
-            country: "NG",
-            bank_code: psp.settlementBankCode,
-            account_number: psp.settlementAccountNumber,
-          });
-        } else {
-          return new Response("PSP operator has not set up their settlement bank details. Please ask the operator to add payout details in settings first.", { status: 400 });
+        if (!dva || !dva.accounts || dva.accounts.length === 0) {
+           throw new Error("No accounts returned from Monnify.");
         }
 
-        // 3. Create dedicated account
-        const isTestMode = env.PAYSTACK_SECRET_KEY.startsWith("sk_test_");
-        const dva = await paystack.createDedicatedAccount({
-          customer: customer.customer_code,
-          preferred_bank: isTestMode ? "test-bank" : "wema-bank",
-        });
-
-        dvaBankName = dva.bank.name;
-        dvaAccountNumber = dva.account_number;
-        dvaAccountName = dva.account_name;
-        dvaCustomerCode = customer.customer_code;
-      } catch (paystackErr: any) {
-        console.error("Failed to provision Paystack DVA:", paystackErr);
-        return new Response(`Paystack DVA provisioning failed: ${(paystackErr as any).message || paystackErr}`, { status: 500 });
+        dvaBankName = dva.accounts[0].bankName;
+        dvaAccountNumber = dva.accounts[0].accountNumber;
+        dvaAccountName = dva.accounts[0].accountName;
+        dvaAccountReference = accountRef;
+      } catch (err: any) {
+        console.error("Failed to provision Monnify Reserved Account:", err);
+        return new Response(`Monnify Account provisioning failed: ${(err as any).message || err}`, { status: 500 });
       }
     } else {
-      return new Response("Paystack configuration missing.", { status: 500 });
+      return new Response("Monnify configuration missing.", { status: 500 });
     }
 
     // Save provisioned parameters to D1
@@ -104,7 +84,7 @@ export async function POST(req: Request) {
         dvaBankName,
         dvaAccountNumber,
         dvaAccountName,
-        dvaCustomerCode,
+        dvaAccountReference,
       })
       .where(eq(psps.id, pspId));
 

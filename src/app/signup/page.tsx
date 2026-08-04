@@ -86,13 +86,13 @@ export default function SignupPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <img src="/logo-white.svg" alt="Saziate Logo" style={{ height: "28px" }} />
+            <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "#ffffff", letterSpacing: "-0.5px" }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Digitize your utility operations today.
+            Accelerate your utility business growth today.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px" }}>
-            Manage residents, automate recurring monthly invoicing, collect bills with <span style={{ fontWeight: 600 }}>Dedicated Virtual Accounts</span>, coordinate field agents, and secure automated settlements.
+            Partner with Saziate to scale your customer base, automate invoicing, and secure rapid settlements with zero manual reconciliation.
           </p>
         </div>
         <div
@@ -150,7 +150,7 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div>
               <h3 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.875rem", borderBottom: "1px solid var(--color-border, #334155)", paddingBottom: "0.375rem" }}>
-                1. Operator Profile
+                1. Growth Partner Profile
               </h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }} className="grid-cols-1">
                 <div className="form-group">

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
-import { PaystackClient } from "@/lib/paystack";
+import { MonnifyClient } from "@/lib/monnify";
 import { config } from "@/lib/config";
 
 const MOCK_BANKS = [
@@ -42,20 +42,19 @@ export async function GET(req: Request) {
     });
   }
 
-  const key = env.PAYSTACK_SECRET_KEY;
-  if (!key) {
-    return new Response("Paystack Configuration Missing", { status: 500 });
+  if (!env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY || !env.MONNIFY_CONTRACT_CODE) {
+    return new Response("Monnify Configuration Missing", { status: 500 });
   }
 
   try {
-    const paystack = new PaystackClient(key);
-    const banks = await paystack.getBanks();
+    const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
+    const banks = await monnify.getBanks();
     return new Response(JSON.stringify(banks), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("Failed to fetch banks from Paystack:", error);
-    return new Response("Paystack Service Unavailable", { status: 503 });
+    console.error("Failed to fetch banks from Monnify:", error);
+    return new Response("Monnify Service Unavailable", { status: 503 });
   }
 }

@@ -70,7 +70,7 @@ export async function GET(req: Request) {
         if (psp) {
           pspInfo = {
             name: psp.name,
-            dvaBankName: psp.dvaBankName || "Providus Bank (via Paystack)",
+            dvaBankName: psp.dvaBankName || "Providus Bank (via Monnify)",
             dvaAccountNumber: psp.dvaAccountNumber || "Not provisioned yet",
             dvaAccountName: psp.dvaAccountName || `${psp.name} Settlement`,
           };

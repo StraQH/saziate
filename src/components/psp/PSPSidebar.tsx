@@ -19,14 +19,14 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/psp",             label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/psp/residents",   label: "Residents",   icon: Users },
+  { href: "/psp/residents",   label: "Customer Base",   icon: Users },
   { href: "/psp/agents",      label: "Field Agents",icon: Users },
   { href: "/psp/routes",      label: "Routes",      icon: MapPin },
-  { href: "/psp/billing",     label: "Billing",     icon: FileText },
-  { href: "/psp/collections", label: "Collections Feed", icon: Truck },
+  { href: "/psp/billing",     label: "Revenue & Billing",     icon: FileText },
+  { href: "/psp/collections", label: "Service Operations", icon: Truck },
   { href: "/psp/field-route", label: "Log Route",   icon: MapPin },
   { href: "/psp/field-cash",  label: "Log Cash",    icon: FileText },
-  { href: "/psp/settings",    label: "Settings",    icon: Settings },
+  { href: "/psp/settings",    label: "Platform Settings",    icon: Settings },
 ];
 
 export function PSPSidebar({ pspName }: { pspName: string }) {
@@ -40,7 +40,7 @@ export function PSPSidebar({ pspName }: { pspName: string }) {
         <button onClick={() => setIsOpen(true)} className="p-2 -ml-2" aria-label="Open menu">
           <Menu size={24} style={{ color: "var(--color-text)" }} />
         </button>
-        <span style={{ marginLeft: "1rem" }}><img src="/logo.svg" alt="Saziate Logo" style={{ height: "24px", objectFit: "contain" }} /></span>
+        <span style={{ marginLeft: "1rem" }}><span style={{ fontWeight: 800, fontSize: "1.25rem", color: "inherit", letterSpacing: "-0.5px" }}>Saziate</span></span>
       </div>
 
       <div 
@@ -50,7 +50,7 @@ export function PSPSidebar({ pspName }: { pspName: string }) {
 
       <aside className={cn("sidebar", isOpen && "open")}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", padding: "0 0.5rem" }}>
-          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><img src="/logo.svg" alt="Saziate Logo" style={{ height: "32px", objectFit: "contain" }} /></div>
+          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><span style={{ fontWeight: 800, fontSize: "1.5rem", color: "inherit", letterSpacing: "-0.5px" }}>Saziate</span></div>
           {isOpen && (
             <button onClick={() => setIsOpen(false)} style={{ background: "none", border: "none", color: "var(--color-text-muted)" }}>
               <X size={24} />
@@ -60,7 +60,7 @@ export function PSPSidebar({ pspName }: { pspName: string }) {
 
         <div style={{ marginBottom: "1.5rem", padding: "0 0.5rem" }}>
           <p className="text-xs text-muted" style={{ marginBottom: "0.25rem" }}>
-            Operator
+            Growth Partner
           </p>
           <p className="font-semibold" style={{ fontSize: "0.9375rem", lineHeight: 1.3 }}>
             {pspName}

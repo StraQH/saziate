@@ -7,6 +7,7 @@ import { generateId } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
+import { MonnifyClient } from "@/lib/monnify";
 
 
 export async function GET(req: Request) {
@@ -111,38 +112,67 @@ export async function GET(req: Request) {
         // Threshold check (minimum automated payout NGN 1000)
         if (estimatedAvailable >= config.AUTO_PAYOUT_MINIMUM_NGN) {
           const txId = generateId();
+          const reference = `PAYOUT-AUTO-${generateId()}`;
           
-          newTxs.push({
-            id: txId,
-            pspId: psp.id,
-            residentId: psp.id, // fallback placeholder; NOT a real user FK — pspId is authoritative
-            reference: `PAYOUT-AUTO-${generateId()}`,
-            amount: estimatedAvailable,
-            paymentMethod: "bank_transfer" as any,
-            status: "success" as any,
-            cashStatus: "settled" as any,
-            paidAt: new Date(),
-          });
+          let isSuccess = false;
+          if (!config.isMockMode && env.MONNIFY_API_KEY && env.MONNIFY_SECRET_KEY && env.MONNIFY_CONTRACT_CODE && psp.settlementBankCode && psp.settlementAccountNumber) {
+            try {
+              const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
+              await monnify.initiateTransfer({
+                amount: estimatedAvailable,
+                reference: reference,
+                narration: "Saziate Automated Settlement",
+                destinationBankCode: psp.settlementBankCode,
+                destinationAccountNumber: psp.settlementAccountNumber,
+                currency: "NGN",
+                sourceAccountNumber: env.MONNIFY_WALLET_ACCOUNT_NUMBER || "0000000000",
+              });
+              isSuccess = true;
+            } catch (err) {
+              console.error(`Failed to automate payout for PSP ${psp.id}:`, err);
+            }
+          } else {
+             // Either in mock mode, missing config, or PSP missing settlement info
+             if (config.isMockMode) isSuccess = true;
+          }
 
-          newLogs.push({
-            id: generateId(),
-            actorId: "system",
-            action: "payout.automated",
-            entityType: "psp",
-            entityId: psp.id,
-            meta: JSON.stringify({ amount: estimatedAvailable }),
-          });
+          if (isSuccess) {
+            // Find an operator for this PSP to use as residentId for the FK constraint
+            const operator = await tx.select({ id: users.id }).from(users).where(and(eq(users.pspId, psp.id), eq(users.role, "psp_operator"))).limit(1).get();
+            const validUserId = operator ? operator.id : "system"; // Will fail FK if 'system' doesn't exist, but it's better than psp.id
 
-          processedCount++;
+            newTxs.push({
+              id: txId,
+              pspId: psp.id,
+              residentId: validUserId,
+              reference: reference,
+              amount: estimatedAvailable,
+              paymentMethod: "bank_transfer" as any,
+              status: "success" as any,
+              cashStatus: "settled" as any,
+              paidAt: new Date(),
+            });
 
-          // Send Email Confirmation (queue promise)
-          if (psp.contactEmail && psp.settlementAccountNumber) {
-            const accountMask = psp.settlementAccountNumber.slice(-4);
-            notificationPromises.push(sendEmail({
-              to: psp.contactEmail,
-              subject: "Saziate Payout Initiated",
-              html: emailTemplates.payoutConfirmation(psp.name, estimatedAvailable, accountMask),
-            }));
+            newLogs.push({
+              id: generateId(),
+              actorId: "system",
+              action: "payout.automated",
+              entityType: "psp",
+              entityId: psp.id,
+              meta: JSON.stringify({ amount: estimatedAvailable }),
+            });
+
+            processedCount++;
+
+            // Send Email Confirmation (queue promise)
+            if (psp.contactEmail && psp.settlementAccountNumber) {
+              const accountMask = psp.settlementAccountNumber.slice(-4);
+              notificationPromises.push(sendEmail({
+                to: psp.contactEmail,
+                subject: "Saziate Payout Initiated",
+                html: emailTemplates.payoutConfirmation(psp.name, estimatedAvailable, accountMask),
+              }));
+            }
           }
         }
       }

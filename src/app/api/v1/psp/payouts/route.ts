@@ -10,6 +10,7 @@ import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 import { z } from "zod";
 import { verifyPassword } from "@/lib/hash";
+import { MonnifyClient } from "@/lib/monnify";
 
 const payoutSchema = z.object({
   amount: z.number().positive().transform(val => Math.round(val * 100) / 100),
@@ -152,51 +153,27 @@ export async function POST(req: Request) {
       throw txErr;
     }
 
-    // 2. Proceed with Paystack Transfer
+    // 2. Proceed with Monnify Transfer
     let isSuccess = false;
     if (!config.isMockMode) {
-      if (!env.PAYSTACK_SECRET_KEY) {
+      if (!env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY || !env.MONNIFY_CONTRACT_CODE) {
         await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));
         return new Response("Payment provider not configured.", { status: 500 });
       }
       
       try {
-        const recipientRes = await fetch("https://api.paystack.co/transferrecipient", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            type: "nuban",
-            name: psp.settlementAccountName || psp.name,
-            account_number: psp.settlementAccountNumber,
-            bank_code: psp.settlementBankCode,
-            currency: "NGN",
-          }),
-        });
-
-        if (!recipientRes.ok) throw new Error("Failed to create transfer recipient on Paystack.");
-
-        const recipientData = await recipientRes.json() as any;
-        const recipientCode = recipientData.data.recipient_code;
-
-        const transferRes = await fetch("https://api.paystack.co/transfer", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            source: "balance",
-            amount: Math.round(amount * 100),
-            recipient: recipientCode,
-            reason: "Saziate Settlement Payout",
-          }),
-        });
-
-        if (!transferRes.ok) throw new Error("Failed to initiate transfer on Paystack.");
+        const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
         
+        await monnify.initiateTransfer({
+          amount: amount,
+          reference: reference,
+          narration: "Saziate Settlement Payout",
+          destinationBankCode: psp.settlementBankCode,
+          destinationAccountNumber: psp.settlementAccountNumber,
+          currency: "NGN",
+          sourceAccountNumber: env.MONNIFY_WALLET_ACCOUNT_NUMBER || "0000000000",
+        });
+
         isSuccess = true;
       } catch (err: any) {
         await db.update(transactions).set({ status: "failed" }).where(eq(transactions.id, txId));

@@ -5,8 +5,10 @@ interface CloudflareEnv {
   ASSETS: Fetcher;
   NEXT_PUBLIC_APP_NAME: string;
   BETTER_AUTH_SECRET: string;
-  PAYSTACK_SECRET_KEY: string;
-  PAYSTACK_WEBHOOK_SECRET: string;
+  MONNIFY_API_KEY: string;
+  MONNIFY_SECRET_KEY: string;
+  MONNIFY_CONTRACT_CODE: string;
+  MONNIFY_WALLET_ACCOUNT_NUMBER: string;
   TERMII_API_KEY: string;
 }
 

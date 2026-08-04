@@ -195,9 +195,9 @@ export default function PSPBillingPage() {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1>Billing & Invoices</h1>
+          <h1>Revenue & Billing</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Monitor resident invoices, collections, and Saziate platform commissions.
+            Monitor automated collections, active revenue, and platform growth metrics.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -207,7 +207,7 @@ export default function PSPBillingPage() {
           </button>
           <button className="btn btn-primary btn-sm" onClick={handleRequestPayout}>
             <DollarSign size={16} />
-            Request Payout
+            Accelerate Payout
           </button>
           <button className="btn btn-secondary btn-sm" onClick={fetchInvoices}>
             <RefreshCw size={16} />

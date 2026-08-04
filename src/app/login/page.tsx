@@ -93,13 +93,13 @@ export default function LoginPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <img src="/logo-white.svg" alt="Saziate Logo" style={{ height: "28px" }} />
+            <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "#ffffff", letterSpacing: "-0.5px" }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Utility operations, simplified.
+            Welcome to the future of utility management.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px", lineHeight: 1.6 }}>
-            A unified platform for communities and service providers. Track collection schedules, manage operations seamlessly, and collaborate for a cleaner environment.
+            Your centralised hub for utility management, transparent collections and effortless bill payment.
           </p>
         </div>
         <div
@@ -128,9 +128,9 @@ export default function LoginPage() {
       >
         <div style={{ width: "100%", maxWidth: "440px" }} className="card">
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text, #f8fafc)" }}>Welcome Back</h2>
+            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text, #f8fafc)" }}>Sign In</h2>
             <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-              Sign in to manage your collection operations
+              Access your personalized Saziate dashboard.
             </p>
           </div>
 

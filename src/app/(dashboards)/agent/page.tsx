@@ -56,9 +56,9 @@ export default function AgentDashboardPage() {
     <div>
       <div className="page-header" style={{ marginBottom: "2rem" }}>
         <div>
-          <h1>Field Agent Dashboard</h1>
+          <h1>Agent Command Center</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Track collections logged by you today.
+            Track your daily route progress and active collections.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchAgentLogs}>
@@ -68,14 +68,14 @@ export default function AgentDashboardPage() {
       </div>
 
       <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
-        <MetricCard label="My Completed Logs" value={completedCount.toString()} />
-        <MetricCard label="Pending route tasks" value={pendingCount.toString()} />
+        <MetricCard label="Completed Pickups" value={completedCount.toString()} />
+        <MetricCard label="Remaining Pickups" value={pendingCount.toString()} />
         <MetricCard label="Today's assigned zone" value={assignedZone} />
         <MetricCard label="Collection Schedule" value={collectionSchedule} />
       </div>
 
       <div className="card">
-        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>My Logs Today</h2>
+        <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1rem" }}>Today's Activity Log</h2>
         {loading ? (
           <div className="flex justify-center" style={{ padding: "2rem" }}>
             <div className="spinner" />

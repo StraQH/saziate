@@ -41,9 +41,9 @@ export async function POST(req: Request) {
       return new Response("Invoice is already marked as paid.", { status: 400 });
     }
 
-    // Simulate Paystack verification success
+    // Simulate Monnify verification success
     const txId = generateId();
-    const paystackRef = `MAN-REC-${Date.now()}`;
+    const monnifyRef = `MAN-REC-${Date.now()}`;
 
     // Mark invoice paid and zero out totalAmount to be consistent with all other payment paths
     await db
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       id: txId,
       invoiceId: invoiceId,
       residentId: invoice.residentId,
-      reference: paystackRef,
+      reference: monnifyRef,
       amount: invoice.totalAmount,
       status: "success" as any,
       paymentMethod: "cash",
@@ -71,14 +71,14 @@ export async function POST(req: Request) {
       action: "invoice.reconciled",
       entityType: "invoice",
       entityId: invoiceId,
-      meta: JSON.stringify({ txId, reference: paystackRef }),
+      meta: JSON.stringify({ txId, reference: monnifyRef }),
     });
 
     return new Response(
       JSON.stringify({
         status: "success" as any,
         message: "Invoice successfully reconciled and marked as paid.",
-        transaction: { id: txId, reference: paystackRef },
+        transaction: { id: txId, reference: monnifyRef },
       }),
       {
         status: 200,

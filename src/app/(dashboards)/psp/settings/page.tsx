@@ -126,9 +126,9 @@ export default function PSPSettingsPage() {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1>Operator Settings</h1>
+          <h1>Growth Settings & Payout Configuration</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Manage company profile, dedicated virtual accounts, and payout settlements.
+            Configure your growth engine: manage your business identity, automated collection accounts, and daily payout destination.
           </p>
         </div>
       </div>
@@ -163,7 +163,7 @@ export default function PSPSettingsPage() {
 
         {/* Profile Card */}
         <div className="card">
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.5rem" }}>Company Profile</h2>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "1.5rem" }}>Business Identity</h2>
           <form style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div className="form-group">
               <label className="label">Company Legal Name</label>
@@ -214,10 +214,10 @@ export default function PSPSettingsPage() {
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
             <CreditCard size={20} style={{ color: "var(--color-primary)" }} />
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>Provisioned Dedicated Virtual Account</h2>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>Automated Collection Engine (DVA)</h2>
           </div>
           <p className="text-muted text-sm" style={{ marginBottom: "1.5rem" }}>
-            Your Dedicated Virtual Account. Residents transfer payments directly to this account for automated reconciliation.
+            Your automated growth engine. Saziate provisions this dedicated account to instantly capture, verify, and reconcile resident payments with zero manual effort.
           </p>
 
           <div
@@ -249,9 +249,9 @@ export default function PSPSettingsPage() {
 
         {/* Bank Account Payout details */}
         <div className="card">
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Settlement Destination</h2>
+          <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>Payout Destination</h2>
           <p className="text-muted text-sm" style={{ marginBottom: "1.5rem" }}>
-            Configure the bank account where platform revenue payouts will be sent.
+            Tell us where to send your funds. Saziate accelerates your cash flow with rapid, reliable payouts to this account.
           </p>
           <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -303,9 +303,9 @@ export default function PSPSettingsPage() {
                 placeholder="11-digit BVN"
                 maxLength={11}
               />
-              <p className="text-xs text-muted" style={{ marginTop: "0.25rem" }}>
-                Required by Paystack to provision a Dedicated Virtual Account for your payout details. This is securely passed to Paystack and not stored on our servers.
-              </p>
+                <p className="mt-1 text-xs text-base-content/60">
+                  Required by Monnify to provision a Dedicated Virtual Account for your payout details. This is securely passed to Monnify and not stored on our servers.
+                </p>
             </div>
             <div className="flex justify-end" style={{ marginTop: "0.5rem" }}>
               <button type="submit" className="btn btn-primary" disabled={loading}>

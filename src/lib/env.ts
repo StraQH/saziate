@@ -6,7 +6,10 @@ export type CloudflareEnv = {
   BETTER_AUTH_SECRET?: string;
   RESEND_API_KEY?: string;
   TERMII_API_KEY?: string;
-  PAYSTACK_SECRET_KEY?: string;
+  MONNIFY_API_KEY?: string;
+  MONNIFY_SECRET_KEY?: string;
+  MONNIFY_CONTRACT_CODE?: string;
+  MONNIFY_WALLET_ACCOUNT_NUMBER?: string;
 };
 
 export function getAppEnv(): Record<string, any> {

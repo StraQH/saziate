@@ -22,7 +22,7 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <img src="/logo.svg" alt="Saziate Logo" style={{ height: "32px", objectFit: "contain" }} />
+        <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "inherit", letterSpacing: "-0.5px" }}>Saziate</span>
       </div>
 
       <div style={{ marginBottom: "1.5rem", padding: "0 0.5rem" }}>

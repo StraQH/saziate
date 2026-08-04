@@ -106,7 +106,7 @@ export default function ResidentDashboard() {
         <div>
           <h1>Welcome, {data.residentName}</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Track your waste collections and settle bills instantly via your dedicated virtual account.
+            Enjoy hassle-free waste management. Track your upcoming collections and manage your bills with full transparency.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchDashboardData}>
@@ -121,7 +121,7 @@ export default function ResidentDashboard() {
           onSuccess={(mockUrl) => {
             setShowTopUp(false);
             if (mockUrl) {
-              toast(`Simulated Top-Up Success! Paystack Redirect: ${mockUrl}`, "success");
+              toast(`Simulated Top-Up Success! Monnify Redirect: ${mockUrl}`, "success");
             } else {
               toast("Top-Up Successful!", "success");
             }

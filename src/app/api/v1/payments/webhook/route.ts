@@ -8,7 +8,7 @@ import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
 
 
-async function verifyPaystackSignature(
+async function verifyMonnifySignature(
   signature: string,
   rawBody: string,
   secretKey: string
@@ -25,30 +25,31 @@ async function verifyPaystackSignature(
     ["verify", "sign"]
   );
 
-  const signatureBuf = new Uint8Array(
-    signature.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
-  );
+  const signatureBuf = await crypto.subtle.sign("HMAC", cryptoKey, bodyBuf);
+  const hashHex = Array.from(new Uint8Array(signatureBuf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 
-  return crypto.subtle.verify("HMAC", cryptoKey, signatureBuf, bodyBuf);
+  return hashHex === signature;
 }
 
 export async function POST(req: Request) {
   const env = getAppEnv() as Record<string, string | undefined>;
   try {
-    const signature = req.headers.get("x-paystack-signature");
+    const signature = req.headers.get("monnify-signature");
     if (!signature) {
       return new Response("Missing signature", { status: 400 });
     }
 
     const rawBody = await req.text();
-    const webhookSecret = env.PAYSTACK_WEBHOOK_SECRET;
+    const webhookSecret = env.MONNIFY_SECRET_KEY;
     
     if (!webhookSecret) {
-      console.error("PAYSTACK_WEBHOOK_SECRET environment variable is required.");
+      console.error("MONNIFY_SECRET_KEY environment variable is required.");
       return new Response("Server configuration error", { status: 500 });
     }
 
-    const isValid = await verifyPaystackSignature(
+    const isValid = await verifyMonnifySignature(
       signature,
       rawBody,
       webhookSecret
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
     }
 
     const eventPayload = JSON.parse(rawBody);
-    const event = eventPayload.event;
+    const event = eventPayload.eventType;
 
     if (config.isMockMode) {
       console.log(`[MOCK WEBHOOK] Received event: ${event}`);
@@ -70,14 +71,14 @@ export async function POST(req: Request) {
     const db = getDb(env.DB as any);
 
     // Dedicated virtual account assignment success
-    if (event === "dedicatedaccount.assign.success") {
+    if (event === "RESERVED_ACCOUNT_ALLOCATION_SUCCESSFUL") {
       return new Response(JSON.stringify({ status: "success" }), { status: 200 });
     }
 
-    if (event === "charge.success") {
-      const data = eventPayload.data;
-      const amountInNaira = Math.round(data.amount) / 100;
-      const reference = data.reference;
+    if (event === "SUCCESSFUL_TRANSACTION") {
+      const data = eventPayload.eventData;
+      const amountInNaira = data.amountPaid;
+      const reference = data.paymentReference;
 
       // Check webhook idempotency
       const existingTx = await db
@@ -265,8 +266,8 @@ export async function POST(req: Request) {
       });
     }
 
-    if (event === "transfer.failed" || event === "transfer.reversed") {
-      const data = eventPayload.data;
+    if (event === "FAILED_DISBURSEMENT" || event === "REVERSED_DISBURSEMENT") {
+      const data = eventPayload.eventData;
       const reference = data.reference;
 
       // Look up transaction by reference to mark as failed

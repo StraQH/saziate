@@ -87,10 +87,11 @@ export const psps = sqliteTable("psps", {
   contactPhone: text("contact_phone").notNull(),
   contactEmail: text("contact_email").notNull(),
 
-  // Paystack DVA (single per PSP)
+  // Monnify Reserved Account (single per PSP)
   dvaBankName: text("dva_bank_name"),
   dvaAccountNumber: text("dva_account_number"),
   dvaAccountName: text("dva_account_name"),
+  dvaAccountReference: text("dva_account_reference"),
   dvaCustomerCode: text("dva_customer_code"),
 
   // Settlement bank account
@@ -195,7 +196,7 @@ export const transactions = sqliteTable("transactions", {
   invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
   residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   pspId: text("psp_id").references(() => psps.id, { onDelete: "cascade" }), // used for payouts
-  reference: text("reference").notNull().unique(), // Paystack ref or "CASH-xxx"
+  reference: text("reference").notNull().unique(), // Monnify ref or "CASH-xxx"
   amount: real("amount").notNull(),
   status: text("status", { enum: ["initiated", "success", "failed"] }).notNull().default("initiated"),
   paymentMethod: text("payment_method", { enum: ["bank_transfer", "cash", "advance_balance", "advance_surplus"] }).notNull(),

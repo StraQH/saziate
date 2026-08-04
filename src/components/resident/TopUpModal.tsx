@@ -121,8 +121,8 @@ export function TopUpModal({ onClose, onSuccess }: TopUpModalProps) {
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? "Processing..." : "Pay with Paystack"}
+            <button onClick={handleSubmit} disabled={loading} className="btn btn-primary" style={{ flex: 1, padding: "0.875rem" }}>
+              {loading ? "Processing..." : "Pay with Monnify"}
             </button>
           </div>
         </form>

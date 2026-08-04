@@ -46,14 +46,14 @@ export default function PSPDashboardPage() {
     
     if (config.isMockMode) {
       setMetrics([
-        { label: "Collections This Month", value: "₦1,240,000" },
-        { label: "Settled Today",          value: "₦145,000" },
-        { label: "Available Settlement",   value: "₦380,000" },
-        { label: "Next Settlement Date",   value: new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) },
-        { label: "Total Active Residents", value: "1,240" },
-        { label: "Paid Invoices",          value: "245" },
-        { label: "Unpaid Invoices",        value: "42" },
-        { label: "Active Routes",          value: "14" },
+        { label: "Total Revenue Recovered", value: "₦1,240,000" },
+        { label: "Accelerated Payouts",          value: "₦145,000" },
+        { label: "Ready to Disburse",   value: "₦380,000" },
+        { label: "Next Automated Payout",   value: new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) },
+        { label: "Active Customer Base", value: "1,240" },
+        { label: "Successfully Collected",          value: "245" },
+        { label: "Pending Revenue",        value: "42" },
+        { label: "Serviced Routes",          value: "14" },
       ]);
       setRevenueTrend(revenueData);
       setWeeklyCollections(collectionData);
@@ -77,14 +77,14 @@ export default function PSPDashboardPage() {
 
   // Map icons based on labels roughly
   const getIconForLabel = (label: string) => {
-    if (label.includes("Collections")) return <Wallet size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Paid Invoices")) return <CreditCard size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Settled")) return <TrendingUp size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Available")) return <Activity size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Next Settlement")) return <Calendar size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Residents")) return <Users size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Unpaid")) return <AlertCircle size={24} style={{ color: "var(--color-primary)" }} />;
-    if (label.includes("Routes")) return <MapPin size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Revenue Recovered")) return <Wallet size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Successfully Collected")) return <CreditCard size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Accelerated Payouts")) return <TrendingUp size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Ready to Disburse")) return <Activity size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Next Automated Payout")) return <Calendar size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Customer Base")) return <Users size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Pending Revenue")) return <AlertCircle size={24} style={{ color: "var(--color-primary)" }} />;
+    if (label.includes("Serviced Routes")) return <MapPin size={24} style={{ color: "var(--color-primary)" }} />;
     return <Activity size={24} style={{ color: "var(--color-primary)" }} />;
   };
 
@@ -105,7 +105,7 @@ export default function PSPDashboardPage() {
       <div style={{ display: "flex", flexDirection: "column", marginBottom: "2rem", gap: "1rem" }}>
         <div>
           <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "var(--color-text)", margin: 0 }}>Dashboard</h1>
-          <p style={{ color: "var(--color-text-muted)", marginTop: "0.25rem", margin: 0 }}>Welcome back! Here's an overview of your operations.</p>
+          <p style={{ color: "var(--color-text-muted)", marginTop: "0.25rem", margin: 0 }}>Welcome back! Let's accelerate your growth today. Here's a snapshot of your operational performance.</p>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export default function PSPDashboardPage() {
             {/* Revenue Trend Area Chart */}
             <div className="card" style={{ padding: "1.5rem", borderRadius: "var(--radius-lg)" }}>
               <div style={{ marginBottom: "1.5rem" }}>
-                <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--color-text)", margin: 0 }}>Revenue Overview</h3>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: 600, color: "var(--color-text)", margin: 0 }}>Revenue Growth Trends</h3>
                 <p style={{ fontSize: "0.875rem", color: "var(--color-text-muted)", margin: 0, marginTop: "0.25rem" }}>Monthly revenue trends for the current year</p>
               </div>
               <div style={{ height: "300px", width: "100%" }}>

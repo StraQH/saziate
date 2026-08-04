@@ -6,7 +6,7 @@ import { psps, users, accounts } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { getActivePspId, requireRole } from "@/lib/session";
 import { verifyPassword } from "@/lib/hash";
-import { PaystackClient } from "@/lib/paystack";
+import { MonnifyClient } from "@/lib/monnify";
 import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -107,7 +107,7 @@ export async function PATCH(req: Request) {
     let dvaBankName = psp.dvaBankName || null;
     let dvaAccountNumber = psp.dvaAccountNumber || null;
     let dvaAccountName = psp.dvaAccountName || null;
-    let dvaCustomerCode = psp.dvaCustomerCode || null;
+    let dvaAccountReference = psp.dvaAccountReference || null;
 
     const shouldProvisionDva = !dvaAccountNumber && settlementAccountNumber && settlementBankCode;
 
@@ -119,52 +119,37 @@ export async function PATCH(req: Request) {
         const digits = (array[0] * 16777216 + array[1] * 65536 + array[2] * 256 + array[3]).toString().padStart(7, '0').slice(0, 7);
         dvaAccountNumber = `992${digits}`;
         dvaAccountName = `Saziate / ${psp.name}`;
-        dvaCustomerCode = "CUST_99014";
-      } else if (env.PAYSTACK_SECRET_KEY) {
+        dvaAccountReference = "REF_99014";
+      } else if (env.MONNIFY_API_KEY && env.MONNIFY_SECRET_KEY && env.MONNIFY_CONTRACT_CODE) {
         try {
           if (!bvn) {
-            return new Response("A valid BVN is required by Paystack to provision a Dedicated Virtual Account.", { status: 400 });
+            return new Response("A valid BVN is required by Monnify to provision a Reserved Account.", { status: 400 });
           }
 
-          const paystack = new PaystackClient(env.PAYSTACK_SECRET_KEY);
+          const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
 
-          // 1. Create customer on Paystack
-          const customer = await paystack.createCustomer({
-            email: psp.contactEmail,
-            first_name: psp.name,
-            last_name: "Operator",
-            phone: psp.contactPhone || undefined,
-          });
-
-          // 2. Validate customer profile using payout settlement bank account details
-          await paystack.validateCustomer(customer.customer_code, {
-            first_name: psp.name.split(" ")[0] || psp.name,
-            last_name: psp.name.split(" ").slice(1).join(" ") || "Operator",
-            type: "bank_account",
-            value: settlementAccountNumber,
-            country: "NG",
+          const accountRef = `DVA-${pspId}-${Date.now()}`;
+          const dva = await monnify.createReservedAccount({
+            accountReference: accountRef,
+            accountName: `Saziate / ${psp.name}`,
+            customerEmail: psp.contactEmail,
+            customerName: psp.name,
             bvn: bvn,
-            bank_code: settlementBankCode,
-            account_number: settlementAccountNumber,
+            getAllAvailableBanks: true
           });
 
-          // 3. Create dedicated account
-          const isTestMode = env.PAYSTACK_SECRET_KEY.startsWith("sk_test_");
-          const dva = await paystack.createDedicatedAccount({
-            customer: customer.customer_code,
-            preferred_bank: isTestMode ? "test-bank" : "wema-bank",
-          });
+          const assignedAccount = dva.accounts[0];
 
-          dvaBankName = dva.bank.name;
-          dvaAccountNumber = dva.account_number;
-          dvaAccountName = dva.account_name;
-          dvaCustomerCode = customer.customer_code;
-        } catch (paystackErr: any) {
-          console.error("Failed to provision Paystack DVA on settings update:", paystackErr);
-          return new Response(`Paystack DVA provisioning failed: ${(paystackErr as any).message || paystackErr}`, { status: 500 });
+          dvaBankName = assignedAccount.bankName;
+          dvaAccountNumber = assignedAccount.accountNumber;
+          dvaAccountName = assignedAccount.accountName;
+          dvaAccountReference = accountRef;
+        } catch (monnifyErr: any) {
+          console.error("Failed to provision Monnify DVA on settings update:", monnifyErr);
+          return new Response(`Monnify DVA provisioning failed: ${(monnifyErr as any).message || monnifyErr}`, { status: 500 });
         }
       } else {
-        return new Response("Paystack configuration missing.", { status: 500 });
+        return new Response("Monnify configuration missing.", { status: 500 });
       }
     }
 
@@ -178,7 +163,7 @@ export async function PATCH(req: Request) {
         dvaBankName: dvaBankName || undefined,
         dvaAccountNumber: dvaAccountNumber || undefined,
         dvaAccountName: dvaAccountName || undefined,
-        dvaCustomerCode: dvaCustomerCode || undefined,
+        dvaAccountReference: dvaAccountReference || undefined,
         updatedAt: new Date(),
       })
       .where(eq(psps.id, pspId));

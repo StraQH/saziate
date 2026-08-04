@@ -37,7 +37,7 @@ export async function GET(req: Request) {
         JSON.stringify([
           {
             id: "tx-001",
-            reference: "PAYSTACK-9902341",
+            reference: "MONNIFY-9902341",
             amount: 6300,
             status: "success" as any,
             paymentMethod: "bank_transfer" as any,
