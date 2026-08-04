@@ -22,7 +22,7 @@ export function AdminSidebar({ adminName }: { adminName: string }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "inherit", letterSpacing: "-0.5px" }}>Saziate</span>
+        <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "inherit", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
       </div>
 
       <div style={{ marginBottom: "1.5rem", padding: "0 0.5rem" }}>

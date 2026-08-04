@@ -23,7 +23,7 @@ export default function NotFoundPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <span style={{ fontSize: "1.75rem", fontWeight: 800, letterSpacing: "-0.025em" }}>Saziate</span>
+            <span style={{ fontWeight: 800, fontSize: "1.75rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "3.5rem", fontWeight: 700, lineHeight: 1.1, marginBottom: "1.5rem", letterSpacing: "-0.04em" }}>
             404

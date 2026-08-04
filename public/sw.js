@@ -1,11 +1,14 @@
-const CACHE_NAME = "saziate-cache-v2";
+const CACHE_NAME = "saziate-cache-v3";
 
 // ONLY cache static assets that never return HTTP 307/302 redirects
 const ASSETS_TO_CACHE = [
+  "/",
   "/manifest.json",
   "/next.svg",
   "/globe.svg",
-  "/logo.svg"
+  "/logo.svg",
+  "/icon-192x192.png",
+  "/icon-512x512.png"
 ];
 
 // Install Event
@@ -39,9 +42,16 @@ self.addEventListener("fetch", (e) => {
   // Let Next.js handle API, static bundles, and navigation requests natively
   if (
     e.request.url.includes("/api/") || 
-    e.request.url.includes("/_next/") ||
-    e.request.mode === "navigate"
+    e.request.url.includes("/_next/")
   ) {
+    return;
+  }
+
+  // Handle navigation requests to ensure PWA installability (offline fallback)
+  if (e.request.mode === "navigate") {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match("/"))
+    );
     return;
   }
 
