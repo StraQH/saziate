@@ -2,9 +2,9 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
-import { invoices, residentProfiles, users, routeResidents, routeBillingRates, transactions } from "@/db/schema";
+import { invoices, residentProfiles, users, zoneResidents, zoneBillingRates, transactions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { getActivePspId } from "@/lib/session";
+import { getActiveorgId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { z } from "zod";
 import { config } from "@/lib/config";
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
+    await requireRole(req, env.DB as any, ["org_admin"]);
     
     const rawBody = await req.json() as any;
     const parsed = generateBillingSchema.safeParse(rawBody);
@@ -37,8 +37,8 @@ export async function POST(req: Request) {
       return new Response("Cannot generate invoices for future billing periods.", { status: 400 });
     }
 
-    const pspId = await getActivePspId(req, env.DB as any);
-    if (!pspId) {
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -49,17 +49,17 @@ export async function POST(req: Request) {
         customMonthlyRate: residentProfiles.customMonthlyRate,
         billingCategory: residentProfiles.billingCategory,
         advancePaymentBalance: residentProfiles.advancePaymentBalance,
-        pspId: users.pspId,
-        routeMonthlyRate: routeBillingRates.monthlyRate,
+        orgId: users.orgId,
+        zoneMonthlyRate: zoneBillingRates.monthlyRate,
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
-      .leftJoin(routeResidents, eq(residentProfiles.userId, routeResidents.residentId))
-      .leftJoin(routeBillingRates, and(
-        eq(routeResidents.routeId, routeBillingRates.routeId),
-        eq(residentProfiles.billingCategory, routeBillingRates.billingCategory)
+      .leftJoin(zoneResidents, eq(residentProfiles.userId, zoneResidents.residentId))
+      .leftJoin(zoneBillingRates, and(
+        eq(zoneResidents.zoneId, zoneBillingRates.zoneId),
+        eq(residentProfiles.billingCategory, zoneBillingRates.billingCategory)
       ))
-      .where(eq(users.pspId, pspId));
+      .where(eq(users.orgId, orgId));
 
     // Force UTC boundaries
     const billingPeriodStart = Date.UTC(year, month - 1, 1);
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       .select({ residentId: invoices.residentId })
       .from(invoices)
       .where(and(
-        eq(invoices.pspId, pspId),
+        eq(invoices.orgId, orgId),
         eq(invoices.billingPeriodStart, new Date(billingPeriodStart))
       ));
     
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
         continue;
       }
       // Base rate fallback or override check
-      const baseRate = profile.customMonthlyRate || profile.routeMonthlyRate || config.DEFAULT_MONTHLY_RATE_NGN;
+      const baseRate = profile.customMonthlyRate || profile.zoneMonthlyRate || config.locality.rates.general.residential;
       const platformFee = Math.round((baseRate * config.PLATFORM_FEE_RATE) * 100) / 100;
       const totalAmount = Math.round((baseRate + platformFee) * 100) / 100;
 
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
       newInvoices.push({
         id: invoiceId,
         residentId: profile.userId,
-        pspId: profile.pspId!,
+        orgId: profile.orgId!,
         paymentReference,
         baseAmount: baseRate,
         platformFee,

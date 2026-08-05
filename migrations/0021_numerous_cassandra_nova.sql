@@ -1,0 +1,1 @@
+ALTER TABLE `resident_profiles` DROP COLUMN `on_demand_trip_rate`;

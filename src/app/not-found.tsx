@@ -23,13 +23,13 @@ export default function NotFoundPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <span style={{ fontWeight: 800, fontSize: "2.25rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
+            <span style={{ fontWeight: 800, fontSize: "3.5rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "3.5rem", fontWeight: 700, lineHeight: 1.1, marginBottom: "1.5rem", letterSpacing: "-0.04em" }}>
             404
           </h1>
           <p style={{ fontSize: "1.5rem", fontWeight: 500, opacity: 0.9, maxWidth: "400px", lineHeight: 1.4 }}>
-            Looks like we got lost on the collection route.
+            Looks like we got lost on the service zone.
           </p>
         </div>
 

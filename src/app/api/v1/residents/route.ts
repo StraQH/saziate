@@ -2,11 +2,11 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, routeResidents, routes, invoices } from "@/db/schema";
+import { users, residentProfiles, notificationLogs, accounts, zoneResidents, zones, invoices } from "@/db/schema";
 import { eq, and, sql, like, inArray } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { hashPassword } from "@/lib/hash";
-import { getActivePspId, requireRole } from "@/lib/session";
+import { getActiveorgId, requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { auditLogs } from "@/db/schema";
 import { sendNotificationWithFallback } from "@/lib/notifications";
@@ -20,9 +20,9 @@ export async function GET(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator", "field_agent"]);
-    const pspId = await getActivePspId(req, env.DB as any);
-    if (!pspId) {
+    await requireRole(req, env.DB as any, ["org_admin", "field_agent"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -43,18 +43,18 @@ export async function GET(req: Request) {
         propertyType: residentProfiles.propertyType,
         customMonthlyRate: residentProfiles.customMonthlyRate,
         billingModel: residentProfiles.billingModel,
-        onDemandTripRate: residentProfiles.onDemandTripRate,
-        onDemandBinRate: residentProfiles.onDemandBinRate,
-        onDemandDrumRate: residentProfiles.onDemandDrumRate,
-        route: routes.name,
+        
+        onDemandUnit1Rate: residentProfiles.onDemandUnit1Rate,
+        onDemandUnit2Rate: residentProfiles.onDemandUnit2Rate,
+        zone: zones.name,
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
-      .leftJoin(routeResidents, eq(routeResidents.residentId, users.id))
-      .leftJoin(routes, eq(routes.id, routeResidents.routeId))
+      .leftJoin(zoneResidents, eq(zoneResidents.residentId, users.id))
+      .leftJoin(zones, eq(zones.id, zoneResidents.zoneId))
       .where(
         and(
-          eq(users.pspId, pspId),
+          eq(users.orgId, orgId),
           search ? like(users.name, `%${search}%`) : undefined
         )
       );
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
       .innerJoin(users, eq(residentProfiles.userId, users.id))
       .where(
         and(
-          eq(users.pspId, pspId),
+          eq(users.orgId, orgId),
           search ? like(users.name, `%${search}%`) : undefined
         )
       )
@@ -154,9 +154,9 @@ export async function POST(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB as any);
-    if (!pspId) {
+    await requireRole(req, env.DB as any, ["org_admin"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -166,10 +166,10 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { firstName, lastName, email, address, billingCategory, propertyType, baseRate, isOverride, route, billingModel, onDemandTripRate, onDemandBinRate, onDemandDrumRate } = body;
-    const phone = normalizePhoneNumber(body.phone);
+    const { firstName, lastName, email, address, billingCategory, propertyType, baseRate, isOverride, zone, billingModel, onDemandUnit1Rate, onDemandUnit2Rate } = body;
+    const phone = body.phone ? normalizePhoneNumber(body.phone) : "";
 
-    if (!firstName || !lastName || !phone || !address || !route) {
+    if (!zone) {
       return new Response("Missing required fields.", { status: 400 });
     }
 
@@ -177,14 +177,14 @@ export async function POST(req: Request) {
     const finalEmail = email || `${phone}@saziate.com`;
 
     // Verify Route Ownership
-    const routeRecord = await db
+    const zoneRecord = await db
       .select()
-      .from(routes)
-      .where(eq(routes.id, route))
+      .from(zones)
+      .where(eq(zones.id, zone))
       .get();
       
-    if (!routeRecord || routeRecord.pspId !== pspId) {
-      return new Response("Invalid route or unauthorized to assign to this route.", { status: 403 });
+    if (!zoneRecord || zoneRecord.orgId !== orgId) {
+      return new Response("Invalid zone or unauthorized to assign to this zone.", { status: 403 });
     }
 
     // Duplicate phone validation
@@ -209,7 +209,7 @@ export async function POST(req: Request) {
       email: finalEmail,
       phone,
       role: "resident",
-      pspId: pspId,
+      orgId: orgId,
       emailVerified: true,
       mustChangePassword: true,
       createdAt: new Date(),
@@ -218,16 +218,16 @@ export async function POST(req: Request) {
 
     await db.insert(residentProfiles).values({
       userId,
-      address,
+      address: address || "",
       ward: "",
       lga: "",
+      state: "",
       billingCategory,
       propertyType: propertyType || null,
       customMonthlyRate: isOverride ? (typeof baseRate === "number" ? baseRate : parseFloat(baseRate)) : null,
       billingModel: billingModel || "subscription",
-      onDemandTripRate: onDemandTripRate || 0,
-      onDemandBinRate: onDemandBinRate || 0,
-      onDemandDrumRate: onDemandDrumRate || 0,
+      onDemandUnit1Rate: onDemandUnit1Rate || 0,
+      onDemandUnit2Rate: onDemandUnit2Rate || 0,
     });
 
     // Create credentials account link
@@ -240,16 +240,16 @@ export async function POST(req: Request) {
       password: hashedPassword,
     });
 
-    // Find the max sequence order for this route and append the new resident
+    // Find the max sequence order for this zone and append the new resident
     const maxSeqRecord = await db
       .select({ maxSeq: sql`MAX(sequence_order)` })
-      .from(routeResidents)
-      .where(eq(routeResidents.routeId, route))
+      .from(zoneResidents)
+      .where(eq(zoneResidents.zoneId, zone))
       .get();
     const nextSequence = maxSeqRecord?.maxSeq ? (maxSeqRecord.maxSeq as number) + 1 : 1;
 
-    await db.insert(routeResidents).values({
-      routeId: route,
+    await db.insert(zoneResidents).values({
+      zoneId: zone,
       residentId: userId,
       sequenceOrder: nextSequence,
     });
@@ -261,16 +261,16 @@ export async function POST(req: Request) {
         await sendEmail({
           to: email,
           subject: "Welcome to Saziate!",
-          html: emailTemplates.welcomeResident(firstName, tempPassword),
+          html: emailTemplates.welcomeResident(firstName || "Resident", tempPassword),
         });
       } else if (phone) {
         const termiiKey = env.TERMII_API_KEY;
         if (termiiKey) {
-          const msgText = `Hello ${firstName}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
+          const msgText = `Hello ${firstName || "Resident"}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
           await sendNotificationWithFallback({
             dbBinding: env.DB as any,
             termiiApiKey: termiiKey,
-            pspId,
+            orgId,
             residentId: userId,
             phone,
             messageText: msgText,
@@ -288,7 +288,7 @@ export async function POST(req: Request) {
     const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
       id: generateId(),
-      actorId: session?.user?.id || pspId,
+      actorId: session?.user?.id || orgId,
       action: "resident.created",
       entityType: "user",
       entityId: userId,
@@ -306,7 +306,7 @@ export async function POST(req: Request) {
           email: finalEmail,
           phone,
           address,
-          route: routeRecord.name,
+          zone: zoneRecord.name,
           billingCategory,
           propertyType: propertyType || null,
           baseRate: isOverride ? (typeof baseRate === "number" ? baseRate : parseFloat(baseRate)) : 0,
@@ -333,9 +333,9 @@ export async function DELETE(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB as any);
-    if (!pspId) {
+    await requireRole(req, env.DB as any, ["org_admin"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -348,7 +348,7 @@ export async function DELETE(req: Request) {
     const existing = await db
       .select()
       .from(users)
-      .where(and(eq(users.id, userId), eq(users.pspId, pspId)))
+      .where(and(eq(users.id, userId), eq(users.orgId, orgId)))
       .get();
 
     if (!existing) {
@@ -373,19 +373,19 @@ export async function DELETE(req: Request) {
       .delete(residentProfiles)
       .where(eq(residentProfiles.userId, userId));
 
-    // Remove from route to stop showing up on field agent schedules
+    // Remove from zone to stop showing up on field agent schedules
     await db
-      .delete(routeResidents)
-      .where(eq(routeResidents.residentId, userId));
+      .delete(zoneResidents)
+      .where(eq(zoneResidents.residentId, userId));
 
     const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
       id: generateId(),
-      actorId: session?.user?.id || pspId,
+      actorId: session?.user?.id || orgId,
       action: "resident.deleted",
       entityType: "user",
       entityId: userId,
-      meta: JSON.stringify({ pspId }),
+      meta: JSON.stringify({ orgId }),
     });
 
     return new Response(JSON.stringify({ status: "success" as any, userId }), {

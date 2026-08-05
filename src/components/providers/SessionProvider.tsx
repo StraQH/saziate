@@ -4,14 +4,15 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { useRouter, usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { config } from "@/lib/config";
-import { MOCK_PSP_ID } from "@/lib/mockdata";
+import { MOCK_ORG_ID } from "@/lib/mockdata";
 
 interface UserSession {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "psp_operator" | "field_agent" | "resident";
-  pspId: string | null;
+  role: "admin" | "org_admin" | "field_agent" | "resident";
+  orgId: string | null;
+  orgServiceType: string;
 }
 
 interface SessionContextType {
@@ -23,22 +24,24 @@ interface SessionContextType {
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
 function getMockUser(pathname: string): UserSession | null {
-  if (pathname.startsWith("/psp")) {
+  if (pathname.startsWith("/org")) {
     return {
-      id: "psp1",
-      name: "Lekki Operator",
-      email: "ops@lekkigreenclean.com",
-      role: "psp_operator",
-      pspId: MOCK_PSP_ID,
+      id: "org1",
+      name: "Acme Operator",
+      email: "ops@demo-utility.com",
+      role: "org_admin",
+      orgId: MOCK_ORG_ID,
+      orgServiceType: "general",
     };
   }
   if (pathname.startsWith("/agent")) {
     return {
       id: "ag_johnson",
       name: "Field Agent Johnson",
-      email: "johnson@lekkigreenclean.com",
+      email: "agent@demo-utility.com",
       role: "field_agent",
-      pspId: MOCK_PSP_ID,
+      orgId: MOCK_ORG_ID,
+      orgServiceType: "general",
     };
   }
   if (pathname.startsWith("/admin")) {
@@ -47,16 +50,18 @@ function getMockUser(pathname: string): UserSession | null {
       name: "Platform Admin",
       email: "admin@saziate.com",
       role: "admin",
-      pspId: null,
+      orgId: null,
+      orgServiceType: "platform",
     };
   }
   if (pathname.startsWith("/resident")) {
     return {
       id: "r1",
-      name: "Babajide Sanwo",
-      email: "b.sanwo@gmail.com",
+      name: "John Doe",
+      email: "john.doe@example.com",
       role: "resident",
-      pspId: MOCK_PSP_ID,
+      orgId: MOCK_ORG_ID,
+      orgServiceType: "general",
     };
   }
   return null;
@@ -96,8 +101,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             id: data.user.id,
             name: data.user.name,
             email: data.user.email,
-            role: ((data.user as { role?: string, pspId?: string }).role || "psp_operator") as any,
-            pspId: (data.user as { role?: string, pspId?: string }).pspId || null,
+            role: ((data.user as any).role || "org_admin") as any,
+            orgId: (data.user as any).orgId || null,
+            orgServiceType: (data.user as any).orgServiceType || "utility",
           });
         }
       } catch {

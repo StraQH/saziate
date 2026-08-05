@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
 
   // 2. Define protected dashboard path patterns
   const isProtectedPath = 
-    path.startsWith("/psp") || 
+    path.startsWith("/org") || 
     path.startsWith("/agent") || 
     path.startsWith("/admin") ||
     path.startsWith("/resident");
@@ -49,7 +49,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/psp/:path*",
+    "/org/:path*",
     "/agent/:path*",
     "/admin/:path*",
     "/resident/:path*",

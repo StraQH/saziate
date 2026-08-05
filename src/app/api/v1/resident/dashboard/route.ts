@@ -3,7 +3,7 @@ import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { auth } from "@/lib/auth";
 import { getDb } from "@/db";
-import { users, residentProfiles, psps, invoices, routes, routeResidents, collectionLogs } from "@/db/schema";
+import { users, residentProfiles, organizations, invoices, zones, zoneResidents, fieldLogs } from "@/db/schema";
 import { eq, and, sql, inArray, asc } from "drizzle-orm";
 import { config } from "@/lib/config";
 
@@ -18,18 +18,16 @@ export async function GET(req: Request) {
     let residentId = "";
     let residentName = "Resident";
     let residentEmail = "";
-    let pspInfo = {
+    let orgInfo = {
       name: "",
-      dvaBankName: "",
-      dvaAccountNumber: "",
-      dvaAccountName: "",
+      serviceType: "utility",
     };
 
     let advancePaymentBalance = 0;
 
     if (config.isMockMode) {
       residentId = "r1";
-      residentName = "Babajide Sanwo";
+      residentName = "John Doe";
       residentEmail = "08031234567@saziate.com"; // mock placeholder email to test banner
       advancePaymentBalance = 12000;
     } else {
@@ -46,10 +44,10 @@ export async function GET(req: Request) {
       residentName = session.user.name;
       residentEmail = session.user.email || "";
 
-      // Fetch user profile and associated PSP dva details
+      // Fetch user profile and associated Org dva details
         const profileResult = await db
           .select({
-            pspId: users.pspId,
+            orgId: users.orgId,
             advancePaymentBalance: residentProfiles.advancePaymentBalance,
           })
         .from(residentProfiles)
@@ -60,19 +58,17 @@ export async function GET(req: Request) {
       if (profileResult) {
         advancePaymentBalance = profileResult.advancePaymentBalance || 0;
         
-        if (profileResult.pspId) {
-          const psp = await db
+        if (profileResult.orgId) {
+          const org = await db
           .select()
-          .from(psps)
-          .where(eq(psps.id, profileResult.pspId))
+          .from(organizations)
+          .where(eq(organizations.id, profileResult.orgId))
           .get();
 
-        if (psp) {
-          pspInfo = {
-            name: psp.name,
-            dvaBankName: psp.dvaBankName || "Providus Bank (via Monnify)",
-            dvaAccountNumber: psp.dvaAccountNumber || "Not provisioned yet",
-            dvaAccountName: psp.dvaAccountName || `${psp.name} Settlement`,
+        if (org) {
+          orgInfo = {
+            name: org.name,
+            serviceType: org.serviceType,
           };
         }
         }
@@ -82,6 +78,8 @@ export async function GET(req: Request) {
     // Fetch all unpaid / pending invoices
     let currentInvoice = null;
     let totalOutstandingBalance = 0;
+    let whoIOwe: any[] = [];
+    
     if (config.isMockMode) {
       currentInvoice = {
         id: "inv-001",
@@ -94,10 +92,27 @@ export async function GET(req: Request) {
         billingPeriod: "July 2026",
       };
       totalOutstandingBalance = 6300;
+      whoIOwe = [{
+        orgName: "Mock Power Co.",
+        serviceType: "power",
+        amount: 6300,
+      }];
     } else {
       const unpaidInvoices = await db
-        .select()
+        .select({
+          id: invoices.id,
+          paymentReference: invoices.paymentReference,
+          baseAmount: invoices.baseAmount,
+          platformFee: invoices.platformFee,
+          totalAmount: invoices.totalAmount,
+          dueDate: invoices.dueDate,
+          status: invoices.status,
+          billingPeriodStart: invoices.billingPeriodStart,
+          orgName: organizations.name,
+          serviceType: organizations.serviceType,
+        })
         .from(invoices)
+        .innerJoin(organizations, eq(invoices.orgId, organizations.id))
         .where(
           and(
             eq(invoices.residentId, residentId),
@@ -108,63 +123,117 @@ export async function GET(req: Request) {
         .all();
 
       if (unpaidInvoices && unpaidInvoices.length > 0) {
-        totalOutstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + Number((inv as any).totalAmount), 0);
+        totalOutstandingBalance = unpaidInvoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0);
         
         const inv = unpaidInvoices[0]; // Oldest unpaid invoice
         currentInvoice = {
-          id: (inv as any).id,
-          paymentReference: (inv as any).paymentReference,
-          baseAmount: (inv as any).baseAmount,
-          platformFee: (inv as any).platformFee,
-          totalAmount: (inv as any).totalAmount,
-          dueDate: new Date((inv as any).dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-          status: (inv as any).status,
-          billingPeriod: new Date((inv as any).billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+          id: inv.id,
+          paymentReference: inv.paymentReference,
+          baseAmount: inv.baseAmount,
+          platformFee: inv.platformFee,
+          totalAmount: inv.totalAmount,
+          dueDate: new Date(inv.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          status: inv.status,
+          billingPeriod: new Date(inv.billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
         };
+
+        // Group by provider for Who I Owe
+        const providerMap = new Map();
+        for (const invoice of unpaidInvoices) {
+          const key = invoice.orgName;
+          if (providerMap.has(key)) {
+            providerMap.get(key).amount += Number(invoice.totalAmount);
+            providerMap.get(key).invoiceIds.push(invoice.id);
+          } else {
+            providerMap.set(key, {
+              orgName: invoice.orgName,
+              serviceType: invoice.serviceType,
+              amount: Number(invoice.totalAmount),
+              invoiceIds: [invoice.id]
+            });
+          }
+        }
+        whoIOwe = Array.from(providerMap.values());
       }
     }
 
-    let routeName = "";
-    let routeSchedule = "Mondays & Thursdays";
-    let nextCollection = {
+    let zoneName = "";
+    let zoneSchedule = "Mondays & Thursdays";
+    let nextService = {
       date: "Mondays & Thursdays",
       status: "Scheduled",
-      route: "",
+      zone: "",
     };
+    
+    let serviceHistory: any[] = [];
 
     if (!config.isMockMode) {
-      const routeRes = await db
+      const zoneRes = await db
         .select({ 
-          routeId: routes.id,
-          name: routes.name, 
-          collectionSchedule: routes.collectionSchedule,
-          sequenceOrder: routeResidents.sequenceOrder 
+          zoneId: zones.id,
+          name: zones.name, 
+          serviceSchedule: zones.serviceSchedule,
+          sequenceOrder: zoneResidents.sequenceOrder 
         })
-        .from(routeResidents)
-        .innerJoin(routes, eq(routeResidents.routeId, routes.id))
-        .where(eq(routeResidents.residentId, residentId))
+        .from(zoneResidents)
+        .innerJoin(zones, eq(zoneResidents.zoneId, zones.id))
+        .where(eq(zoneResidents.residentId, residentId))
         .get();
 
-      if (routeRes) {
-        routeName = routeRes.name;
-        routeSchedule = routeRes.collectionSchedule || "Mondays & Thursdays";
+      if (zoneRes) {
+        zoneName = zoneRes.name;
+        zoneSchedule = zoneRes.serviceSchedule || "Mondays & Thursdays";
+        nextService = {
+          date: zoneSchedule,
+          status: "Scheduled",
+          zone: zoneName,
+        };
 
-        // Query today's logs on this route
+        // Fetch Service History (Field Logs)
+        const logs = await db
+          .select({
+            id: fieldLogs.id,
+            status: fieldLogs.status,
+            loggedAt: fieldLogs.loggedAt,
+            notes: fieldLogs.notes,
+            agentName: users.name,
+            orgName: organizations.name,
+            serviceType: organizations.serviceType,
+          })
+          .from(fieldLogs)
+          .innerJoin(users, eq(fieldLogs.loggedById, users.id))
+          .innerJoin(zones, eq(fieldLogs.zoneId, zones.id))
+          .innerJoin(organizations, eq(zones.orgId, organizations.id))
+          .where(eq(fieldLogs.zoneId, zoneRes.zoneId)) // Only logs for their zone
+          .orderBy(sql`${fieldLogs.loggedAt} DESC`)
+          .limit(5)
+          .all();
+          
+        serviceHistory = logs.map(l => ({
+          id: l.id,
+          status: l.status,
+          date: new Date(l.loggedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          agentName: l.agentName,
+          orgName: l.orgName,
+          serviceType: l.serviceType,
+        }));
+
+        // Query today's logs on this zone
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
 
         const logsToday = await db
           .select({
-            residentId: collectionLogs.residentId,
-            sequenceOrder: routeResidents.sequenceOrder,
-            status: collectionLogs.status,
+            residentId: fieldLogs.residentId,
+            sequenceOrder: zoneResidents.sequenceOrder,
+            status: fieldLogs.status,
           })
-          .from(collectionLogs)
-          .innerJoin(routeResidents, eq(collectionLogs.residentId, routeResidents.residentId))
+          .from(fieldLogs)
+          .innerJoin(zoneResidents, eq(fieldLogs.residentId, zoneResidents.residentId))
           .where(
             and(
-              eq(collectionLogs.routeId, routeRes.routeId),
-              sql`${collectionLogs.loggedAt} >= ${startOfToday.getTime()}`
+              eq(fieldLogs.zoneId, zoneRes.zoneId),
+              sql`${fieldLogs.loggedAt} >= ${startOfToday.getTime()}`
             )
           )
           .all();
@@ -172,42 +241,42 @@ export async function GET(req: Request) {
         const myLog = logsToday.find((l) => l.residentId === residentId);
 
         if (myLog) {
-          nextCollection = {
+          nextService = {
             date: "Completed today",
-            status: myLog.status === "collected" ? "Collected" : myLog.status === "no_access" ? "Access Blocked" : "Completed",
-            route: routeName,
+            status: myLog.status === "completed" ? "Collected" : myLog.status === "no_access" ? "Access Blocked" : "Completed",
+            zone: zoneName,
           };
         } else if (logsToday.length > 0) {
           const maxVisitedSeq = logsToday.reduce((max: number, l) => Math.max(max, l.sequenceOrder || 0), 0);
-          const mySeq = routeRes.sequenceOrder || 1;
+          const mySeq = zoneRes.sequenceOrder || 1;
           
           if (mySeq > maxVisitedSeq) {
             const stopsAway = mySeq - maxVisitedSeq;
-            nextCollection = {
+            nextService = {
               date: `${stopsAway} stops away`,
               status: "In Progress",
-              route: routeName,
+              zone: zoneName,
             };
           } else {
-            nextCollection = {
-              date: "Vehicle in your zone",
+            nextService = {
+              date: "Agent in your zone",
               status: "In Progress",
-              route: routeName,
+              zone: zoneName,
             };
           }
         } else {
-          nextCollection = {
-            date: routeSchedule,
+          nextService = {
+            date: zoneSchedule,
             status: "Scheduled",
-            route: routeName,
+            zone: zoneName,
           };
         }
       }
     } else {
-      nextCollection = {
-        date: routeSchedule,
+      nextService = {
+        date: zoneSchedule,
         status: "Scheduled",
-        route: "No route assigned yet",
+        zone: "No zone assigned yet",
       };
     }
 
@@ -215,11 +284,13 @@ export async function GET(req: Request) {
       JSON.stringify({
         residentName,
         residentEmail,
-        pspInfo,
+        orgInfo,
         currentInvoice,
-        nextCollection,
+        nextService,
         advancePaymentBalance,
         totalOutstandingBalance,
+        whoIOwe,
+        serviceHistory,
       }),
       {
         status: 200,

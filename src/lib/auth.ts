@@ -46,7 +46,7 @@ export const getAuth = (dbBinding: D1Database, requestOrigin?: string) => {
         firstName: { type: "string", required: false },
         lastName: { type: "string", required: false },
         phone: { type: "string", required: false },
-        pspId: { type: "string", required: false },
+        orgId: { type: "string", required: false },
         mustChangePassword: { type: "boolean", required: false, defaultValue: false },
       }
     },

@@ -62,7 +62,7 @@ export class TermiiClient {
       from: this.senderId,
       sms: params.sms,
       type: "plain",
-      channel: "dnd", // DND route bypass for Nigerian operators
+      channel: "dnd", // DND bypass for Nigerian operators
     });
   }
 }

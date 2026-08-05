@@ -57,7 +57,7 @@ export async function GET(req: Request) {
             
             logsToInsert.push({
               id: generateId(),
-              pspId: notification.pspId,
+              orgId: notification.orgId,
               residentId: notification.residentId,
               channel: "email",
               messageType: notification.messageType,
@@ -71,7 +71,7 @@ export async function GET(req: Request) {
             await sendNotificationWithFallback({
               dbBinding: env.DB as any,
               termiiApiKey: env.TERMII_API_KEY || "",
-              pspId: notification.pspId,
+              orgId: notification.orgId,
               residentId: notification.residentId || "",
               phone: notification.recipientPhone,
               messageText: notification.messageText,

@@ -36,8 +36,8 @@ export default function LoginPage() {
       setTimeout(() => {
         if (lower.includes("admin")) router.push("/admin");
         else if (lower.includes("agent") || lower.includes("johnson")) router.push("/agent");
-        else if (lower.startsWith("+234") || lower.startsWith("08") || lower.startsWith("07") || lower.startsWith("09") || lower.includes("resident") || lower.includes("sanwo")) router.push("/resident");
-        else router.push("/psp");
+        else if (lower.startsWith("config.locality.code") || lower.startsWith("08") || lower.startsWith("07") || lower.startsWith("09") || lower.includes("resident") || lower.includes("john")) router.push("/resident");
+        else router.push("/org");
         setLoading(false);
       }, 300);
       return;
@@ -54,11 +54,11 @@ export default function LoginPage() {
         throw new Error(signInError?.message || "Invalid credentials");
       }
 
-      const role = (data.user as { role?: string }).role || "psp_operator";
+      const role = (data.user as { role?: string }).role || "org_admin";
       if (role === "admin") window.location.href = "/admin";
       else if (role === "field_agent") window.location.href = "/agent";
       else if (role === "resident") window.location.href = "/resident";
-      else window.location.href = "/psp";
+      else window.location.href = "/org";
     } catch (err: any) {
       const message = err instanceof Error ? (err as Error).message : "Sign in failed. Check credentials.";
       setError(message);
@@ -67,11 +67,11 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickLogin = (role: "admin" | "psp_operator" | "field_agent" | "resident") => {
+  const handleQuickLogin = (role: "admin" | "org_admin" | "field_agent" | "resident") => {
     if (role === "admin") window.location.href = "/admin";
     else if (role === "field_agent") window.location.href = "/agent";
     else if (role === "resident") window.location.href = "/resident";
-    else window.location.href = "/psp";
+    else window.location.href = "/org";
   };
 
   return (
@@ -93,13 +93,13 @@ export default function LoginPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <span style={{ fontWeight: 800, fontSize: "2.25rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
+            <span style={{ fontWeight: 800, fontSize: "3.5rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
             Welcome to the future of utility management.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px", lineHeight: 1.6 }}>
-            Your centralised hub for utility management, transparent collections and effortless bill payment.
+            Your centralised hub for utility management, transparent services and effortless bill payment.
           </p>
         </div>
         <div
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   type="text"
                   className="input"
                   style={{ paddingLeft: "2.5rem" }}
-                  placeholder="ops@lekkigreenclean.com or 08021111111"
+                  placeholder="ops@demo-utility.com or 08021111111"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
@@ -219,7 +219,7 @@ export default function LoginPage() {
                 <span style={{ fontSize: "0.875rem", fontWeight: 600 }}>Mock Mode Quick Access</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("psp_operator")}>
+                <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("org_admin")}>
                   Enter as Operator
                 </button>
                 <button className="btn btn-secondary btn-sm w-full" onClick={() => handleQuickLogin("field_agent")}>

@@ -34,8 +34,8 @@ export default function ResidentSupportPage() {
     setLoading(true);
     if (config.isMockMode) {
       setComplaints([
-        { id: "comp_1", description: "Waste wasn't collected this week.", status: "submitted", date: "2023-11-20" },
-        { id: "comp_2", description: "Bin was damaged during pickup.", status: "resolved", date: "2023-10-15" }
+        { id: "comp_1", description: "Service wasn't provided this week.", status: "submitted", date: "2023-11-20" },
+        { id: "comp_2", description: "Unit was damaged during operations.", status: "resolved", date: "2023-10-15" }
       ]);
       setTotalPages(1);
       setTotalCount(2);
@@ -199,7 +199,7 @@ export default function ResidentSupportPage() {
         onSubmit={executeSubmitComplaint}
         title="Submit Complaint"
         message="Describe your issue:"
-        placeholder="E.g., Missed pickup, broken bin..."
+        placeholder="E.g., Missed operations, broken unit..."
         submitText="Submit"
       />
 

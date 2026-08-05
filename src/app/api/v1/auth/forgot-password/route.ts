@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       await sendNotificationWithFallback({
         dbBinding: env.DB as any,
         termiiApiKey: (env.TERMII_API_KEY as any) as string,
-        pspId: user.pspId || "system",
+        orgId: user.orgId || "system",
         residentId: user.role === "resident" ? user.id : null,
         phone: user.phone,
         messageText: message,

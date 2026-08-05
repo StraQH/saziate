@@ -43,7 +43,7 @@ export function ResidentSidebar({ residentName }: { residentName: string }) {
 
       <aside className={cn("sidebar", isOpen && "open")}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", padding: "0 0.5rem" }}>
-          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><span style={{ fontWeight: 800, fontSize: "1.75rem", color: "inherit", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span></div>
+          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><span style={{ fontWeight: 800, fontSize: "2rem", color: "var(--color-primary)", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span></div>
           {isOpen && (
             <button onClick={() => setIsOpen(false)} style={{ background: "none", border: "none", color: "var(--color-text-muted)" }}>
               <X size={24} />

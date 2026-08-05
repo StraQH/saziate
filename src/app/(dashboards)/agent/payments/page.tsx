@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/components/ui/Toast";
 import { Badge } from "@/components/ui/Badge";
-import { formatNaira } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Search, DollarSign, CheckCircle2, User, Landmark, HelpCircle } from "lucide-react";
 import { config } from "@/lib/config";
 
@@ -11,8 +11,6 @@ import { config } from "@/lib/config";
 interface ResidentPaymentStatus {
   residentId: string;
   name: string;
-  dvaAccountNumber: string;
-  dvaBankName: string;
   lastPaymentAmount: number;
   lastPaymentDate: string | null;
   outstandingBalance: number;
@@ -23,9 +21,7 @@ interface ResidentPaymentStatus {
 const MOCK_STATUSES: ResidentPaymentStatus[] = [
   {
     residentId: "r1",
-    name: "Babajide Sanwo",
-    dvaAccountNumber: "9920192834",
-    dvaBankName: "Wema Bank",
+    name: "John Doe",
     lastPaymentAmount: 0,
     lastPaymentDate: null,
     outstandingBalance: 6300,
@@ -33,9 +29,7 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
   },
   {
     residentId: "r2",
-    name: "Funke Akindele",
-    dvaAccountNumber: "9920192835",
-    dvaBankName: "Wema Bank",
+    name: "Jane Smith",
     lastPaymentAmount: 7875,
     lastPaymentDate: "15 Jul 2026",
     outstandingBalance: 0,
@@ -44,8 +38,6 @@ const MOCK_STATUSES: ResidentPaymentStatus[] = [
   {
     residentId: "r3",
     name: "St. Nicholas Clinic",
-    dvaAccountNumber: "9920192836",
-    dvaBankName: "Wema Bank",
     lastPaymentAmount: 31500,
     lastPaymentDate: "28 May 2026",
     outstandingBalance: 31500,
@@ -61,24 +53,10 @@ export default function AgentPaymentsPage() {
   const [cashAmount, setCashAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [pspDvaNumber, setPspDvaNumber] = useState(config.isMockMode ? "9920192834" : "Not provisioned yet");
-  const [pspDvaBank, setPspDvaBank] = useState(config.isMockMode ? "Wema Bank" : "Not provisioned yet");
 
   const loadData = useCallback(async () => {
     if (config.isMockMode) return;
     try {
-      let currentDva = "Not provisioned yet";
-      let currentBank = "Not provisioned yet";
-      
-      const resSettings = await fetch("/api/v1/psp/settings");
-      if (resSettings.ok) {
-        const body = await resSettings.json() as any;
-        currentDva = body.dvaAccountNumber || "Not provisioned yet";
-        currentBank = body.dvaBankName || "Not provisioned yet";
-        setPspDvaNumber(currentDva);
-        setPspDvaBank(currentBank);
-      }
-
       const resRes = await fetch("/api/v1/residents");
       if (resRes.ok) {
         const json = await resRes.json() as any;
@@ -86,8 +64,6 @@ export default function AgentPaymentsPage() {
         const mapped: ResidentPaymentStatus[] = body.map((r: any) => ({
           residentId: r.id,
           name: r.name,
-          dvaAccountNumber: currentDva,
-          dvaBankName: currentBank,
           lastPaymentAmount: r.lastPaymentAmount || 0,
           lastPaymentDate: r.lastPaymentDate || null,
           outstandingBalance: r.outstandingBalance || 0,
@@ -142,7 +118,7 @@ export default function AgentPaymentsPage() {
               : s
           )
         );
-        setMessage(`Logged cash payment of ${formatNaira(amountNum)} for ${selectedResident.name}`);
+        setMessage(`Logged cash payment of ${formatCurrency(amountNum)} for ${selectedResident.name}`);
         setSelectedResident(null);
         setCashAmount("");
         setIsSubmitting(false);
@@ -183,7 +159,7 @@ export default function AgentPaymentsPage() {
         <div>
           <h1>Verify Payments & Log Cash</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Search a resident's payment status, check their virtual bank details, or log cash collections on the field.
+            Search a resident's payment status, check their virtual bank details, or log cash services on the field.
           </p>
         </div>
       </div>
@@ -265,38 +241,18 @@ export default function AgentPaymentsPage() {
             </p>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              {/* Virtual Account Bank details */}
-              <div style={{ border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: "1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
-                  <Landmark size={18} style={{ color: "var(--color-primary)" }} />
-                  <h4 style={{ fontSize: "0.9375rem", fontWeight: 600 }}>Dedicated Virtual Account (DVA)</h4>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8125rem" }}>
-                  <div>
-                    <p className="text-muted">Bank Name</p>
-                    <p className="font-semibold" style={{ marginTop: "0.15rem" }}>{pspDvaBank}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted">Account Number</p>
-                    <p className="font-semibold" style={{ marginTop: "0.15rem", fontFamily: "monospace" }}>
-                      {pspDvaNumber}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               {/* Status details */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div style={{ background: "var(--color-bg)", padding: "0.875rem", borderRadius: "var(--radius-sm)" }}>
                   <p className="text-xs text-muted">Outstanding Balance</p>
                   <p className="font-semibold text-sm" style={{ marginTop: "0.15rem", color: selectedResident.outstandingBalance > 0 ? "var(--color-danger)" : "var(--color-success)" }}>
-                    {formatNaira(selectedResident.outstandingBalance)}
+                    {formatCurrency(selectedResident.outstandingBalance)}
                   </p>
                 </div>
                 <div style={{ background: "var(--color-bg)", padding: "0.875rem", borderRadius: "var(--radius-sm)" }}>
                   <p className="text-xs text-muted">Last Recorded Payment</p>
                   <p className="font-semibold text-sm" style={{ marginTop: "0.15rem" }}>
-                    {selectedResident.lastPaymentDate ? `${formatNaira(selectedResident.lastPaymentAmount)} (${selectedResident.lastPaymentDate})` : "None"}
+                    {selectedResident.lastPaymentDate ? `${formatCurrency(selectedResident.lastPaymentAmount)} (${selectedResident.lastPaymentDate})` : "None"}
                   </p>
                 </div>
               </div>
@@ -309,7 +265,7 @@ export default function AgentPaymentsPage() {
                     Log Field Cash Payment
                   </h4>
                   <div className="form-group">
-                    <label className="label">Amount Collected (₦)</label>
+                    <label className="label">Amount Collected ({config.locality.symbol})</label>
                     <input
                       type="number"
                       className="input"

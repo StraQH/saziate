@@ -1,13 +1,13 @@
 export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
-import { psps, transactions, auditLogs, notificationLogs, users } from "@/db/schema";
+import { organizations, transactions, auditLogs, notificationLogs, users } from "@/db/schema";
 import { eq, and, like, inArray, sql } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { config } from "@/lib/config";
-import { MonnifyClient } from "@/lib/monnify";
+import { PaystackClient } from "@/lib/paystack";
 
 
 export async function GET(req: Request) {
@@ -29,14 +29,14 @@ export async function GET(req: Request) {
 
     // Run the entire balance query & reservation in a single transaction block
     await db.transaction(async (tx) => {
-      // 1. Fetch all active PSPs
-      const allPsps = await tx.select().from(psps).all();
-      if (allPsps.length === 0) return;
+      // 1. Fetch all active organizations
+      const allorganizations = await tx.select().from(organizations).all();
+      if (allorganizations.length === 0) return;
 
       // 2. Optimization: Bulk fetch aggregates to eliminate N+1 queries
       const digitalTotals = await tx
         .select({
-          pspId: users.pspId,
+          orgId: users.orgId,
           total: sql<number>`sum(${transactions.amount})`,
         })
         .from(transactions)
@@ -47,12 +47,12 @@ export async function GET(req: Request) {
           // Exclude payouts — they share bank_transfer paymentMethod but are outflows, not income
           sql`${transactions.reference} NOT LIKE 'PAYOUT-%'`
         ))
-        .groupBy(users.pspId)
+        .groupBy(users.orgId)
         .all();
 
       const cashTotals = await tx
         .select({
-          pspId: users.pspId,
+          orgId: users.orgId,
           total: sql<number>`sum(${transactions.amount})`,
         })
         .from(transactions)
@@ -61,12 +61,12 @@ export async function GET(req: Request) {
           eq(transactions.paymentMethod, "cash"),
           inArray(transactions.cashStatus, ["verified", "settled"])
         ))
-        .groupBy(users.pspId)
+        .groupBy(users.orgId)
         .all();
 
       const payoutTotals = await tx
         .select({
-          pspId: transactions.pspId,
+          orgId: transactions.orgId,
           total: sql<number>`sum(${transactions.amount})`,
         })
         .from(transactions)
@@ -74,76 +74,81 @@ export async function GET(req: Request) {
           like(transactions.reference, "PAYOUT-%"),
           inArray(transactions.status, ["initiated", "success"])
         ))
-        .groupBy(transactions.pspId)
+        .groupBy(transactions.orgId)
         .all();
 
       const notificationTotals = await tx
         .select({
-          pspId: notificationLogs.pspId,
+          orgId: notificationLogs.orgId,
           total: sql<number>`sum(${notificationLogs.costNgn})`,
         })
         .from(notificationLogs)
-        .groupBy(notificationLogs.pspId)
+        .groupBy(notificationLogs.orgId)
         .all();
 
       // Convert lists to Maps for fast O(1) lookups
-      const digitalMap = new Map(digitalTotals.map((t) => [t.pspId, Number(t.total || 0)]));
-      const cashMap = new Map(cashTotals.map((t) => [t.pspId, Number(t.total || 0)]));
-      const payoutMap = new Map(payoutTotals.map((t) => [t.pspId, Number(t.total || 0)]));
-      const notificationMap = new Map(notificationTotals.map((t) => [t.pspId, Number(t.total || 0)]));
+      const digitalMap = new Map(digitalTotals.map((t) => [t.orgId, Number(t.total || 0)]));
+      const cashMap = new Map(cashTotals.map((t) => [t.orgId, Number(t.total || 0)]));
+      const payoutMap = new Map(payoutTotals.map((t) => [t.orgId, Number(t.total || 0)]));
+      const notificationMap = new Map(notificationTotals.map((t) => [t.orgId, Number(t.total || 0)]));
 
       const newTxs = [];
       const newLogs = [];
 
-      for (const psp of allPsps) {
-        const digitalSum = (digitalMap.get(psp.id) as number) || 0;
-        const cashSum = (cashMap.get(psp.id) as number) || 0;
-        const payoutSum = (payoutMap.get(psp.id) as number) || 0;
-        const notificationSum = (notificationMap.get(psp.id) as number) || 0;
+      for (const org of allorganizations) {
+        const digitalSum = (digitalMap.get(org.id) as number) || 0;
+        const cashSum = (cashMap.get(org.id) as number) || 0;
+        const payoutSum = (payoutMap.get(org.id) as number) || 0;
+        const notificationSum = (notificationMap.get(org.id) as number) || 0;
 
         // Apply strict rounding
-        const pspDigitalEntitlement = Math.round((digitalSum / config.PLATFORM_FEE_DIVISOR) * 100) / 100;
+        const orgDigitalEntitlement = Math.round((digitalSum / config.PLATFORM_FEE_DIVISOR) * 100) / 100;
         const saziateCashFee = Math.round((cashSum - (cashSum / config.PLATFORM_FEE_DIVISOR)) * 100) / 100;
         const totalPaidOut = Math.round(payoutSum * 100) / 100;
         const totalNotificationCosts = Math.round(notificationSum * 100) / 100;
 
-        const estimatedAvailable = Math.round((pspDigitalEntitlement - saziateCashFee - totalPaidOut - totalNotificationCosts) * 100) / 100;
+        const estimatedAvailable = Math.round((orgDigitalEntitlement - saziateCashFee - totalPaidOut - totalNotificationCosts) * 100) / 100;
 
         // Threshold check (minimum automated payout NGN 1000)
-        if (estimatedAvailable >= config.AUTO_PAYOUT_MINIMUM_NGN) {
+        if (estimatedAvailable >= config.locality.autoPayoutMinimum) {
           const txId = generateId();
           const reference = `PAYOUT-AUTO-${generateId()}`;
           
           let isSuccess = false;
-          if (!config.isMockMode && env.MONNIFY_API_KEY && env.MONNIFY_SECRET_KEY && env.MONNIFY_CONTRACT_CODE && psp.settlementBankCode && psp.settlementAccountNumber) {
+          // Execute Transfer via Paystack
+          if (!config.isMockMode && env.PAYSTACK_SECRET_KEY && org.settlementBankCode && org.settlementAccountNumber) {
             try {
-              const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
-              await monnify.initiateTransfer({
+              const paystack = new PaystackClient(env.PAYSTACK_SECRET_KEY);
+              const recipient = await paystack.createTransferRecipient({
+                name: org.settlementAccountName || org.name,
+                accountNumber: org.settlementAccountNumber,
+                bankCode: org.settlementBankCode,
+                currency: config.locality.currency,
+              });
+
+              await paystack.initiateTransfer({
                 amount: estimatedAvailable,
+                recipientCode: recipient.recipient_code,
                 reference: reference,
-                narration: "Saziate Automated Settlement",
-                destinationBankCode: psp.settlementBankCode,
-                destinationAccountNumber: psp.settlementAccountNumber,
-                currency: "NGN",
-                sourceAccountNumber: env.MONNIFY_WALLET_ACCOUNT_NUMBER || "0000000000",
+                reason: "Saziate Net Payout Settlement",
               });
               isSuccess = true;
-            } catch (err) {
-              console.error(`Failed to automate payout for PSP ${psp.id}:`, err);
+            } catch (err: any) {
+              console.error(`Paystack Transfer Failed for org ${org.id}:`, err);
             }
           } else {
-             // Either in mock mode, missing config, or PSP missing settlement info
+             // Either in mock mode, missing config, or Org missing settlement info
              if (config.isMockMode) isSuccess = true;
           }
 
           if (isSuccess) {
-            // Find an operator for this PSP to use as residentId for the FK constraint
-            const operator = await tx.select({ id: users.id }).from(users).where(and(eq(users.pspId, psp.id), eq(users.role, "psp_operator"))).limit(1).get();
-            const validUserId = operator ? operator.id : "system"; // Will fail FK if 'system' doesn't exist, but it's better than psp.id
+            // Find an operator for this Org to use as residentId for the FK constraint
+            const operator = await tx.select({ id: users.id }).from(users).where(and(eq(users.orgId, org.id), eq(users.role, "org_admin"))).limit(1).get();
+            const validUserId = operator ? operator.id : "system"; // Will fail FK if 'system' doesn't exist, but it's better than org.id
 
             newTxs.push({
               id: txId,
-              pspId: psp.id,
+              orgId: org.id,
               residentId: validUserId,
               reference: reference,
               amount: estimatedAvailable,
@@ -157,20 +162,20 @@ export async function GET(req: Request) {
               id: generateId(),
               actorId: "system",
               action: "payout.automated",
-              entityType: "psp",
-              entityId: psp.id,
+              entityType: "org",
+              entityId: org.id,
               meta: JSON.stringify({ amount: estimatedAvailable }),
             });
 
             processedCount++;
 
             // Send Email Confirmation (queue promise)
-            if (psp.contactEmail && psp.settlementAccountNumber) {
-              const accountMask = psp.settlementAccountNumber.slice(-4);
+            if (org.contactEmail && org.settlementAccountNumber) {
+              const accountMask = org.settlementAccountNumber.slice(-4);
               notificationPromises.push(sendEmail({
-                to: psp.contactEmail,
+                to: org.contactEmail,
                 subject: "Saziate Payout Initiated",
-                html: emailTemplates.payoutConfirmation(psp.name, estimatedAvailable, accountMask),
+                html: emailTemplates.payoutConfirmation(org.name, estimatedAvailable, accountMask),
               }));
             }
           }

@@ -1,3 +1,4 @@
+import { config } from "@/lib/config";
 export const dynamic = "force-dynamic";
 import { getAuth } from "@/lib/auth";
 import { getDb } from "@/db";
@@ -49,7 +50,7 @@ async function handleAuthRequest(request: Request) {
           let userRecord = null;
 
           if (emailInput.endsWith("@saziate.com")) {
-            // Dummy email mapped from phone number in client: e.g. +2348012345678@saziate.com
+            // Dummy email mapped from phone number in client: e.g. config.locality.code8012345678@saziate.com
             const phone = emailInput.split("@")[0];
             userRecord = await db
               .select()

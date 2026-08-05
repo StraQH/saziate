@@ -1,0 +1,2 @@
+-- Cloudflare D1 does not support dropping tables to remove defaults cleanly with PRAGMA foreign_keys=OFF.
+-- Since this just removes the 'Lagos' default from 'state', we bypass it here. Existing rows are unaffected.

@@ -1,0 +1,96 @@
+export const dynamic = "force-dynamic";
+﻿import { getAppEnv } from "@/lib/env";
+import { getDb } from "@/db";
+import { invoices, residentProfiles, users } from "@/db/schema";
+import { eq, and, sql, like } from "drizzle-orm";
+import { getActiveorgId, requireRole } from "@/lib/session";
+
+export async function GET(req: Request) {
+  const env = getAppEnv() as Record<string, string | undefined>;
+  const db = getDb(env.DB as any);
+
+  try {
+    await requireRole(req, env.DB as any, ["org_admin"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
+      return new Response("Unauthorized.", { status: 401 });
+    }
+
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get("page") || "1");
+    const limit = parseInt(url.searchParams.get("limit") || "50");
+    const search = url.searchParams.get("search") || "";
+    
+    const offset = (page - 1) * limit;
+
+    let baseQuery = db
+      .select({
+        id: invoices.id,
+        residentName: users.name,
+        paymentReference: invoices.paymentReference,
+        baseAmount: invoices.baseAmount,
+        platformFee: invoices.platformFee,
+        totalAmount: invoices.totalAmount,
+        dueDate: invoices.dueDate,
+        status: invoices.status,
+        billingPeriodStart: invoices.billingPeriodStart,
+      })
+      .from(invoices)
+      .innerJoin(users, eq(invoices.residentId, users.id))
+      .innerJoin(residentProfiles, eq(users.id, residentProfiles.userId))
+      .where(
+        and(
+          eq(invoices.orgId, orgId),
+          search ? like(users.name, `%${search}%`) : undefined
+        )
+      );
+
+    const results = await baseQuery.limit(limit).offset(offset);
+    
+    const countResult = await db
+      .select({ count: sql`COUNT(*)` })
+      .from(invoices)
+      .innerJoin(users, eq(invoices.residentId, users.id))
+      .where(
+        and(
+          eq(invoices.orgId, orgId),
+          search ? like(users.name, `%${search}%`) : undefined
+        )
+      )
+      .get();
+      
+    const totalCount = Number(countResult?.count || 0);
+
+    const formattedResults = results.map((inv) => ({
+      id: (inv as any).id,
+      residentName: (inv as any).residentName,
+      referenceCode: (inv as any).paymentReference || (inv as any).id,
+      baseAmount: (inv as any).baseAmount,
+      platformFee: (inv as any).platformFee,
+      totalAmount: (inv as any).totalAmount,
+      dueDate: new Date((inv as any).dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      status: (inv as any).status,
+      billingPeriod: new Date((inv as any).billingPeriodStart).toLocaleDateString("en-GB", { month: "long", year: "numeric" }),
+    }));
+
+    return new Response(JSON.stringify({
+      data: formattedResults,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      page,
+      limit
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    console.error("[API Error]", error);
+    if (error.message === "Unauthorized") {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+    if (error.message === "Forbidden") {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
+  }
+}

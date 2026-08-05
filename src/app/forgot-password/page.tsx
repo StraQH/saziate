@@ -1,3 +1,4 @@
+import { config } from "@/lib/config";
 "use client";
 
 import { useState } from "react";
@@ -97,13 +98,13 @@ export default function ForgotPasswordPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <span style={{ fontWeight: 800, fontSize: "2.25rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
+            <span style={{ fontWeight: 800, fontSize: "3.5rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
             Regain access instantly.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "400px", lineHeight: 1.6 }}>
-            Securely reset your password and get back to managing your services, collections, and growth.
+            Securely reset your password and get back to managing your services, services, and growth.
           </p>
         </div>
 
@@ -189,7 +190,7 @@ export default function ForgotPasswordPage() {
                 style={{ padding: "0.875rem 1rem", fontSize: "1rem" }}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Enter email or +234..."
+                placeholder="Enter email or config.locality.code..."
                 required
                 disabled={loading}
               />

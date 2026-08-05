@@ -6,7 +6,7 @@ export interface Resident {
   email: string;
   phone: string;
   address: string;
-  route: string;
+  zone: string;
   billingCategory: "residential" | "commercial" | "industrial" | "health";
   propertyType?: string;
   baseRate: number;
@@ -15,11 +15,11 @@ export interface Resident {
   status: "active" | "suspended";
 }
 
-export interface Route {
+export interface Zone {
   id: string;
   name: string;
   description: string;
-  collectionSchedule: string;
+  serviceSchedule: string;
   assignedAgent: string;
   assignedAgentName?: string;
   assignedAgentId?: string;
@@ -41,17 +41,18 @@ export interface Invoice {
   billingPeriod: string;
 }
 
-export interface CollectionRun {
+export interface ServiceRun {
   id: string;
   residentName: string;
   address: string;
-  route: string;
-  status: "collected" | "no_access" | "no_waste" | "pending";
+  zone: string;
+  status: "completed" | "no_access" | "no_service" | "pending";
   loggedBy: string;
   loggedAt: string | null;
 }
 
-export interface OnboardedPSP {
+export interface OnboardedOrg {
+  serviceType?: string;
   id: string;
   name: string;
   rcNumber: string;
@@ -63,28 +64,28 @@ export interface OnboardedPSP {
 export const MOCK_RESIDENTS: Resident[] = [
   {
     id: "r1",
-    name: "Babajide Sanwo",
+    name: "John Doe",
     email: "resident@example.com",
     phone: "+2348021111111",
-    address: "14 Admiralty Way, Lekki Phase 1",
-    route: "Lekki Res Zone A",
+    address: "123 Main St, Metropolis",
+    zone: "North Residential Zone",
     billingCategory: "residential",
     baseRate: 6000,
     isOverride: false,
-    referenceCode: "SZ-LEK-001",
+    referenceCode: "SZDEMO001",
     status: "active",
   },
   {
     id: "r2",
-    name: "Funke Akindele",
-    email: "funke@example.com",
+    name: "Jane Smith",
+    email: "jane@example.com",
     phone: "+2348022222222",
-    address: "8 Fola Osibo St, Lekki Phase 1",
-    route: "Lekki Comm Zone B",
+    address: "456 Market St, Metropolis",
+    zone: "East Commercial Zone",
     billingCategory: "residential",
     baseRate: 7500,
     isOverride: true,
-    referenceCode: "SZ-LEK-002",
+    referenceCode: "SZDEMO002",
     status: "active",
   },
   {
@@ -92,22 +93,22 @@ export const MOCK_RESIDENTS: Resident[] = [
     name: "St. Nicholas Clinic",
     email: "admin@stnicholas.com",
     phone: "+2348024444444",
-    address: "Plot 10, Onikepo Akande St",
-    route: "Lekki Res Zone C",
+    address: "Plot 10, Demo Industrial Area",
+    zone: "West Residential Zone",
     billingCategory: "health",
     baseRate: 30000,
     isOverride: false,
-    referenceCode: "SZ-LEK-003",
+    referenceCode: "SZDEMO003",
     status: "suspended",
   },
 ];
 
-export const MOCK_ROUTES: Route[] = [
+export const MOCK_ZONES: Zone[] = [
   {
     id: "rt1",
-    name: "Lekki Res Zone A",
-    description: "Covers Admiralty Way, Fola Osibo, and block clusters A-F",
-    collectionSchedule: "Mondays & Thursdays",
+    name: "North Residential Zone",
+    description: "Covers primary residential clusters A–F",
+    serviceSchedule: "",
     assignedAgent: "Field Agent Johnson",
     rates: [
       { category: "residential", monthlyRate: 6000 },
@@ -118,9 +119,9 @@ export const MOCK_ROUTES: Route[] = [
   },
   {
     id: "rt2",
-    name: "Lekki Comm Zone B",
+    name: "East Commercial Zone",
     description: "Commercial establishments along main expressway corridors",
-    collectionSchedule: "Tuesdays & Fridays",
+    serviceSchedule: "",
     assignedAgent: "Field Agent Musa",
     rates: [
       { category: "residential", monthlyRate: 7500 },
@@ -134,8 +135,8 @@ export const MOCK_ROUTES: Route[] = [
 export const MOCK_INVOICES: Invoice[] = [
   {
     id: "inv1",
-    residentName: "Babajide Sanwo",
-    referenceCode: "SZ-LEK-001",
+    residentName: "John Doe",
+    referenceCode: "SZDEMO001",
     baseAmount: 6000,
     platformFee: 300,
     totalAmount: 6300,
@@ -145,8 +146,8 @@ export const MOCK_INVOICES: Invoice[] = [
   },
   {
     id: "inv2",
-    residentName: "Funke Akindele",
-    referenceCode: "SZ-LEK-002",
+    residentName: "Jane Smith",
+    referenceCode: "SZDEMO002",
     baseAmount: 7500,
     platformFee: 375,
     totalAmount: 7875,
@@ -157,7 +158,7 @@ export const MOCK_INVOICES: Invoice[] = [
   {
     id: "inv3",
     residentName: "St. Nicholas Clinic",
-    referenceCode: "SZ-LEK-003",
+    referenceCode: "SZDEMO003",
     baseAmount: 30000,
     platformFee: 1500,
     totalAmount: 31500,
@@ -167,60 +168,60 @@ export const MOCK_INVOICES: Invoice[] = [
   },
 ];
 
-export const MOCK_COLLECTIONS: CollectionRun[] = [
+export const MOCK_SERVICES: ServiceRun[] = [
   {
     id: "col1",
-    residentName: "Babajide Sanwo",
-    address: "14 Admiralty Way, Lekki Phase 1",
-    route: "Lekki Res Zone A",
-    status: "collected",
+    residentName: "John Doe",
+    address: "123 Main St, Metropolis",
+    zone: "North Residential Zone",
+    status: "completed",
     loggedBy: "Field Agent Johnson",
     loggedAt: "08:14 AM Today",
   },
   {
     id: "col2",
-    residentName: "Funke Akindele",
-    address: "8 Fola Osibo St, Lekki Phase 1",
-    route: "Lekki Comm Zone B",
-    status: "no_waste",
+    residentName: "Jane Smith",
+    address: "456 Market St, Metropolis",
+    zone: "East Commercial Zone",
+    status: "no_service",
     loggedBy: "Field Agent Musa",
     loggedAt: "10:30 AM Today",
   },
   {
     id: "col3",
     residentName: "St. Nicholas Clinic",
-    address: "Plot 10, Onikepo Akande St",
-    route: "Lekki Res Zone C",
+    address: "Plot 10, Demo Industrial Area",
+    zone: "West Residential Zone",
     status: "pending",
     loggedBy: "Unassigned",
     loggedAt: null,
   },
 ];
 
-export const MOCK_PSPS: OnboardedPSP[] = [
+export const MOCK_organizations: OnboardedOrg[] = [
   {
-    id: "psp1",
-    name: "Lekki Green Cleaners Ltd",
+    id: "org_demo_1",
+    name: "Acme Utility Services",
     rcNumber: "RC-1029384",
-    contactEmail: "ops@lekkigreenclean.com",
+    contactEmail: "ops@demo-utility.com",
     totalSettlementVolume: 1240000,
     status: "verified",
   },
   {
-    id: "psp2",
-    name: "Ikoyi Waste Solutions",
+    id: "org_demo_2",
+    name: "Demo Utility Solutions",
     rcNumber: "RC-9830291",
-    contactEmail: "solutions@ikoyiwaste.org",
+    contactEmail: "solutions@demo-utility2.org",
     totalSettlementVolume: 0,
     status: "pending_verification",
   },
 ];
 
-export const MOCK_PSP_ID = "psp_lekki_green";
-export const MOCK_AGENT_ID = "agent_lekki_1";
-export const MOCK_ROUTE_ID = "route_lekki_1";
-export const MOCK_PSP_NAME = "Lekki Green Cleaners Ltd";
-export const MOCK_PSP_EMAIL = "ops@lekkigreenclean.com";
-export const MOCK_ROUTE_NAME = "Lekki Res Zone A";
-export const MOCK_WARD = "Lekki Ward A";
-export const MOCK_LGA = "Eti-Osa";
+export const MOCK_ORG_ID = "org_demo_1";
+export const MOCK_AGENT_ID = "agent_demo_1";
+export const MOCK_ZONE_ID = "zone_demo_1";
+export const MOCK_ORG_NAME = "Acme Utility Services";
+export const MOCK_ORG_EMAIL = "ops@demo-utility.com";
+export const MOCK_ZONE_NAME = "North Residential Zone";
+export const MOCK_WARD = "District 1";
+export const MOCK_LGA = "Area 1";

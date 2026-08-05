@@ -7,7 +7,7 @@ import { eq, and } from "drizzle-orm";
 export interface NotificationParams {
   dbBinding: D1Database;
   termiiApiKey: string;
-  pspId: string;
+  orgId: string;
   residentId: string | null;
   phone: string;
   messageText: string;
@@ -33,7 +33,7 @@ export async function sendNotificationWithFallback(params: NotificationParams) {
     // Success log
     await db.insert(notificationLogs).values({
       id: logId,
-      pspId: params.pspId,
+      orgId: params.orgId,
       residentId: params.residentId,
       channel: params.channel,
       messageType: params.messageType,
@@ -49,7 +49,7 @@ export async function sendNotificationWithFallback(params: NotificationParams) {
     // Write failed log
     await db.insert(notificationLogs).values({
       id: logId,
-      pspId: params.pspId,
+      orgId: params.orgId,
       residentId: params.residentId,
       channel: params.channel,
       messageType: params.messageType,
@@ -62,7 +62,7 @@ export async function sendNotificationWithFallback(params: NotificationParams) {
     const pendingId = generateId();
     await db.insert(pendingNotifications).values({
       id: pendingId,
-      pspId: params.pspId,
+      orgId: params.orgId,
       residentId: params.residentId,
       channel: params.channel,
       messageType: params.messageType,
@@ -107,7 +107,7 @@ export async function processPendingRetries(dbBinding: D1Database, termiiApiKey:
       const costNgn = isSystemNotification ? 0.00 : 6.00;
       await db.insert(notificationLogs).values({
         id: logId,
-        pspId: item.pspId,
+        orgId: item.orgId,
         residentId: item.residentId,
         channel: item.channel,
         messageType: item.messageType,

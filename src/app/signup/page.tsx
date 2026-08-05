@@ -17,7 +17,7 @@ export default function SignupPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
-  const [pspName, setPspName] = useState("");
+  const [orgName, setOrgName] = useState("");
   const [rcNumber, setRcNumber] = useState("");
   const [address, setAddress] = useState("");
 
@@ -44,8 +44,8 @@ export default function SignupPage() {
         body: JSON.stringify({
           userId: data.user.id,
           phone,
-          role: "psp_operator",
-          pspName,
+          role: "org_admin",
+          orgName,
           rcNumber,
           address,
           firstName,
@@ -55,10 +55,10 @@ export default function SignupPage() {
 
       if (!onboardResponse.ok) {
         const onboardErrText = await onboardResponse.text();
-        throw new Error(onboardErrText || "PSP Onboarding database sync failed");
+        throw new Error(onboardErrText || "Org Onboarding database sync failed");
       }
 
-      router.push("/psp");
+      router.push("/org");
     } catch (err: any) {
       const message = err instanceof Error ? (err as Error).message : "An unexpected signup error occurred.";
       setError(message);
@@ -86,7 +86,7 @@ export default function SignupPage() {
       >
         <div style={{ position: "relative", zIndex: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "3rem" }}>
-            <span style={{ fontWeight: 800, fontSize: "2.25rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
+            <span style={{ fontWeight: 800, fontSize: "3.5rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
             Accelerate your utility business growth today.
@@ -254,9 +254,9 @@ export default function SignupPage() {
                       type="text"
                       className="input"
                       style={{ paddingLeft: "2.5rem" }}
-                      placeholder="Lekki Cleaners Ltd"
-                      value={pspName}
-                      onChange={(e) => setPspName(e.target.value)}
+                      placeholder="Acme Utility Services"
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
                       autoComplete="organization"
                       required
                     />
@@ -284,7 +284,7 @@ export default function SignupPage() {
                     type="text"
                     className="input"
                     style={{ paddingLeft: "2.5rem" }}
-                    placeholder="Plot 12, Admiralty Way, Lekki Phase 1, Lagos"
+                    placeholder="123 Main St, Metropolis"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     autoComplete="street-address"

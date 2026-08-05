@@ -3,7 +3,7 @@ import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
 import { invoices, transactions, residentProfiles } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { getActivePspId, requireRole } from "@/lib/session";
+import { getActiveorgId, requireRole } from "@/lib/session";
 import { generateId } from "@/lib/utils";
 import { z } from "zod";
 
@@ -17,9 +17,9 @@ export async function PATCH(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB as any);
-    if (!pspId) {
+    await requireRole(req, env.DB as any, ["org_admin"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -31,11 +31,11 @@ export async function PATCH(req: Request) {
 
     const { invoiceId } = parsed.data;
 
-    // Verify invoice belongs to PSP and is pending
+    // Verify invoice belongs to Org and is pending
     const existing = await db
       .select()
       .from(invoices)
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.pspId, pspId)))
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)))
       .get();
 
     if (!existing) {

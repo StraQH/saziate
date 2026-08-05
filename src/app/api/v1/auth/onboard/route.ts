@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { onboardSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, psps, agentInvitations } from "@/db/schema";
+import { users, organizations, agentInvitations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateId, normalizePhoneNumber } from "@/lib/utils";
 import { sendEmail } from "@/lib/email";
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { userId, phone, role, pspName, rcNumber, address, inviteToken, firstName, lastName } = body;
+    const { userId, phone, role, orgName, rcNumber, address, inviteToken, firstName, lastName } = body;
 
     if (!userId || !role) {
       return new Response("Missing required onboarding parameters.", { status: 400 });
@@ -56,22 +56,22 @@ export async function POST(req: Request) {
     }
 
     // Prevent Privilege Escalation & Re-Onboarding
-    if (userRecord.pspId || ["psp_operator", "field_agent", "admin"].includes(userRecord.role)) {
+    if (userRecord.orgId || ["org_admin", "field_agent", "admin"].includes(userRecord.role)) {
       return new Response("User has already been onboarded or possesses an immutable role.", { status: 403 });
     }
 
-    let pspId: string | null = null;
+    let orgId: string | null = null;
 
-    if (role === "psp_operator") {
-      if (!pspName || !address) {
-        return new Response("Missing PSP details.", { status: 400 });
+    if (role === "org_admin") {
+      if (!orgName || !address) {
+        return new Response("Missing Org details.", { status: 400 });
       }
 
-      pspId = generateId();
+      orgId = generateId();
 
-      await db.insert(psps).values({
-        id: pspId,
-        name: pspName,
+      await db.insert(organizations).values({
+        id: orgId,
+        name: orgName,
         rcNumber: rcNumber || null,
         address,
         contactPhone: phone ? normalizePhoneNumber(phone) : "",
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
           await sendEmail({
             to: userRecord.email,
             subject: "Welcome to Saziate! (Action Required)",
-            html: emailTemplates.welcomePSP(pspName),
+            html: emailTemplates.welcomeOrg(orgName),
           });
         } catch (emailErr) {
           console.error("Non-blocking email warning: Failed to dispatch onboarding welcome email:", emailErr);
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
         return new Response("Invitation token has expired.", { status: 400 });
       }
 
-      pspId = invite.pspId;
+      orgId = invite.orgId;
 
       // Delete the token so it can't be used again
       await db
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
       splitLastName = parts.slice(1).join(" ") || "";
     }
 
-    // Update user profile fields with role, associated pspId, and names
+    // Update user profile fields with role, associated orgId, and names
     await db
       .update(users)
       .set({
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
         firstName: firstName || splitFirstName,
         lastName: lastName || splitLastName,
         phone: phone || null,
-        pspId,
+        orgId,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
@@ -149,10 +149,10 @@ export async function POST(req: Request) {
       action: "user.onboarded",
       entityType: "users",
       entityId: userId,
-      meta: JSON.stringify({ role, pspId }),
+      meta: JSON.stringify({ role, orgId }),
     });
 
-    return new Response(JSON.stringify({ status: "success" as any, userId, pspId }), {
+    return new Response(JSON.stringify({ status: "success" as any, userId, orgId }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

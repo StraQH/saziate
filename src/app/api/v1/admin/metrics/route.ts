@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
-import { invoices, transactions, residentProfiles, psps, users } from "@/db/schema";
+import { invoices, transactions, residentProfiles, organizations, users } from "@/db/schema";
 import { eq, sql, and, notLike, isNotNull, isNull, like, inArray } from "drizzle-orm";
 import { requireRole } from "@/lib/session";
 import { config } from "@/lib/config";
@@ -41,14 +41,14 @@ export async function GET(req: Request) {
     // PSP counts
     const activePsps = await db
       .select({ count: sql<number>`COUNT(*)` })
-      .from(psps)
-      .where(isNotNull(psps.dvaAccountNumber))
+      .from(organizations)
+      .where(isNotNull(organizations.settlementAccountNumber))
       .get();
       
     const pendingPsps = await db
       .select({ count: sql<number>`COUNT(*)` })
-      .from(psps)
-      .where(isNull(psps.dvaAccountNumber))
+      .from(organizations)
+      .where(isNull(organizations.settlementAccountNumber))
       .get();
 
     // Resident count

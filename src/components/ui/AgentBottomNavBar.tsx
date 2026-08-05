@@ -9,7 +9,7 @@ export function AgentBottomNavBar() {
 
   const links = [
     { href: "/agent", icon: LayoutDashboard, label: "Home" },
-    { href: "/agent/collections", icon: Users, label: "Collections" },
+    { href: "/agent/services", icon: Users, label: "Services" },
     { href: "/agent/profile", icon: User, label: "Profile" },
   ];
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MetricCard } from "@/components/ui/MetricCard";
-import { MOCK_COLLECTIONS, type CollectionRun, MOCK_PSP_ID } from "@/lib/mockdata";
+import { MOCK_SERVICES, type ServiceRun, MOCK_ORG_ID } from "@/lib/mockdata";
 import { Badge } from "@/components/ui/Badge";
 import { MapPin, RefreshCw } from "lucide-react";
 import { useSession } from "@/components/providers/SessionProvider";
@@ -11,16 +11,16 @@ import { config } from "@/lib/config";
 
 export default function AgentDashboardPage() {
   const { user } = useSession();
-  const [logs, setLogs] = useState<CollectionRun[]>([]);
+  const [logs, setLogs] = useState<ServiceRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assignedZone, setAssignedZone] = useState(config.isMockMode ? "Lekki Res Zone A" : "Unassigned");
-  const [collectionSchedule, setCollectionSchedule] = useState(config.isMockMode ? "Mondays & Thursdays" : "-");
+  const [assignedZone, setAssignedZone] = useState(config.isMockMode ? "North Residential Zone" : "Unassigned");
+  const [serviceSchedule, setServiceSchedule] = useState(config.isMockMode ? "Mondays & Thursdays" : "-");
 
   const fetchAgentLogs = async () => {
     if (!user) return;
     setLoading(true);
-    const repo = new SaziateRepository(user.pspId!);
-    const res = await repo.getCollections();
+    const repo = new SaziateRepository(user.orgId!);
+    const res = await repo.getServices();
     if (Array.isArray(res)) {
       setLogs(res);
     } else {
@@ -32,11 +32,11 @@ export default function AgentDashboardPage() {
   const fetchAgentRoute = async () => {
     if (config.isMockMode) return;
     try {
-      const res = await fetch("/api/v1/agent/route");
+      const res = await fetch("/api/v1/agent/zone");
       if (res.ok) {
         const body = await res.json() as any;
         setAssignedZone(body.zone || "Unassigned");
-        setCollectionSchedule(body.schedule || "-");
+        setServiceSchedule(body.schedule || "-");
       }
     } catch (err) {
       console.error(err);
@@ -48,9 +48,9 @@ export default function AgentDashboardPage() {
     fetchAgentRoute();
   }, [user]);
 
-  const agentCollections = logs.filter((c) => c.status !== "pending");
+  const agentServices = logs.filter((c) => c.status !== "pending");
   const pendingCount = logs.filter((c) => c.status === "pending").length;
-  const completedCount = agentCollections.length;
+  const completedCount = agentServices.length;
 
   return (
     <div>
@@ -58,7 +58,7 @@ export default function AgentDashboardPage() {
         <div>
           <h1>Agent Command Center</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Track your daily route progress and active collections.
+            Track your daily zone progress and active services.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchAgentLogs}>
@@ -68,10 +68,10 @@ export default function AgentDashboardPage() {
       </div>
 
       <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
-        <MetricCard label="Completed Pickups" value={completedCount.toString()} />
-        <MetricCard label="Remaining Pickups" value={pendingCount.toString()} />
+        <MetricCard label="Completed Operations" value={completedCount.toString()} />
+        <MetricCard label="Remaining Operations" value={pendingCount.toString()} />
         <MetricCard label="Today's assigned zone" value={assignedZone} />
-        <MetricCard label="Collection Schedule" value={collectionSchedule} />
+        <MetricCard label="Service Schedule" value={serviceSchedule} />
       </div>
 
       <div className="card">
@@ -80,11 +80,11 @@ export default function AgentDashboardPage() {
           <div className="flex justify-center" style={{ padding: "2rem" }}>
             <div className="spinner" />
           </div>
-        ) : agentCollections.length === 0 ? (
-          <p className="text-muted text-sm">No collections logged by you today yet.</p>
+        ) : agentServices.length === 0 ? (
+          <p className="text-muted text-sm">No services logged by you today yet.</p>
         ) : (
           <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "1rem" }}>
-            {agentCollections.map((col) => (
+            {agentServices.map((col) => (
               <div key={col.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-border)", paddingBottom: "0.75rem" }}>
                 <div>
                   <p className="font-semibold">{col.residentName}</p>
@@ -92,7 +92,7 @@ export default function AgentDashboardPage() {
                     <MapPin size={12} /> {col.address}
                   </p>
                 </div>
-                <Badge variant={col.status === "collected" ? "success" : "warning"}>
+                <Badge variant={col.status === "completed" ? "success" : "warning"}>
                   {col.status.toUpperCase()}
                 </Badge>
               </div>

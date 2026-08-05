@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatNaira } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { CreditCard, CheckCircle, RefreshCw, Landmark, CircleDollarSign } from "lucide-react";
 
@@ -43,7 +43,7 @@ export default function ResidentPaymentsPage() {
         <div>
           <h1>Payment History</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            View history of all bank transfers and cash collections registered to your reference.
+            View history of all bank transfers and cash services registered to your reference.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchPayments}>
@@ -81,7 +81,7 @@ export default function ResidentPaymentsPage() {
                       <p className="text-xs text-muted font-mono">{tx.id}</p>
                     </div>
                   </td>
-                  <td className="font-bold">{formatNaira(tx.amount)}</td>
+                  <td className="font-bold">{formatCurrency(tx.amount)}</td>
                   <td>
                     <div className="flex items-center gap-1.5 text-sm">
                       {tx.paymentMethod === "bank_transfer" ? (
@@ -92,7 +92,7 @@ export default function ResidentPaymentsPage() {
                       ) : (
                         <>
                           <CircleDollarSign size={16} className="text-muted" />
-                          <span>Cash Collection</span>
+                          <span>Cash Service</span>
                         </>
                       )}
                     </div>

@@ -1,0 +1,1 @@
+ALTER TABLE `zones` RENAME COLUMN "collection_schedule" TO "service_schedule";

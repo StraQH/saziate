@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Route as RouteIcon,
+  MapPin as ZoneIcon,
   CreditCard,
   LogOut,
   Menu,
@@ -16,7 +16,7 @@ import { useSession } from "@/components/providers/SessionProvider";
 
 const navItems = [
   { href: "/agent",             label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/agent/route",       label: "My Route",    icon: RouteIcon },
+  { href: "/agent/zone",       label: "My Zone",    icon: ZoneIcon },
   { href: "/agent/payments",    label: "Payments",    icon: CreditCard },
 ];
 
@@ -41,7 +41,7 @@ export function AgentSidebar({ agentName }: { agentName: string }) {
 
       <aside className={cn("sidebar", isOpen && "open")}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", padding: "0 0.5rem" }}>
-          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><span style={{ fontWeight: 800, fontSize: "1.75rem", color: "inherit", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span></div>
+          <div className="sidebar-logo" style={{ margin: 0, padding: 0 }}><span style={{ fontWeight: 800, fontSize: "2rem", color: "var(--color-primary)", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span></div>
           {isOpen && (
             <button onClick={() => setIsOpen(false)} style={{ background: "none", border: "none", color: "var(--color-text-muted)" }}>
               <X size={24} />

@@ -9,18 +9,18 @@ export const signupSchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),
   phone: z.string().optional(),
-  role: z.enum(["admin", "psp_operator", "field_agent"]),
+  role: z.enum(["admin", "org_admin", "field_agent"]),
   password: z.string().min(8).optional(),
-  pspName: z.string().optional(),
+  orgName: z.string().optional(),
   rcNumber: z.string().optional(),
   address: z.string().optional(),
 });
 
 export const onboardSchema = z.object({
   userId: z.string().min(1),
-  role: z.enum(["psp_operator", "field_agent"]),
+  role: z.enum(["org_admin", "field_agent"]),
   phone: z.string().optional(),
-  pspName: z.string().optional(),
+  orgName: z.string().optional(),
   rcNumber: z.string().optional(),
   address: z.string().optional(),
   inviteToken: z.string().optional(),
@@ -30,50 +30,48 @@ export const onboardSchema = z.object({
 
 // Residents
 export const createResidentSchema = z.object({
-  firstName: z.string().min(2).max(50),
-  lastName: z.string().min(2).max(50),
+  firstName: z.string().optional().or(z.literal("")),
+  lastName: z.string().optional().or(z.literal("")),
   email: z.string().email("A valid email is required").optional().or(z.literal("")),
-  phone: z.string().min(10).max(15),
-  address: z.string().min(5),
-  route: z.string().min(1, "Route selection is required"),
+  phone: z.string().optional().or(z.literal("")),
+  address: z.string().optional().or(z.literal("")),
+  zone: z.string().min(1, "Zone selection is required"),
   billingCategory: z.enum(["commercial", "residential", "industrial", "health"]),
   propertyType: z.string().optional(),
   baseRate: z.string().or(z.number()),
   isOverride: z.boolean().optional(),
   billingModel: z.enum(["subscription", "on_demand"]).optional(),
-  onDemandTripRate: z.number().optional(),
-  onDemandBinRate: z.number().optional(),
-  onDemandDrumRate: z.number().optional(),
-});
+  onDemandUnit1Rate: z.number().optional(),
+  onDemandUnit2Rate: z.number().optional(),
+}).refine(data => data.email || data.phone, { message: "Either email or phone number is required", path: ["phone"] });
 
 export const importResidentsSchema = z.object({
   residents: z.array(z.object({
-    name: z.string().min(2),
+    name: z.string().optional().or(z.literal("")),
     email: z.string().email("A valid email is required").optional().or(z.literal("")),
-    phone: z.string(),
-    address: z.string(),
+    phone: z.string().optional().or(z.literal("")),
+    address: z.string().optional().or(z.literal("")),
     billingCategory: z.enum(["commercial", "residential", "industrial", "health"]).optional(),
     propertyType: z.string().optional(),
     baseRate: z.number().optional(),
-    route: z.string().min(1, "Route selection is required"),
+    zone: z.string().min(1, "Zone selection is required"),
   })).min(1),
 });
 
-// Collections
-export const collectionLogSchema = z.object({
-  routeId: z.string().min(1),
+// Services
+export const serviceLogSchema = z.object({
+  zoneId: z.string().min(1),
   residentId: z.string().min(1),
-  status: z.enum(["collected", "no_access", "no_waste", "failed_other"]),
+  status: z.enum(["completed", "no_access", "no_service", "failed_other"]),
   notes: z.string().optional(),
   imageUrl: z.string().url().optional(),
   loggedAt: z.string().or(z.number()).optional(),
-  binsCollected: z.number().int().nonnegative().optional(),
-  drumsCollected: z.number().int().nonnegative().optional(),
+  metrics: z.any().optional(),
 });
 
-export const collectionVerifySchema = z.object({
+export const serviceVerifySchema = z.object({
   transactionId: z.string().min(1),
-  status: z.enum(["collected", "pending_cash_verification", "verified", "settled"]),
+  status: z.enum(["completed", "pending_cash_verification", "verified", "settled"]),
 });
 
 // Payments
@@ -98,17 +96,19 @@ export const generateBillingSchema = z.object({
   month: z.number().int().min(1).max(12),
 });
 
-// PSP Settings
-export const pspSettingsSchema = z.object({
+// Org Settings
+export const organizationsettingsSchema = z.object({
   settlementBankCode: z.string().optional(),
   settlementAccountNumber: z.string().optional(),
   settlementAccountName: z.string().optional(),
   bvn: z.string().optional(),
-  password: z.string().min(1, "Password confirmation is required"),
+  password: z.string().min(1, "Password is required for security verification"),
+  unit1Name: z.string().optional(),
+  unit2Name: z.string().optional(),
 });
 
 // Admin
-export const registerPspSchema = z.object({
+export const registerorganizationschema = z.object({
   name: z.string().min(2),
   rcNumber: z.string().optional(),
   address: z.string().min(5),
@@ -116,8 +116,8 @@ export const registerPspSchema = z.object({
   contactEmail: z.string().email(),
 });
 
-export const approvePspSchema = z.object({
-  pspId: z.string().min(1),
+export const approveorganizationschema = z.object({
+  orgId: z.string().min(1),
 });
 
 // Resident Profile
@@ -127,11 +127,11 @@ export const updateProfileSchema = z.object({
   newPassword: z.string().min(8).optional(),
 });
 
-// Routes
-export const createRouteSchema = z.object({
+// Zones
+export const createZoneSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
-  collectionSchedule: z.string().min(2).optional(),
+  serviceSchedule: z.string().min(2).optional(),
   agentId: z.string().optional(),
   rates: z.array(z.object({
     category: z.enum(["commercial", "residential", "industrial", "health"]),

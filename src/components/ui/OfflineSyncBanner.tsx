@@ -28,7 +28,7 @@ export function OfflineSyncBanner() {
       try {
         const reg = await navigator.serviceWorker.ready;
         if ((reg as ServiceWorkerRegistration & { sync?: any }).sync) {
-          await (reg as ServiceWorkerRegistration & { sync?: any }).sync.register("sync-collections");
+          await (reg as ServiceWorkerRegistration & { sync?: any }).sync.register("sync-services");
           // check if synced
           setTimeout(async () => {
             const logs = await getOfflineLogs();
@@ -43,7 +43,7 @@ export function OfflineSyncBanner() {
           // Fallback manual sync if Background Sync API not supported
           const logs = await getOfflineLogs();
           for (const log of logs) {
-            const res = await fetch("/api/v1/collections/log", {
+            const res = await fetch("/api/v1/services/log", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(log),
@@ -133,7 +133,7 @@ export function OfflineSyncBanner() {
         ) : showSuccess ? (
           <>
             <Wifi size={16} />
-            <span>All offline collection logs synced successfully!</span>
+            <span>All offline service logs synced successfully!</span>
           </>
         ) : (
           <>

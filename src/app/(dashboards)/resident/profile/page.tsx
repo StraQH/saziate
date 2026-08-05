@@ -14,8 +14,8 @@ export default function ResidentProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [pspInfo, setPspInfo] = useState<{ name: string; email: string; phone: string } | null>(null);
-  const [routeInfo, setRouteInfo] = useState<{ name: string } | null>(null);
+  const [orgInfo, setOrgInfo] = useState<{ name: string; email: string; phone: string } | null>(null);
+  const [zoneInfo, setZoneInfo] = useState<{ name: string } | null>(null);
 
   const fetchProfile = async () => {
     try {
@@ -24,8 +24,8 @@ export default function ResidentProfilePage() {
         const body = await res.json() as any;
         setName(body.name || "");
         setEmail(body.email || "");
-        setPspInfo(body.psp || null);
-        setRouteInfo(body.route || null);
+        setOrgInfo(body.org || null);
+        setZoneInfo(body.zone || null);
       }
     } catch (err) {
       console.error(err);
@@ -166,23 +166,23 @@ export default function ResidentProfilePage() {
         </form>
       </div>
 
-      {/* PSP & Route Details Card */}
-      {pspInfo && (
+      {/* Org & Zone Details Card */}
+      {orgInfo && (
         <div className="card" style={{ marginTop: "2rem", padding: "1.5rem" }}>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "1rem" }}>Your Waste Service Provider</h2>
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600, marginBottom: "1rem" }}>Your Service Provider</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", fontSize: "0.875rem" }}>
             <div>
-              <span className="text-muted">Operator:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{pspInfo.name}</strong>
+              <span className="text-muted">Operator:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{orgInfo.name}</strong>
             </div>
             <div>
-              <span className="text-muted">Contact Phone:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{pspInfo.phone}</strong>
+              <span className="text-muted">Contact Phone:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{orgInfo.phone}</strong>
             </div>
             <div>
-              <span className="text-muted">Contact Email:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{pspInfo.email}</strong>
+              <span className="text-muted">Contact Email:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{orgInfo.email}</strong>
             </div>
-            {routeInfo && (
+            {zoneInfo && (
               <div>
-                <span className="text-muted">Assigned Route:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{routeInfo.name}</strong>
+                <span className="text-muted">Assigned Zone:</span> <strong className="text-text" style={{ marginLeft: "0.5rem" }}>{zoneInfo.name}</strong>
               </div>
             )}
           </div>

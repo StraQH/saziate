@@ -1,0 +1,217 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/Badge";
+import { Briefcase, Check, MapPin, AlertTriangle, RefreshCw, Search, ChevronLeft, ChevronRight } from "lucide-react";
+
+import { MOCK_SERVICES, type ServiceRun, MOCK_ORG_ID } from "@/lib/mockdata";
+import { SaziateRepository } from "@/lib/repository";
+import { config } from "@/lib/config";
+import { useSession } from "@/components/providers/SessionProvider";
+
+export default function OrgServicesPage() {
+  const { user } = useSession();
+  const serviceType = user?.orgServiceType || "utility";
+  const [services, setServices] = useState<ServiceRun[]>([]);
+  const [routeCount, setRouteCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(50);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const fetchServices = async () => {
+    if (!user) return;
+    setLoading(true);
+    const repo = new SaziateRepository(user.orgId!);
+    try {
+      const res = await repo.getServices(page, limit, debouncedSearch);
+      
+      if (Array.isArray(res)) {
+        setServices(res);
+      } else {
+        setServices(res.data);
+        setTotalPages(res.totalPages);
+        setTotalCount(res.totalCount);
+      }
+
+      const routesData = await repo.getZones();
+      setRouteCount(routesData.length);
+    } catch (err) {
+      console.error("Failed to load services/zones data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+  }, [user, page, limit, debouncedSearch]);
+
+  const filteredServices = services.filter((c) => {
+    if (filterStatus === "all") return true;
+    return c.status === filterStatus;
+  });
+
+  const completedCount = services.filter((c) => c.status === "completed").length;
+  const missedCount = services.filter((c) => c.status === "no_access" || c.status === "no_service").length;
+
+  return (
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
+        <div>
+          <h1>Services & Dispatch</h1>
+          <p className="text-muted" style={{ marginTop: "0.25rem" }}>
+            Track real-time <span style={{textTransform: "lowercase"}}>{serviceType}</span> service status logged by field agents.
+          </p>
+        </div>
+        <div className="flex gap-3 items-center">
+          <div style={{ position: "relative" }}>
+            <Search size={16} className="text-muted" style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }} />
+            <input 
+              type="text" 
+              placeholder="Search services..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input"
+              style={{ paddingLeft: "32px", width: "250px", height: "36px" }}
+            />
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={fetchServices}>
+            <RefreshCw size={16} />
+            Refresh Feed
+          </button>
+        </div>
+      </div>
+
+      {/* Summary Row */}
+      <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
+        <div className="metric-card">
+          <p className="metric-label">Assigned Zones</p>
+          <p className="metric-value">{routeCount}</p>
+        </div>
+        <div className="metric-card">
+          <p className="metric-label">Completed Drops</p>
+          <p className="metric-value" style={{ color: "var(--color-success)" }}>
+            {completedCount} / {services.length}
+          </p>
+        </div>
+        <div className="metric-card">
+          <p className="metric-label">Missed / No Access</p>
+          <p className="metric-value" style={{ color: "var(--color-warning)" }}>
+            {missedCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+        {["all", "completed", "no_service", "no_access", "pending"].map((status) => (
+          <button
+            key={status}
+            className={`btn btn-sm ${filterStatus === status ? "btn-primary" : "btn-ghost"}`}
+            onClick={() => setFilterStatus(status)}
+            style={{ textTransform: "capitalize" }}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
+      {/* Services Logs */}
+      {loading ? (
+        <div className="card flex items-center justify-center" style={{ padding: "4rem" }}>
+          <div className="spinner" />
+        </div>
+      ) : filteredServices.length === 0 ? (
+        <div className="card text-center" style={{ padding: "3rem" }}>
+          <p className="text-muted text-sm">No service drops found matching status &ldquo;{filterStatus}&rdquo;.</p>
+        </div>
+      ) : (
+        <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "1rem" }}>
+          {filteredServices.map((col) => (
+            <div key={col.id} className="card" style={{ padding: "1.25rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                }}
+              >
+                <div>
+                  <p className="font-semibold" style={{ fontSize: "1rem" }}>{col.residentName}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem", color: "var(--color-text-muted)", fontSize: "0.8125rem" }}>
+                    <MapPin size={14} />
+                    <span>{col.address}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <div className="text-right" style={{ fontSize: "0.8125rem" }}>
+                    <p className="font-medium text-muted">Zone: {col.zone}</p>
+                    {col.loggedAt && (
+                      <p className="text-xs text-muted" style={{ marginTop: "0.15rem" }}>
+                        Logged by {col.loggedBy} ({col.loggedAt})
+                      </p>
+                    )}
+                  </div>
+
+                  <Badge
+                    variant={
+                      col.status === "completed"
+                        ? "success"
+                        : col.status === "pending"
+                        ? "neutral"
+                        : "warning"
+                    }
+                  >
+                    {col.status.toUpperCase()}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && filteredServices.length > 0 && (
+        <div className="flex items-center justify-between" style={{ padding: "1rem", marginTop: "1rem", background: "var(--color-bg-elevated)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }}>
+          <p className="text-sm text-muted">
+            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalCount)} of {totalCount} logs
+          </p>
+          <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary btn-sm" 
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+            >
+              <ChevronLeft size={16} /> Prev
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm" 
+              disabled={page === totalPages}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

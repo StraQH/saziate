@@ -9,7 +9,7 @@ import { users, accounts } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { config } from "@/lib/config";
 
-import { psps, routes, routeResidents, residentProfiles } from "@/db/schema";
+import { organizations, zones, zoneResidents, residentProfiles } from "@/db/schema";
 
 
 
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
       residentId = session.user.id;
     }
 
-    let residentName = "Babajide Sanwo";
+    let residentName = "John Doe";
     let residentEmail = "resident@example.com";
 
     if (!config.isMockMode) {
@@ -51,10 +51,10 @@ export async function GET(req: Request) {
       residentEmail = residentUser.email || "";
     }
 
-    let pspName = "";
-    let pspPhone = "";
-    let pspEmail = "";
-    let routeName = "";
+    let orgName = "";
+    let orgPhone = "";
+    let orgEmail = "";
+    let zoneName = "";
     let propertyType = "";
 
     if (!config.isMockMode) {
@@ -64,28 +64,28 @@ export async function GET(req: Request) {
         .where(eq(users.id, residentId))
         .get();
 
-      if (residentUser && residentUser.pspId) {
-        const psp = await db
+      if (residentUser && residentUser.orgId) {
+        const org = await db
           .select()
-          .from(psps)
-          .where(eq(psps.id, residentUser.pspId))
+          .from(organizations)
+          .where(eq(organizations.id, residentUser.orgId))
           .get();
-        if (psp) {
-          pspName = psp.name;
-          pspEmail = psp.contactEmail;
-          pspPhone = psp.contactPhone || "";
+        if (org) {
+          orgName = org.name;
+          orgEmail = org.contactEmail;
+          orgPhone = org.contactPhone || "";
         }
       }
 
-      const routeRes = await db
-        .select({ name: routes.name })
-        .from(routeResidents)
-        .innerJoin(routes, eq(routeResidents.routeId, routes.id))
-        .where(eq(routeResidents.residentId, residentId))
+      const zoneRes = await db
+        .select({ name: zones.name })
+        .from(zoneResidents)
+        .innerJoin(zones, eq(zoneResidents.zoneId, zones.id))
+        .where(eq(zoneResidents.residentId, residentId))
         .get();
 
-      if (routeRes) {
-        routeName = routeRes.name;
+      if (zoneRes) {
+        zoneName = zoneRes.name;
       }
       
       const profileRes = await db
@@ -104,8 +104,8 @@ export async function GET(req: Request) {
         name: residentName,
         email: residentEmail,
         propertyType,
-        psp: { name: pspName, phone: pspPhone, email: pspEmail },
-        route: { name: routeName },
+        org: { name: orgName, phone: orgPhone, email: orgEmail },
+        zone: { name: zoneName },
       }),
       {
         status: 200,

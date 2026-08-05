@@ -32,7 +32,7 @@ export async function GET(req: Request) {
     }
 
     if (config.isMockMode) {
-      // Mock payments list matching Babajide Sanwo r1
+      // Mock payments list matching John Doe r1
       return new Response(
         JSON.stringify([
           {

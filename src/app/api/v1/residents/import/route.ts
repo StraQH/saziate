@@ -1,12 +1,11 @@
 export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { getDb } from "@/db";
-import { users, residentProfiles, accounts, routeResidents, routes, auditLogs } from "@/db/schema";
+import { users, residentProfiles, accounts, zoneResidents, zones, auditLogs } from "@/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateId, generateSecurePassword, normalizePhoneNumber } from "@/lib/utils";
 import { hashPassword } from "@/lib/hash";
-import { getActivePspId, requireRole } from "@/lib/session";
-import { auth } from "@/lib/auth";
+import { getActiveorgId, requireRole } from "@/lib/session";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
@@ -14,17 +13,21 @@ import { z } from "zod";
 import { config } from "@/lib/config";
 
 const importResidentsSchema = z.object({
-  residents: z.array(z.object({
-    name: z.string().min(1),
-    email: z.string().optional(),
-    phone: z.string().min(1),
-    address: z.string().min(1),
-    ward: z.string().optional(),
-    lga: z.string().optional(),
-    billingCategory: z.enum(["commercial", "residential", "industrial", "health"]),
-    baseRate: z.number().positive(),
-    route: z.string().optional(),
-  })),
+  residents: z.array(
+    z.object({
+      name: z.string().optional(),
+      email: z.string().optional(),
+      phone: z.string().optional(),
+      address: z.string().optional(),
+      ward: z.string().optional(),
+      lga: z.string().optional(),
+      billingCategory: z.enum(["commercial", "residential", "industrial", "health"]).optional(),
+      baseRate: z.number().optional(),
+      zone: z.string().optional(),
+    }).refine((data) => data.email || data.phone, {
+      message: "Either email or phone number is required for each resident",
+    })
+  ),
 });
 
 export async function POST(req: Request) {
@@ -32,10 +35,10 @@ export async function POST(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB as any);
+    await requireRole(req, env.DB as any, ["org_admin"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
 
-    if (!pspId) {
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -47,193 +50,132 @@ export async function POST(req: Request) {
 
     const { residents } = parsed.data;
 
-    // Verify Route Ownership for all imported residents
-    const routeIds = [...new Set(residents.map((r) => r.route).filter(Boolean))] as string[];
-    const routeMap = new Map<string, any>();
+    // Verify Zone Ownership for all imported residents
+    const zoneIds = [...new Set(residents.map((r) => r.zone).filter(Boolean))] as string[];
+    const zoneMap = new Map<string, any>();
 
-    if (routeIds.length > 0) {
-      const validRoutes = await db
+    if (zoneIds.length > 0) {
+      const validZones = await db
         .select()
-        .from(routes)
-        .where(inArray(routes.id, routeIds));
+        .from(zones)
+        .where(inArray(zones.id, zoneIds));
       
-      for (const route of validRoutes) {
-        routeMap.set(route.id, route);
+      for (const zone of validZones) {
+        zoneMap.set(zone.id, zone);
       }
       
-      for (const routeId of routeIds) {
-        const route = routeMap.get(routeId);
-        if (!route || route.pspId !== pspId) {
-          return new Response(`Invalid route ID (${routeId}) or unauthorized to assign to this route.`, { status: 403 });
+      for (const zoneId of zoneIds) {
+        const zone = zoneMap.get(zoneId);
+        if (!zone || zone.orgId !== orgId) {
+          return new Response(`Invalid zone ID (${zoneId}) or unauthorized to assign to this zone.`, { status: 403 });
         }
       }
     }
 
     // Optimization: Bulk query max sequence orders to avoid loop queries
     const maxSeqMap = new Map<string, number>();
-    if (routeIds.length > 0) {
+    if (zoneIds.length > 0) {
       const maxSeqs = await db
         .select({
-          routeId: routeResidents.routeId,
-          maxSeq: sql<number>`MAX(${routeResidents.sequenceOrder})`,
+          zoneId: zoneResidents.zoneId,
+          maxSeq: sql<number>`MAX(${zoneResidents.sequenceOrder})`,
         })
-        .from(routeResidents)
-        .where(inArray(routeResidents.routeId, routeIds))
-        .groupBy(routeResidents.routeId);
+        .from(zoneResidents)
+        .where(inArray(zoneResidents.zoneId, zoneIds))
+        .groupBy(zoneResidents.zoneId);
 
       for (const s of maxSeqs) {
-        maxSeqMap.set(s.routeId, Number(s.maxSeq || 0));
+        maxSeqMap.set(s.zoneId, Number(s.maxSeq || 0));
       }
     }
 
-    const insertedCount = [];
-    const batchOps: any[] = [];
     const notificationQueue: any[] = [];
 
     for (const res of residents) {
       const userId = generateId();
       const tempPassword = generateSecurePassword(8);
-      const normalizedPhone = normalizePhoneNumber(res.phone);
-      const finalEmail = res.email || `${normalizedPhone}@saziate.com`;
+      const normalizedPhone = res.phone ? normalizePhoneNumber(res.phone) : null;
+      const finalEmail = res.email || (normalizedPhone ? `${normalizedPhone}@saziate.com` : null);
 
-      const nameParts = res.name.trim().split(/\s+/);
-      const firstName = nameParts[0] || "Unknown";
+      if (!finalEmail && !normalizedPhone) continue;
+
+      const nameParts = (res.name || "Resident").trim().split(/\s+/);
+      const firstName = nameParts[0] || "Resident";
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      // Group all inserts into batch array
-      batchOps.push(db.insert(users).values({
-        id: userId,
-        name: res.name,
-        firstName,
-        lastName,
-        phone: normalizedPhone || null,
-        email: finalEmail,
-        role: "resident",
-        pspId: pspId,
-        mustChangePassword: true,
-      }));
+      await db.transaction(async (tx) => {
+        await tx.insert(users).values({
+          id: userId,
+          orgId,
+          name: res.name || `${firstName} ${lastName}`.trim(),
+          firstName,
+          lastName,
+          email: finalEmail || `${userId}@placeholder.local`,
+          phone: normalizedPhone,
+          role: "resident",
+          mustChangePassword: true,
+        });
 
-      batchOps.push(db.insert(residentProfiles).values({
-        userId: userId as any,
-        address: res.address,
-        ward: res.ward || null,
-        lga: res.lga || null,
-        billingCategory: res.billingCategory || "residential",
-        customMonthlyRate: res.baseRate || null,
-        advancePaymentBalance: 0,
-      } as any));
+        await tx.insert(residentProfiles).values({
+          userId,
+          address: res.address || "",
+          ward: res.ward || null,
+          lga: res.lga || null,
+          state: null,
+          billingCategory: res.billingCategory || "residential",
+          customMonthlyRate: res.baseRate || null,
+        });
 
-      const hashedPassword = await hashPassword(tempPassword);
-      batchOps.push(db.insert(accounts).values({
-        id: generateId(),
-        accountId: userId,
-        providerId: "credential",
-        userId: userId,
-        password: hashedPassword,
-      }));
+        if (res.zone && zoneMap.has(res.zone)) {
+          const currentSeq = (maxSeqMap.get(res.zone) || 0) + 1;
+          maxSeqMap.set(res.zone, currentSeq);
 
-      if (res.route) {
-        let currentSeq = maxSeqMap.get(res.route) || 0;
-        currentSeq++;
-        maxSeqMap.set(res.route, currentSeq);
-
-        batchOps.push(db.insert(routeResidents).values({
-          routeId: res.route,
-          residentId: userId,
-          sequenceOrder: currentSeq,
-        }));
-      }
-
-      insertedCount.push({
-        id: userId,
-        name: res.name,
-        email: finalEmail,
-        phone: normalizedPhone || "",
-        address: res.address,
-        route: res.route || null,
-        billingCategory: res.billingCategory || "residential",
-        baseRate: res.baseRate || config.DEFAULT_MONTHLY_RATE_NGN,
-        isOverride: false,
-        status: "active",
+          await tx.insert(zoneResidents).values({
+            zoneId: res.zone,
+            residentId: userId,
+            sequenceOrder: currentSeq,
+          });
+        }
       });
 
-      notificationQueue.push({
-        name: res.name,
-        email: res.email,
-        phone: normalizedPhone,
-        userId,
-        tempPassword,
-      });
-    }
-
-    // Write audit log
-    const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
-    batchOps.push(db.insert(auditLogs).values({
-      id: generateId(),
-      actorId: session?.user?.id || pspId,
-      action: "residents.imported",
-      entityType: "resident_profiles",
-      entityId: "bulk",
-      meta: JSON.stringify({ count: insertedCount.length }),
-    }));
-
-    // Execute database statements in batch chunks of 90 to prevent D1 size limit exceptions
-    if (batchOps.length > 0) {
-      const CHUNK_SIZE = 90;
-      for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
-        await db.batch(batchOps.slice(i, i + CHUNK_SIZE) as never);
-      }
-    }
-
-    // Process notification dispatch in parallel (outside the transaction to avoid connection locking)
-    const notificationPromises: Promise<any>[] = [];
-    for (const notif of notificationQueue) {
-      const hasRealEmail = notif.email && notif.email.includes("@") && !notif.email.endsWith("@saziate.com");
-      if (hasRealEmail) {
-        notificationPromises.push(
+      // Notification dispatch logic (Email priority, SMS fallback if only phone provided)
+      if (res.email) {
+        notificationQueue.push(
           sendEmail({
-            to: notif.email,
-            subject: "Welcome to Saziate!",
-            html: emailTemplates.welcomeResident(notif.name.split(" ")[0], notif.tempPassword),
-          }).catch(err => console.error(`Welcome email onboarding failed for ${notif.email}:`, err))
+            to: res.email,
+            subject: "Welcome to Saziate",
+            html: emailTemplates.welcomeResident(res.name || "Resident", tempPassword),
+          })
         );
-      } else if (notif.phone) {
-        const msgText = `Hello ${notif.name}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${notif.tempPassword}. Please update your email on login.`;
-        notificationPromises.push(
+      } else if (normalizedPhone) {
+        notificationQueue.push(
           sendNotificationWithFallback({
             dbBinding: env.DB as any,
             termiiApiKey: env.TERMII_API_KEY || "",
-            pspId,
-            residentId: notif.userId,
-            phone: notif.phone,
-            messageText: msgText,
-            messageType: "setup",
+            orgId,
+            residentId: userId,
+            phone: normalizedPhone,
+            messageText: `Welcome to Saziate! Your temp password is: ${tempPassword}. Log in at https://saziate.com/login`,
+            messageType: "onboarding",
             channel: "sms",
-          }).catch(err => console.error(`WhatsApp/SMS onboarding failed for ${notif.phone}:`, err))
+          })
         );
       }
     }
 
-    if (notificationPromises.length > 0) {
-      const limit = 25;
-      for (let i = 0; i < notificationPromises.length; i += limit) {
-        await Promise.allSettled(notificationPromises.slice(i, i + limit));
-      }
-    }
+    // Process notifications asynchronously in background
+    Promise.allSettled(notificationQueue).catch((err) => console.error("Error dispatching import notifications:", err));
 
-    return new Response(JSON.stringify({ status: "success" as any, count: insertedCount.length, residents: insertedCount }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        status: "success",
+        count: residents.length,
+        message: `Successfully imported ${residents.length} residents.`,
+      }),
+      { status: 200 }
+    );
   } catch (error: any) {
-    console.error("Import Error:", error);
-    console.error("[API Error]", error);
-    if (error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-    }
-    if (error.message === "Forbidden") {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
-    }
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
+    console.error("CSV Import Error:", error);
+    return new Response(`Import failed: ${error.message}`, { status: 500 });
   }
 }

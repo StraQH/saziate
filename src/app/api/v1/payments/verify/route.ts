@@ -2,12 +2,12 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
-import { invoices, transactions, auditLogs, residentProfiles } from "@/db/schema";
-import { eq, like, sql } from "drizzle-orm";
-import { auth } from "@/lib/auth";
+import { invoices, transactions, residentProfiles } from "@/db/schema";
+import { eq, like } from "drizzle-orm";
 import { generateId } from "@/lib/utils";
 import { z } from "zod";
-import { MonnifyClient } from "@/lib/monnify";
+import { PaystackClient } from "@/lib/paystack";
+import { config } from "@/lib/config";
 
 const verifySchema = z.object({
   reference: z.string().min(1),
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
   try {
     // Only agents and operators can manually trigger verification
-    await requireRole(req, env.DB as any, ["field_agent", "psp_operator"]);
+    await requireRole(req, env.DB as any, ["field_agent", "org_admin"]);
 
     const rawBody = await req.json() as any;
     const parsed = verifySchema.safeParse(rawBody);
@@ -29,52 +29,54 @@ export async function POST(req: Request) {
 
     const { reference } = parsed.data;
 
-    if (!env.MONNIFY_API_KEY || !env.MONNIFY_SECRET_KEY || !env.MONNIFY_CONTRACT_CODE) {
-      throw new Error("Monnify configuration is missing from environment.");
+    if (config.isMockMode) {
+      return new Response(JSON.stringify({ status: "success", message: "Transaction verified successfully in mock mode." }), { status: 200 });
     }
 
-    let verifyData: any;
-    try {
-      const monnify = new MonnifyClient(env.MONNIFY_API_KEY, env.MONNIFY_SECRET_KEY, env.MONNIFY_CONTRACT_CODE);
-      verifyData = await monnify.getTransactionStatus(reference);
-    } catch (err: any) {
-      return new Response("Failed to verify transaction with Monnify.", { status: 400 });
+    let isSuccess = false;
+    let amountInNaira = 0;
+    let narration = reference;
+
+    // 1. Try Paystack Verification
+    if (env.PAYSTACK_SECRET_KEY) {
+      try {
+        const paystack = new PaystackClient(env.PAYSTACK_SECRET_KEY);
+        const data = await paystack.verifyTransaction(reference);
+        if (data && data.status === "success") {
+          isSuccess = true;
+          amountInNaira = Math.round((data.amount / 100) * 100) / 100;
+          narration = data.metadata?.narration || data.reference || reference;
+        }
+      } catch (err) {
+        console.error("Paystack transaction verification failed:", err);
+      }
     }
 
-    if (verifyData.paymentStatus !== "PAID") {
-      return new Response(JSON.stringify({ status: "failed", message: "Transaction is not successful on Monnify." }), { status: 400 });
+    if (!isSuccess) {
+      return new Response(JSON.stringify({ status: "failed", message: "Transaction verification failed or unpaid on gateway." }), { status: 400 });
     }
 
-    const narration = verifyData.paymentDescription || verifyData.paymentReference;
-    const match = narration.match(/\b[a-f0-9]{10}\b/i);
+    const match = narration.match(/\b(SZ)?[A-Z0-9]{8,10}\b/i);
     const paymentRef = match ? match[0] : null;
 
-    if (!paymentRef) {
-      return new Response(JSON.stringify({ status: "failed", message: "No secure payment reference found in transaction narration." }), { status: 400 });
-    }
-
-    // Find the invoice based on paymentRef
-    const invoice = await db
-      .select()
-      .from(invoices)
-      .where(like(invoices.paymentReference, `%${paymentRef}%`))
-      .get();
+    // Find matching invoice
+    const invoice = paymentRef
+      ? await db.select().from(invoices).where(like(invoices.paymentReference, `%${paymentRef}%`)).get()
+      : null;
 
     if (!invoice) {
-      return new Response(JSON.stringify({ status: "failed", message: "Matching invoice not found for this reference." }), { status: 404 });
+      return new Response(JSON.stringify({ status: "failed", message: "Matching invoice not found for reference." }), { status: 404 });
     }
 
-    const amountInNaira = verifyData.amountPaid;
     const txId = generateId();
 
-    // Perform database operations within a Drizzle transaction
+    // Perform database operations within a transaction
     await db.transaction(async (tx) => {
-      // 1. Insert transaction with EXACT amount from Monnify
       await tx.insert(transactions).values({
         id: txId,
         invoiceId: invoice.id,
         residentId: invoice.residentId,
-        reference: verifyData.paymentReference,
+        reference: reference,
         amount: amountInNaira,
         status: "success" as any,
         paymentMethod: "bank_transfer" as any,
@@ -83,7 +85,6 @@ export async function POST(req: Request) {
 
       if (invoice.status !== "paid") {
         if (amountInNaira >= invoice.totalAmount) {
-          // Full Payment or Overpayment
           await tx
             .update(invoices)
             .set({ status: "paid", totalAmount: 0 })
@@ -100,14 +101,13 @@ export async function POST(req: Request) {
             if (profile) {
               await tx
                 .update(residentProfiles)
-                .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${surplus}` })
+                .set({ advancePaymentBalance: Math.round(((profile.advancePaymentBalance || 0) + surplus) * 100) / 100 })
                 .where(eq(residentProfiles.userId, profile.userId));
                 
-              // Log secondary transaction for ledger balance
               await tx.insert(transactions).values({
                 id: generateId(),
                 residentId: profile.userId,
-                reference: `${verifyData.paymentReference}-SURPLUS`,
+                reference: `${reference}-SURPLUS`,
                 amount: surplus,
                 status: "success" as any,
                 paymentMethod: "advance_surplus",
@@ -116,69 +116,17 @@ export async function POST(req: Request) {
             }
           }
         } else {
-          // Partial Payment - reduce total amount but keep it pending
           await tx
             .update(invoices)
-            .set({ totalAmount: sql`${invoices.totalAmount} - ${amountInNaira}` })
+            .set({ totalAmount: Math.round((invoice.totalAmount - amountInNaira) * 100) / 100 })
             .where(eq(invoices.id, invoice.id));
         }
-      } else {
-        // Invoice is already paid! The ENTIRE amount goes to advance balance
-        const profile = await tx
-          .select()
-          .from(residentProfiles)
-          .where(eq(residentProfiles.userId, invoice.residentId))
-          .get();
-          
-        if (profile) {
-          await tx
-            .update(residentProfiles)
-            .set({ advancePaymentBalance: sql`${residentProfiles.advancePaymentBalance} + ${amountInNaira}` })
-            .where(eq(residentProfiles.userId, profile.userId));
-            
-          // Log secondary transaction for ledger balance
-          await tx.insert(transactions).values({
-            id: generateId(),
-            residentId: profile.userId,
-            reference: `${verifyData.paymentReference}-SURPLUS`,
-            amount: amountInNaira,
-            status: "success" as any,
-            paymentMethod: "advance_surplus",
-            paidAt: new Date(),
-          });
-        }
       }
-
-      const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
-      await tx.insert(auditLogs).values({
-        id: generateId(),
-        actorId: session?.user?.id || "unknown",
-        action: "invoice.reconciled",
-        entityType: "invoice",
-        entityId: invoice.id,
-        meta: JSON.stringify({ txId, reference: verifyData.paymentReference, method: "manual_verify" }),
-      });
     });
 
-    return new Response(
-      JSON.stringify({
-        status: "success" as any,
-        message: "Transaction verified and invoice reconciled.",
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return new Response(JSON.stringify({ status: "success", amountPaid: amountInNaira, reference }), { status: 200 });
   } catch (error: any) {
-    console.error("Verify Error:", error);
-    console.error("[API Error]", error);
-    if (error.message === "Unauthorized") {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-    }
-    if (error.message === "Forbidden") {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
-    }
-    return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
+    console.error("Verification Error:", error);
+    return new Response(`Verification process failed: ${error.message}`, { status: 500 });
   }
 }

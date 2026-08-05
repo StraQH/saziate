@@ -1,8 +1,8 @@
-export interface OfflineCollectionLog {
+export interface OfflineServiceLog {
   id: string;
-  routeId: string;
+  zoneId: string;
   residentId: string;
-  status: "collected" | "no_access" | "no_waste";
+  status: "completed" | "no_access" | "no_service";
   notes?: string;
   loggedAt: string;
 }
@@ -28,7 +28,7 @@ export function openOfflineDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveOfflineLog(log: OfflineCollectionLog): Promise<void> {
+export async function saveOfflineLog(log: OfflineServiceLog): Promise<void> {
   const db = await openOfflineDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["pending-logs"], "readwrite");
@@ -40,7 +40,7 @@ export async function saveOfflineLog(log: OfflineCollectionLog): Promise<void> {
   });
 }
 
-export async function getOfflineLogs(): Promise<OfflineCollectionLog[]> {
+export async function getOfflineLogs(): Promise<OfflineServiceLog[]> {
   const db = await openOfflineDB();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(["pending-logs"], "readonly");

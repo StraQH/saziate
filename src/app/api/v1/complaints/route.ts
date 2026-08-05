@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    const sessionResponse = await requireRole(req, env.DB as any, ["resident", "psp_operator"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["resident", "org_admin"]);
     const sessionUser = sessionResponse.user as any;
     const userRole = sessionUser.role;
     const userId = sessionUser.id;
@@ -47,8 +47,8 @@ export async function GET(req: Request) {
           )
         );
     } else {
-      const pspId = sessionUser.pspId;
-      if (!pspId) {
+      const orgId = sessionUser.orgId;
+      if (!orgId) {
         return new Response("Unauthorized.", { status: 401 });
       }
       baseQuery = db
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
         .from(complaints)
         .where(
           and(
-            eq(complaints.pspId, pspId),
+            eq(complaints.orgId, orgId),
             search ? like(complaints.description, `%${search}%`) : undefined
           )
         );
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
         .from(complaints)
         .where(
           and(
-            eq(complaints.pspId, pspId),
+            eq(complaints.orgId, orgId),
             search ? like(complaints.description, `%${search}%`) : undefined
           )
         );
@@ -102,10 +102,10 @@ export async function POST(req: Request) {
     const sessionResponse = await requireRole(req, env.DB as any, ["resident"]);
     const sessionUser = sessionResponse.user as any;
     const userId = sessionUser.id;
-    const pspId = sessionUser.pspId;
+    const orgId = sessionUser.orgId;
 
-    if (!pspId) {
-      return new Response("Resident not assigned to a PSP.", { status: 400 });
+    if (!orgId) {
+      return new Response("Resident not assigned to a Org.", { status: 400 });
     }
 
     const rawBody = await req.json() as any;
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
     await db.insert(complaints).values({
       id: complaintId,
       residentId: userId,
-      pspId: pspId,
+      orgId: orgId,
       description,
       status: "submitted",
     });
@@ -143,11 +143,11 @@ export async function PATCH(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    const sessionResponse = await requireRole(req, env.DB as any, ["psp_operator"]);
+    const sessionResponse = await requireRole(req, env.DB as any, ["org_admin"]);
     const sessionUser = sessionResponse.user as any;
-    const pspId = sessionUser.pspId;
+    const orgId = sessionUser.orgId;
 
-    if (!pspId) {
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -161,7 +161,7 @@ export async function PATCH(req: Request) {
     const existing = await db
       .select()
       .from(complaints)
-      .where(and(eq(complaints.id, complaintId), eq(complaints.pspId, pspId)))
+      .where(and(eq(complaints.id, complaintId), eq(complaints.orgId, orgId)))
       .get();
 
     if (!existing) {

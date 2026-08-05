@@ -5,7 +5,7 @@ import { getDb } from "@/db";
 import { invoices, transactions, users, residentProfiles, auditLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { getActivePspId, requireRole } from "@/lib/session";
+import { getActiveorgId, requireRole } from "@/lib/session";
 import { generateId } from "@/lib/utils";
 
 
@@ -15,9 +15,9 @@ export async function POST(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
-    const pspId = await getActivePspId(req, env.DB as any);
-    if (!pspId) {
+    await requireRole(req, env.DB as any, ["org_admin"]);
+    const orgId = await getActiveorgId(req, env.DB as any);
+    if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const invoice = await db
       .select()
       .from(invoices)
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.pspId, pspId)))
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)))
       .get();
 
     if (!invoice) {
@@ -41,9 +41,9 @@ export async function POST(req: Request) {
       return new Response("Invoice is already marked as paid.", { status: 400 });
     }
 
-    // Simulate Monnify verification success
+    // Simulate manual payment verification success
     const txId = generateId();
-    const monnifyRef = `MAN-REC-${Date.now()}`;
+    const paymentRef = `MAN-REC-${Date.now()}`;
 
     // Mark invoice paid and zero out totalAmount to be consistent with all other payment paths
     await db
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       id: txId,
       invoiceId: invoiceId,
       residentId: invoice.residentId,
-      reference: monnifyRef,
+      reference: paymentRef,
       amount: invoice.totalAmount,
       status: "success" as any,
       paymentMethod: "cash",
@@ -67,18 +67,18 @@ export async function POST(req: Request) {
     const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({
       id: generateId(),
-      actorId: session?.user?.id || pspId,
+      actorId: session?.user?.id || orgId,
       action: "invoice.reconciled",
       entityType: "invoice",
       entityId: invoiceId,
-      meta: JSON.stringify({ txId, reference: monnifyRef }),
+      meta: JSON.stringify({ txId, reference: paymentRef }),
     });
 
     return new Response(
       JSON.stringify({
         status: "success" as any,
         message: "Invoice successfully reconciled and marked as paid.",
-        transaction: { id: txId, reference: monnifyRef },
+        transaction: { id: txId, reference: paymentRef },
       }),
       {
         status: 200,

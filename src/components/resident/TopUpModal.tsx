@@ -99,7 +99,7 @@ export function TopUpModal({ onClose, onSuccess }: TopUpModalProps) {
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
           <div className="form-group">
-            <label className="label">Amount to Add (₦)</label>
+            <label className="label">Amount to Add ({config.locality.symbol})</label>
             <input
               type="number"
               className="input"
@@ -122,7 +122,7 @@ export function TopUpModal({ onClose, onSuccess }: TopUpModalProps) {
               Cancel
             </button>
             <button onClick={handleSubmit} disabled={loading} className="btn btn-primary" style={{ flex: 1, padding: "0.875rem" }}>
-              {loading ? "Processing..." : "Pay with Monnify"}
+              {loading ? "Processing..." : "Top Up Wallet"}
             </button>
           </div>
         </form>
