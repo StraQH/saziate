@@ -12,7 +12,8 @@ export default function OrgAgentsPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: "success" | "error" } | null>(null);
@@ -85,7 +86,7 @@ export default function OrgAgentsPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail || !inviteName) return;
+    if (!inviteEmail) return;
 
     setIsInviting(true);
     setMessage(null);
@@ -94,7 +95,7 @@ export default function OrgAgentsPage() {
         setTimeout(() => {
           const newAgent = {
             id: crypto.randomUUID(),
-            name: inviteName,
+            name: `${inviteFirstName} ${inviteLastName}`.trim() || inviteEmail.split("@")[0],
             email: inviteEmail,
             phone: "config.locality.code8000000000",
             createdAt: Date.now(),
@@ -102,7 +103,8 @@ export default function OrgAgentsPage() {
           setAgents((prev) => [...prev, newAgent]);
           setMessage({ text: "Field agent onboarded successfully!", type: "success" });
           setInviteEmail("");
-          setInviteName("");
+          setInviteFirstName("");
+          setInviteLastName("");
           setShowModal(false);
           setIsInviting(false);
         }, 800);
@@ -112,15 +114,18 @@ export default function OrgAgentsPage() {
       const res = await fetch("/api/v1/org/agents/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail, name: inviteName }),
+        body: JSON.stringify({ email: inviteEmail, firstName: inviteFirstName, lastName: inviteLastName }),
       });
       
       const text = await res.text();
       if (res.ok) {
-        setMessage({ text: "Field agent onboarded successfully!", type: "success" });
+        const data = JSON.parse(text);
+        setAgents([data.agent, ...agents]);
+        setMessage({ text: "Agent onboarded successfully! They will receive an email shortly.", type: "success" });
         setInviteEmail("");
-        setInviteName("");
-        setShowModal(false);
+        setInviteFirstName("");
+        setInviteLastName("");
+        setTimeout(() => setShowModal(false), 1500);
         fetchAgents();
       } else {
         setMessage({ text: `Failed to onboard: ${text}`, type: "error" });
@@ -292,16 +297,27 @@ export default function OrgAgentsPage() {
               Enter details to onboard a new operator. They will receive an email invitation to log into the field application.
             </p>
             <form onSubmit={handleInvite} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div className="form-group">
-                <label className="label">Agent Name</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  placeholder="e.g. Samuel Ade"
-                  required
-                />
+              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="form-group">
+                  <label className="label">First Name (Optional)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={inviteFirstName}
+                    onChange={(e) => setInviteFirstName(e.target.value)}
+                    placeholder="e.g. Samuel"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label">Last Name (Optional)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={inviteLastName}
+                    onChange={(e) => setInviteLastName(e.target.value)}
+                    placeholder="e.g. Ade"
+                  />
+                </div>
               </div>
               <div className="form-group">
                 <label className="label">Email Address</label>

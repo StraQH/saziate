@@ -13,7 +13,8 @@ import { z } from "zod";
 
 const inviteSchema = z.object({
   email: z.string().email(),
-  name: z.string().min(1, "Name is required"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 export async function POST(req: Request) {
@@ -40,7 +41,8 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
 
-    const { email, name } = parsed.data;
+    const { email, firstName, lastName } = parsed.data;
+    const name = `${firstName || ""} ${lastName || ""}`.trim() || email.split("@")[0];
 
     const org = await db.select().from(organizations).where(eq(organizations.id, orgId)).get();
     if (!org) {
@@ -68,6 +70,8 @@ export async function POST(req: Request) {
       await db.insert(users).values({
         id: userId,
         name,
+        firstName: firstName || null,
+        lastName: lastName || null,
         email: email.toLowerCase().trim(),
         role: "field_agent",
         orgId: orgId,

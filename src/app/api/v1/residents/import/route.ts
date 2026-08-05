@@ -15,7 +15,8 @@ import { config } from "@/lib/config";
 const importResidentsSchema = z.object({
   residents: z.array(
     z.object({
-      name: z.string().optional(),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
       email: z.string().optional(),
       phone: z.string().optional(),
       address: z.string().optional(),
@@ -99,18 +100,16 @@ export async function POST(req: Request) {
 
       if (!finalEmail && !normalizedPhone) continue;
 
-      const nameParts = (res.name || "Resident").trim().split(/\s+/);
-      const firstName = nameParts[0] || "Resident";
-      const lastName = nameParts.slice(1).join(" ") || "";
+      const name = `${res.firstName || ""} ${res.lastName || ""}`.trim() || (finalEmail ? finalEmail.split("@")[0] : normalizedPhone!);
 
       await db.transaction(async (tx) => {
         await tx.insert(users).values({
           id: userId,
           orgId,
-          name: res.name || `${firstName} ${lastName}`.trim(),
-          firstName,
-          lastName,
-          email: finalEmail || `${userId}@placeholder.local`,
+          name,
+          firstName: res.firstName || null,
+          lastName: res.lastName || null,
+          email: finalEmail!,
           phone: normalizedPhone,
           role: "resident",
           mustChangePassword: true,
@@ -144,7 +143,7 @@ export async function POST(req: Request) {
           sendEmail({
             to: res.email,
             subject: "Welcome to Saziate",
-            html: emailTemplates.welcomeResident(res.name || "Resident", tempPassword),
+            html: emailTemplates.welcomeResident(res.firstName || "Resident", tempPassword),
           })
         );
       } else if (normalizedPhone) {

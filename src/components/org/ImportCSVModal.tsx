@@ -57,7 +57,8 @@ export function ImportCSVModal({ onClose, onSuccess }: ImportCSVModalProps) {
           return;
         }
 
-        const nameIndex = headers.indexOf("name");
+        const firstNameIndex = headers.findIndex((h) => h === "first name" || h === "firstname");
+        const lastNameIndex = headers.findIndex((h) => h === "last name" || h === "lastname");
         const emailIndex = headers.indexOf("email");
         const phoneIndex = headers.indexOf("phone");
         const addressIndex = headers.indexOf("address");
@@ -80,7 +81,8 @@ export function ImportCSVModal({ onClose, onSuccess }: ImportCSVModalProps) {
 
           const baseRate = rateIndex !== -1 ? parseFloat(cols[rateIndex]) || config.locality.rates.general.residential : config.locality.rates.general.residential;
           parsedResidents.push({
-            name: nameIndex !== -1 ? cols[nameIndex] : "",
+            firstName: firstNameIndex !== -1 ? cols[firstNameIndex] : "",
+            lastName: lastNameIndex !== -1 ? cols[lastNameIndex] : "",
             email,
             phone,
             address: addressIndex !== -1 ? cols[addressIndex] : "",
