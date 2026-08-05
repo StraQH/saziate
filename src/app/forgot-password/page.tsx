@@ -1,5 +1,5 @@
-import { config } from "@/lib/config";
 "use client";
+import { config } from "@/lib/config";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
