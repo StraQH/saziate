@@ -2,7 +2,6 @@ const CACHE_NAME = "saziate-cache-v3";
 
 // ONLY cache static assets that never return HTTP 307/302 redirects
 const ASSETS_TO_CACHE = [
-  "/",
   "/manifest.json",
   "/next.svg",
   "/globe.svg",

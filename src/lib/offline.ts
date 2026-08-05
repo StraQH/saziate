@@ -67,11 +67,11 @@ export async function deleteOfflineLog(id: string): Promise<void> {
 export async function purgeStaleOfflineLogs(): Promise<void> {
   const logs = await getOfflineLogs();
   const now = Date.now();
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const THIRTY_SIX_HOURS_MS = 36 * 60 * 60 * 1000;
   
   for (const log of logs) {
     const logTime = new Date(log.loggedAt).getTime();
-    if (now - logTime > ONE_DAY_MS) {
+    if (now - logTime > THIRTY_SIX_HOURS_MS) {
       await deleteOfflineLog(log.id);
     }
   }
