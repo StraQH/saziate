@@ -1,1 +1,0 @@
-ALTER TABLE `resident_profiles` ADD `advance_payment_balance` real DEFAULT 0 NOT NULL;

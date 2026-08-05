@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX `invoices_resident_billing_period_start_unique` ON `invoices` (`resident_id`,`billing_period_start`);

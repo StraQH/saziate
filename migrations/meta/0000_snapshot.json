@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3ebd85e2-23c3-4df1-8af5-bf46fe59e016",
+  "id": "06f19086-3f4a-4077-b6ae-7e1946683b2c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -121,6 +121,74 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "agent_invitations": {
+      "name": "agent_invitations",
+      "columns": {
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agent_invitations_org_id_organizations_id_fk": {
+          "name": "agent_invitations_org_id_organizations_id_fk",
+          "tableFrom": "agent_invitations",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "audit_logs": {
       "name": "audit_logs",
       "columns": {
@@ -187,7 +255,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -195,8 +263,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "collection_logs": {
-      "name": "collection_logs",
+    "complaints": {
+      "name": "complaints",
       "columns": {
         "id": {
           "name": "id",
@@ -205,8 +273,97 @@
           "notNull": true,
           "autoincrement": false
         },
-        "route_id": {
-          "name": "route_id",
+        "resident_id": {
+          "name": "resident_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'submitted'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "complaints_resident_id_users_id_fk": {
+          "name": "complaints_resident_id_users_id_fk",
+          "tableFrom": "complaints",
+          "tableTo": "users",
+          "columnsFrom": [
+            "resident_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "complaints_org_id_organizations_id_fk": {
+          "name": "complaints_org_id_organizations_id_fk",
+          "tableFrom": "complaints",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "field_logs": {
+      "name": "field_logs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "zone_id": {
+          "name": "zone_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -247,6 +404,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "metrics": {
+          "name": "metrics",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "logged_at": {
           "name": "logged_at",
           "type": "integer",
@@ -264,8 +428,8 @@
         }
       },
       "indexes": {
-        "collection_logs_resident_idx": {
-          "name": "collection_logs_resident_idx",
+        "field_logs_resident_idx": {
+          "name": "field_logs_resident_idx",
           "columns": [
             "resident_id"
           ],
@@ -273,22 +437,22 @@
         }
       },
       "foreignKeys": {
-        "collection_logs_route_id_routes_id_fk": {
-          "name": "collection_logs_route_id_routes_id_fk",
-          "tableFrom": "collection_logs",
-          "tableTo": "routes",
+        "field_logs_zone_id_zones_id_fk": {
+          "name": "field_logs_zone_id_zones_id_fk",
+          "tableFrom": "field_logs",
+          "tableTo": "zones",
           "columnsFrom": [
-            "route_id"
+            "zone_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "collection_logs_resident_id_users_id_fk": {
-          "name": "collection_logs_resident_id_users_id_fk",
-          "tableFrom": "collection_logs",
+        "field_logs_resident_id_users_id_fk": {
+          "name": "field_logs_resident_id_users_id_fk",
+          "tableFrom": "field_logs",
           "tableTo": "users",
           "columnsFrom": [
             "resident_id"
@@ -296,12 +460,12 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "collection_logs_logged_by_id_users_id_fk": {
-          "name": "collection_logs_logged_by_id_users_id_fk",
-          "tableFrom": "collection_logs",
+        "field_logs_logged_by_id_users_id_fk": {
+          "name": "field_logs_logged_by_id_users_id_fk",
+          "tableFrom": "field_logs",
           "tableTo": "users",
           "columnsFrom": [
             "logged_by_id"
@@ -309,7 +473,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -334,11 +498,18 @@
           "notNull": true,
           "autoincrement": false
         },
-        "psp_id": {
-          "name": "psp_id",
+        "org_id": {
+          "name": "org_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "payment_reference": {
+          "name": "payment_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "base_amount": {
@@ -401,12 +572,27 @@
         }
       },
       "indexes": {
+        "invoices_payment_reference_unique": {
+          "name": "invoices_payment_reference_unique",
+          "columns": [
+            "payment_reference"
+          ],
+          "isUnique": true
+        },
         "invoices_resident_idx": {
           "name": "invoices_resident_idx",
           "columns": [
             "resident_id"
           ],
           "isUnique": false
+        },
+        "invoices_resident_billing_period_start_unique": {
+          "name": "invoices_resident_billing_period_start_unique",
+          "columns": [
+            "resident_id",
+            "billing_period_start"
+          ],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -420,20 +606,20 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "invoices_psp_id_psps_id_fk": {
-          "name": "invoices_psp_id_psps_id_fk",
+        "invoices_org_id_organizations_id_fk": {
+          "name": "invoices_org_id_organizations_id_fk",
           "tableFrom": "invoices",
-          "tableTo": "psps",
+          "tableTo": "organizations",
           "columnsFrom": [
-            "psp_id"
+            "org_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -441,8 +627,110 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "psps": {
-      "name": "psps",
+    "notification_logs": {
+      "name": "notification_logs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resident_id": {
+          "name": "resident_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_type": {
+          "name": "message_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cost_ngn": {
+          "name": "cost_ngn",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "termii_message_id": {
+          "name": "termii_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "notification_logs_org_id_organizations_id_fk": {
+          "name": "notification_logs_org_id_organizations_id_fk",
+          "tableFrom": "notification_logs",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notification_logs_resident_id_users_id_fk": {
+          "name": "notification_logs_resident_id_users_id_fk",
+          "tableFrom": "notification_logs",
+          "tableTo": "users",
+          "columnsFrom": [
+            "resident_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "organizations": {
+      "name": "organizations",
       "columns": {
         "id": {
           "name": "id",
@@ -457,6 +745,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "service_type": {
+          "name": "service_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'general'"
         },
         "rc_number": {
           "name": "rc_number",
@@ -486,33 +782,21 @@
           "notNull": true,
           "autoincrement": false
         },
-        "dva_bank_name": {
-          "name": "dva_bank_name",
+        "unit1_name": {
+          "name": "unit1_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'Primary Unit'"
         },
-        "dva_account_number": {
-          "name": "dva_account_number",
+        "unit2_name": {
+          "name": "unit2_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "dva_account_name": {
-          "name": "dva_account_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dva_customer_code": {
-          "name": "dva_customer_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'Secondary Unit'"
         },
         "settlement_bank_code": {
           "name": "settlement_bank_code",
@@ -553,14 +837,214 @@
         }
       },
       "indexes": {
-        "psps_rc_number_unique": {
-          "name": "psps_rc_number_unique",
+        "organizations_rc_number_unique": {
+          "name": "organizations_rc_number_unique",
           "columns": [
             "rc_number"
           ],
           "isUnique": true
         }
       },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "password_reset_tokens": {
+      "name": "password_reset_tokens",
+      "columns": {
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "password_reset_tokens_user_id_users_id_fk": {
+          "name": "password_reset_tokens_user_id_users_id_fk",
+          "tableFrom": "password_reset_tokens",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "pending_notifications": {
+      "name": "pending_notifications",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resident_id": {
+          "name": "resident_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_type": {
+          "name": "message_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recipient_phone": {
+          "name": "recipient_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "message_text": {
+          "name": "message_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "last_attempt_at": {
+          "name": "last_attempt_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "pending_notifications_org_id_organizations_id_fk": {
+          "name": "pending_notifications_org_id_organizations_id_fk",
+          "tableFrom": "pending_notifications",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pending_notifications_resident_id_users_id_fk": {
+          "name": "pending_notifications_resident_id_users_id_fk",
+          "tableFrom": "pending_notifications",
+          "tableTo": "users",
+          "columnsFrom": [
+            "resident_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rate_limits": {
+      "name": "rate_limits",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "count": {
+          "name": "count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "window_start": {
+          "name": "window_start",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -587,23 +1071,22 @@
           "name": "ward",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "lga": {
           "name": "lga",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "state": {
           "name": "state",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'Lagos'"
+          "notNull": false,
+          "autoincrement": false
         },
         "billing_category": {
           "name": "billing_category",
@@ -612,11 +1095,11 @@
           "notNull": true,
           "autoincrement": false
         },
-        "reference_code": {
-          "name": "reference_code",
+        "property_type": {
+          "name": "property_type",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "custom_monthly_rate": {
@@ -625,17 +1108,41 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "advance_payment_balance": {
+          "name": "advance_payment_balance",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "billing_model": {
+          "name": "billing_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'subscription'"
+        },
+        "on_demand_unit1_rate": {
+          "name": "on_demand_unit1_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "on_demand_unit2_rate": {
+          "name": "on_demand_unit2_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
         }
       },
-      "indexes": {
-        "resident_profiles_reference_code_unique": {
-          "name": "resident_profiles_reference_code_unique",
-          "columns": [
-            "reference_code"
-          ],
-          "isUnique": true
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "resident_profiles_user_id_users_id_fk": {
           "name": "resident_profiles_user_id_users_id_fk",
@@ -648,213 +1155,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "route_billing_rates": {
-      "name": "route_billing_rates",
-      "columns": {
-        "route_id": {
-          "name": "route_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "billing_category": {
-          "name": "billing_category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "monthly_rate": {
-          "name": "monthly_rate",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "route_billing_rates_route_id_routes_id_fk": {
-          "name": "route_billing_rates_route_id_routes_id_fk",
-          "tableFrom": "route_billing_rates",
-          "tableTo": "routes",
-          "columnsFrom": [
-            "route_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "route_billing_rates_route_id_billing_category_pk": {
-          "columns": [
-            "route_id",
-            "billing_category"
-          ],
-          "name": "route_billing_rates_route_id_billing_category_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "route_residents": {
-      "name": "route_residents",
-      "columns": {
-        "route_id": {
-          "name": "route_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "resident_id": {
-          "name": "resident_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "sequence_order": {
-          "name": "sequence_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "route_residents_route_id_routes_id_fk": {
-          "name": "route_residents_route_id_routes_id_fk",
-          "tableFrom": "route_residents",
-          "tableTo": "routes",
-          "columnsFrom": [
-            "route_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "route_residents_resident_id_users_id_fk": {
-          "name": "route_residents_resident_id_users_id_fk",
-          "tableFrom": "route_residents",
-          "tableTo": "users",
-          "columnsFrom": [
-            "resident_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "route_residents_route_id_resident_id_pk": {
-          "columns": [
-            "route_id",
-            "resident_id"
-          ],
-          "name": "route_residents_route_id_resident_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "routes": {
-      "name": "routes",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "psp_id": {
-          "name": "psp_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "assigned_agent_id": {
-          "name": "assigned_agent_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(unixepoch() * 1000)"
-        }
-      },
-      "indexes": {
-        "routes_psp_idx": {
-          "name": "routes_psp_idx",
-          "columns": [
-            "psp_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "routes_psp_id_psps_id_fk": {
-          "name": "routes_psp_id_psps_id_fk",
-          "tableFrom": "routes",
-          "tableTo": "psps",
-          "columnsFrom": [
-            "psp_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "routes_assigned_agent_id_users_id_fk": {
-          "name": "routes_assigned_agent_id_users_id_fk",
-          "tableFrom": "routes",
-          "tableTo": "users",
-          "columnsFrom": [
-            "assigned_agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -976,6 +1276,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "org_id": {
+          "name": "org_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "reference": {
           "name": "reference",
           "type": "text",
@@ -1055,7 +1362,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "transactions_resident_id_users_id_fk": {
@@ -1068,7 +1375,20 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "transactions_org_id_organizations_id_fk": {
+          "name": "transactions_org_id_organizations_id_fk",
+          "tableFrom": "transactions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "transactions_logged_by_id_users_id_fk": {
@@ -1081,7 +1401,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1104,6 +1424,20 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "email": {
@@ -1140,14 +1474,23 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'resident'"
         },
-        "psp_id": {
-          "name": "psp_id",
+        "org_id": {
+          "name": "org_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "must_change_password": {
+          "name": "must_change_password",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -1183,12 +1526,12 @@
         }
       },
       "foreignKeys": {
-        "users_psp_id_psps_id_fk": {
-          "name": "users_psp_id_psps_id_fk",
+        "users_org_id_organizations_id_fk": {
+          "name": "users_org_id_organizations_id_fk",
           "tableFrom": "users",
-          "tableTo": "psps",
+          "tableTo": "organizations",
           "columnsFrom": [
-            "psp_id"
+            "org_id"
           ],
           "columnsTo": [
             "id"
@@ -1251,6 +1594,221 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "zone_billing_rates": {
+      "name": "zone_billing_rates",
+      "columns": {
+        "zone_id": {
+          "name": "zone_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "billing_category": {
+          "name": "billing_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "monthly_rate": {
+          "name": "monthly_rate",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "zone_billing_rates_zone_id_zones_id_fk": {
+          "name": "zone_billing_rates_zone_id_zones_id_fk",
+          "tableFrom": "zone_billing_rates",
+          "tableTo": "zones",
+          "columnsFrom": [
+            "zone_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "zone_billing_rates_zone_id_billing_category_pk": {
+          "columns": [
+            "zone_id",
+            "billing_category"
+          ],
+          "name": "zone_billing_rates_zone_id_billing_category_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "zone_residents": {
+      "name": "zone_residents",
+      "columns": {
+        "zone_id": {
+          "name": "zone_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resident_id": {
+          "name": "resident_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sequence_order": {
+          "name": "sequence_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "zone_residents_zone_id_zones_id_fk": {
+          "name": "zone_residents_zone_id_zones_id_fk",
+          "tableFrom": "zone_residents",
+          "tableTo": "zones",
+          "columnsFrom": [
+            "zone_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "zone_residents_resident_id_users_id_fk": {
+          "name": "zone_residents_resident_id_users_id_fk",
+          "tableFrom": "zone_residents",
+          "tableTo": "users",
+          "columnsFrom": [
+            "resident_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "zone_residents_zone_id_resident_id_pk": {
+          "columns": [
+            "zone_id",
+            "resident_id"
+          ],
+          "name": "zone_residents_zone_id_resident_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "zones": {
+      "name": "zones",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "org_id": {
+          "name": "org_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "service_schedule": {
+          "name": "service_schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "assigned_agent_id": {
+          "name": "assigned_agent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "zones_org_idx": {
+          "name": "zones_org_idx",
+          "columns": [
+            "org_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "zones_org_id_organizations_id_fk": {
+          "name": "zones_org_id_organizations_id_fk",
+          "tableFrom": "zones",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "org_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "zones_assigned_agent_id_users_id_fk": {
+          "name": "zones_assigned_agent_id_users_id_fk",
+          "tableFrom": "zones",
+          "tableTo": "users",
+          "columnsFrom": [
+            "assigned_agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}

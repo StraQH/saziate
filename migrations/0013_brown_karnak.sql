@@ -1,1 +1,0 @@
-ALTER TABLE `transactions` ADD `psp_id` text REFERENCES psps(id);
