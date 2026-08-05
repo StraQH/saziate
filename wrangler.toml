@@ -18,7 +18,7 @@ database_id = "92932312-77ce-422a-8cd7-be1e32472897"
 
 [vars]
 NEXT_PUBLIC_APP_NAME = "Saziate"
-NEXT_PUBLIC_MOCK_MODE = "false"
+NEXT_PUBLIC_MOCK_MODE = "true"
 
 [build]
 command = "npm run build:worker"
