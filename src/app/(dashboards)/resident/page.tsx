@@ -70,6 +70,10 @@ export default function ResidentDashboard() {
     setLoading(true);
     try {
       const res = await fetch("/api/v1/resident/dashboard");
+      if (res.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
       if (res.ok) {
         const body = await res.json() as any as DashboardData;
         setData(body);
