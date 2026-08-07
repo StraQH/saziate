@@ -26,6 +26,7 @@ export const onboardSchema = z.object({
   inviteToken: z.string().optional(),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  serviceType: z.string().optional(),
 });
 
 // Residents

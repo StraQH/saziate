@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { userId, phone, role, orgName, rcNumber, address, inviteToken, firstName, lastName } = body;
+    const { userId, phone, role, orgName, rcNumber, address, inviteToken, firstName, lastName, serviceType } = body;
 
     if (!userId || !role) {
       return new Response("Missing required onboarding parameters.", { status: 400 });
@@ -69,11 +69,18 @@ export async function POST(req: Request) {
 
       orgId = generateId();
 
+      const st = serviceType || "waste_management";
+      const u1 = st === "waste_management" ? "Trip" : undefined;
+      const u2 = st === "waste_management" ? "Bin" : undefined;
+
       await db.insert(organizations).values({
         id: orgId,
         name: orgName,
         rcNumber: rcNumber || null,
         address,
+        serviceType: st,
+        ...(u1 ? { unit1Name: u1 } : {}),
+        ...(u2 ? { unit2Name: u2 } : {}),
         contactPhone: phone ? normalizePhoneNumber(phone) : "",
         contactEmail: userRecord.email,
         createdAt: new Date(),

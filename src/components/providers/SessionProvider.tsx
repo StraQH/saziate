@@ -28,7 +28,7 @@ function getMockUser(pathname: string): UserSession | null {
     return {
       id: "org1",
       name: "Acme Operator",
-      email: "ops@demo-utility.com",
+      email: "ops@metro-waste.com",
       role: "org_admin",
       orgId: MOCK_ORG_ID,
       orgServiceType: "general",
@@ -38,7 +38,7 @@ function getMockUser(pathname: string): UserSession | null {
     return {
       id: "ag_johnson",
       name: "Field Agent Johnson",
-      email: "agent@demo-utility.com",
+      email: "agent@metro-waste.com",
       role: "field_agent",
       orgId: MOCK_ORG_ID,
       orgServiceType: "general",
@@ -103,7 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             email: data.user.email,
             role: ((data.user as any).role || "org_admin") as any,
             orgId: (data.user as any).orgId || null,
-            orgServiceType: (data.user as any).orgServiceType || "utility",
+            orgServiceType: (data.user as any).orgServiceType || "waste_management",
           });
         }
       } catch {

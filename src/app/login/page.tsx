@@ -96,10 +96,10 @@ export default function LoginPage() {
             <span style={{ fontWeight: 800, fontSize: "3.5rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Welcome to the future of utility management.
+            Welcome to the future of waste management.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px", lineHeight: 1.6 }}>
-            Your centralised hub for utility management, transparent services and effortless bill payment.
+            Your centralised operational hub for streamlined fleet routing, transparent collections, and effortless bill recovery.
           </p>
         </div>
         <div
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   type="text"
                   className="input"
                   style={{ paddingLeft: "2.5rem" }}
-                  placeholder="ops@demo-utility.com or 08021111111"
+                  placeholder="ops@metro-waste.com or 08021111111"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
@@ -236,7 +236,7 @@ export default function LoginPage() {
           )}
 
           <p className="text-muted" style={{ textAlign: "center", marginTop: "1.5rem" }}>
-            New utility provider?{" "}
+            New waste management operator?{" "}
             <Link href="/signup" style={{ color: "var(--color-primary, #2563eb)", fontWeight: 500 }}>
               Create Account
             </Link>

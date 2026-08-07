@@ -190,7 +190,7 @@ export default function AdminDashboardPage() {
       });
 
       if (res.ok) {
-        setAlertModal({ isOpen: true, title: "Success", message: "Utility Operator registered successfully!", type: "success" });
+        setAlertModal({ isOpen: true, title: "Success", message: "Waste Management Operator registered successfully!", type: "success" });
         fetchorganizations();
         fetchMetrics();
         setName("");
@@ -251,7 +251,7 @@ export default function AdminDashboardPage() {
 
           {showAddForm && (
             <div className="card" style={{ marginBottom: "2rem" }}>
-              <h3 style={{ marginBottom: "1rem" }}>Onboard Utility Operator</h3>
+              <h3 style={{ marginBottom: "1rem" }}>Onboard Waste Management Operator</h3>
               <form onSubmit={handleCreateOrg} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
                 <div className="form-group">
                   <label className="label">Operator Legal Name</label>
@@ -260,7 +260,7 @@ export default function AdminDashboardPage() {
                     className="input"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Acme Utility Services"
+                    placeholder="e.g. Metro Waste Management"
                     required
                   />
                 </div>

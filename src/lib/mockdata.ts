@@ -201,17 +201,17 @@ export const MOCK_SERVICES: ServiceRun[] = [
 export const MOCK_organizations: OnboardedOrg[] = [
   {
     id: "org_demo_1",
-    name: "Acme Utility Services",
+    name: "Metro Waste Management",
     rcNumber: "RC-1029384",
-    contactEmail: "ops@demo-utility.com",
+    contactEmail: "ops@metro-waste.com",
     totalSettlementVolume: 1240000,
     status: "verified",
   },
   {
     id: "org_demo_2",
-    name: "Demo Utility Solutions",
+    name: "Demo Waste Solutions",
     rcNumber: "RC-9830291",
-    contactEmail: "solutions@demo-utility2.org",
+    contactEmail: "solutions@demo-waste.org",
     totalSettlementVolume: 0,
     status: "pending_verification",
   },
@@ -220,8 +220,8 @@ export const MOCK_organizations: OnboardedOrg[] = [
 export const MOCK_ORG_ID = "org_demo_1";
 export const MOCK_AGENT_ID = "agent_demo_1";
 export const MOCK_ZONE_ID = "zone_demo_1";
-export const MOCK_ORG_NAME = "Acme Utility Services";
-export const MOCK_ORG_EMAIL = "ops@demo-utility.com";
+export const MOCK_ORG_NAME = "Metro Waste Management";
+export const MOCK_ORG_EMAIL = "ops@metro-waste.com";
 export const MOCK_ZONE_NAME = "North Residential Zone";
 export const MOCK_WARD = "District 1";
 export const MOCK_LGA = "Area 1";

@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
             Regain access instantly.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "400px", lineHeight: 1.6 }}>
-            Securely reset your password and get back to managing your services, services, and growth.
+            Securely reset your password and get back to managing your waste collections, fleets, and growth.
           </p>
         </div>
 

@@ -29,7 +29,7 @@ export default function NotFoundPage() {
             404
           </h1>
           <p style={{ fontSize: "1.5rem", fontWeight: 500, opacity: 0.9, maxWidth: "400px", lineHeight: 1.4 }}>
-            Looks like we got lost on the service zone.
+            Looks like this route got collected.
           </p>
         </div>
 

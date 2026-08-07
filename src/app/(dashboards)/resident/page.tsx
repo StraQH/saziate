@@ -115,7 +115,7 @@ export default function ResidentDashboard() {
         <div>
           <h1>Welcome, {data.residentName}</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            Track your utility services, view provider bills, and manage payments seamlessly.
+            Track your waste management services, view provider bills, and manage payments seamlessly.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchDashboardData}>
@@ -169,7 +169,7 @@ export default function ResidentDashboard() {
               {formatCurrency(data.advancePaymentBalance || 0)}
             </h2>
             <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--color-primary)", marginTop: "0.25rem" }}>
-              Funds here will automatically cover your upcoming monthly utility bills.
+              Funds here will automatically cover your upcoming monthly waste management bills.
             </p>
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function ResidentDashboard() {
                   <CheckCircle2 size={32} />
                 </div>
                 <h4 className="font-semibold text-gray-800 mb-1">No Outstanding Bills</h4>
-                <p className="text-muted text-sm">All your utility providers are currently settled. Thank you!</p>
+                <p className="text-muted text-sm">All your waste management providers are currently settled. Thank you!</p>
               </div>
             )}
           </div>

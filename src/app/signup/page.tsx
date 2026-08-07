@@ -20,6 +20,7 @@ export default function SignupPage() {
   const [orgName, setOrgName] = useState("");
   const [rcNumber, setRcNumber] = useState("");
   const [address, setAddress] = useState("");
+  const [serviceType, setServiceType] = useState("waste_management");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +51,7 @@ export default function SignupPage() {
           address,
           firstName,
           lastName,
+          serviceType,
         }),
       });
 
@@ -89,10 +91,10 @@ export default function SignupPage() {
             <span style={{ fontWeight: 800, fontSize: "3.5rem", color: "#ffffff", letterSpacing: "-0.03em", fontFamily: "var(--fh)", lineHeight: 1 }}>Saziate</span>
           </div>
           <h1 style={{ fontSize: "2.5rem", fontWeight: 700, lineHeight: 1.2, marginBottom: "1.5rem" }}>
-            Accelerate your utility business growth today.
+            Streamline your waste management operations today.
           </h1>
           <p style={{ fontSize: "1.125rem", opacity: 0.9, maxWidth: "480px" }}>
-            Partner with Saziate to scale your customer base, automate invoicing, and secure rapid settlements with zero manual reconciliation.
+            Partner with Saziate to guarantee revenue recovery, automate billing cycles, and execute seamless on-demand waste collections without the manual overhead.
           </p>
         </div>
         <div
@@ -123,7 +125,7 @@ export default function SignupPage() {
           <div style={{ textAlign: "center", marginBottom: "2rem" }}>
             <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--color-text, #f8fafc)" }}>Get Started</h2>
             <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-              Register your utility provider account on Saziate
+              Register your waste management account on Saziate
             </p>
           </div>
 
@@ -254,7 +256,7 @@ export default function SignupPage() {
                       type="text"
                       className="input"
                       style={{ paddingLeft: "2.5rem" }}
-                      placeholder="Acme Utility Services"
+                      placeholder="Metro Waste Management"
                       value={orgName}
                       onChange={(e) => setOrgName(e.target.value)}
                       autoComplete="organization"
@@ -277,8 +279,24 @@ export default function SignupPage() {
                 </div>
               </div>
 
-              <div className="form-group" style={{ marginTop: "1rem" }}>
-                <label className="label">Business Address</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }} className="grid-cols-1">
+                <div className="form-group">
+                  <label className="label">Service Type</label>
+                  <select
+                    className="input"
+                    value={serviceType}
+                    onChange={(e) => setServiceType(e.target.value)}
+                    required
+                  >
+                    <option value="waste_management">Waste Management</option>
+                    <option value="water">Water Utility</option>
+                    <option value="power">Power Utility</option>
+                    <option value="general">Other Services</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="label">Business Address</label>
                 <div style={{ position: "relative" }}>
                   <input
                     type="text"
@@ -292,6 +310,7 @@ export default function SignupPage() {
                   />
                   <MapPin size={16} style={{ position: "absolute", left: "0.875rem", top: "14px", color: "var(--color-text-muted, #94a3b8)" }} />
                 </div>
+              </div>
               </div>
             </div>
 
