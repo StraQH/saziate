@@ -79,7 +79,28 @@ export function AddResidentModal({ onClose, onSuccess }: AddResidentModalProps) 
         console.error("Failed to fetch routes:", err);
       }
     };
+
+    const fetchOrgSettings = async () => {
+      try {
+        if (!user?.orgId) return;
+        if (config.isMockMode) {
+          setUnit1NameLabel("Primary Unit");
+          setUnit2NameLabel("Secondary Unit");
+          return;
+        }
+        const res = await fetch("/api/v1/org/settings");
+        if (res.ok) {
+          const data = await res.json() as any;
+          if (data.unit1Name) setUnit1NameLabel(data.unit1Name);
+          if (data.unit2Name) setUnit2NameLabel(data.unit2Name);
+        }
+      } catch (err) {
+        console.error("Failed to fetch org settings:", err);
+      }
+    };
+
     fetchZones();
+    fetchOrgSettings();
   }, [user?.orgId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

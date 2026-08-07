@@ -1,6 +1,7 @@
 /**
  * Termii SMS & WhatsApp Notification Helper Client
  */
+import { getAppEnv } from "@/lib/env";
 
 export interface SendMessageParams {
   to: string; // Recipient phone number in standard format e.g. "2348021234567"
@@ -10,13 +11,16 @@ export interface SendMessageParams {
 export class TermiiClient {
   private apiKey: string;
   private baseUrl = "https://api.ng.termii.com/api";
-  private senderId = "Saziate"; // Configured Sender ID on Termii portal
+  private senderId: string;
 
   constructor(apiKey: string) {
     if (!apiKey) {
       throw new Error(String("Termii API Key is required."));
     }
     this.apiKey = apiKey;
+    const env = getAppEnv();
+    // Use "N-Alert" or generic Termii ID as fallback if custom is not set in env
+    this.senderId = env.TERMII_SENDER_ID || "N-Alert";
   }
 
   private async request<T>(endpoint: string, payload: Record<string, unknown>): Promise<T> {

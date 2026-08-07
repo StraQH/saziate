@@ -196,6 +196,7 @@ export default function OrgResidentsPage() {
                 <th>Org Rate</th>
                 <th>Resident Bill (incl. 5%)</th>
                 <th>Status</th>
+                <th>Payment Status</th>
                 <th></th>
               </tr>
             </thead>
@@ -239,6 +240,15 @@ export default function OrgResidentsPage() {
                       <Badge variant={r.status === "active" ? "success" : "warning"}>
                         {r.status === "active" ? "Active" : "Suspended"}
                       </Badge>
+                    </td>
+                    <td>
+                      {r.paymentStatus ? (
+                        <Badge variant={r.paymentStatus === "paid" ? "success" : r.paymentStatus === "overdue" ? "danger" : "warning"}>
+                          {r.paymentStatus === "paid" ? "Paid" : r.paymentStatus === "overdue" ? "Overdue" : "Unpaid"}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted text-xs">-</span>
+                      )}
                     </td>
                     <td>
                       <div className="flex gap-2">

@@ -150,12 +150,12 @@ export default function OrgDashboardPage() {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: '#6B7280', fontSize: 12 }}
-                      tickFormatter={(val) => `\${config.locality.symbol}${val / 1000}k`}
+                      tickFormatter={(val) => `${config.locality.symbol}${val / 1000}k`}
                       width={50}
                     />
                     <Tooltip 
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      formatter={(value) => [`\${config.locality.symbol}${Number(value).toLocaleString()}`, 'Revenue']}
+                      formatter={(value) => [`${config.locality.symbol}${Number(value).toLocaleString()}`, 'Revenue']}
                     />
                     <Area 
                       type="monotone" 

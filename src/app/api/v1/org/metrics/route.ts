@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const db = getDb(env.DB as any);
 
   try {
-    await requireRole(req, env.DB as any, ["psp_operator"]);
+    await requireRole(req, env.DB as any, ["org_admin"]);
     const orgId = await getActiveorgId(req, env.DB as any);
     if (!orgId) {
       return new Response("Unauthorized.", { status: 401 });

@@ -1,4 +1,4 @@
-﻿import { config } from "@/lib/config";
+import { config } from "@/lib/config";
 import {
   MOCK_RESIDENTS,
   MOCK_ZONES,
@@ -77,12 +77,13 @@ export class SaziateRepository {
   /**
    * Retrieve services logs
    */
-  async getServices(page: number = 1, limit: number = 50, search: string = ""): Promise<{ data: ServiceRun[], totalPages: number, totalCount: number }> {
+  async getServices(page: number = 1, limit: number = 50, search: string = "", mode: string = ""): Promise<{ data: ServiceRun[], totalPages: number, totalCount: number }> {
     if (config.isMockMode) {
       return { data: MOCK_SERVICES, totalPages: 1, totalCount: MOCK_SERVICES.length };
     }
 
-    const response = await fetch(`/api/v1/org/services?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`);
+    const modeQuery = mode ? `&mode=${mode}` : "";
+    const response = await fetch(`/api/v1/org/services?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}${modeQuery}`);
     if (!response.ok) {
       throw new Error("Failed to fetch services");
     }

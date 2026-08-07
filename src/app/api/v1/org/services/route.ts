@@ -23,19 +23,32 @@ export async function GET(req: Request) {
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const search = url.searchParams.get("search") || "";
+    const mode = url.searchParams.get("mode") || "";
     const offset = (page - 1) * limit;
 
-    if (session.user.role === "field_agent") {
+    if (session.user.role === "field_agent" || mode === "agent") {
       const actorId = session.user.id;
-      // 1. Get zones assigned to the field agent
-      const agentZones = await db
-        .select({ id: zones.id, name: zones.name })
-        .from(zones)
-        .where(eq(zones.assignedAgentId, actorId))
-        .all();
+      const orgId = (session.user as any).orgId || "system";
+      
+      // 1. Get zones: if field agent, get assigned zones. If org admin in agent mode, get all org zones.
+      let agentZones;
+      if (session.user.role === "field_agent") {
+        agentZones = await db
+          .select({ id: zones.id, name: zones.name, serviceSchedule: zones.serviceSchedule })
+          .from(zones)
+          .where(eq(zones.assignedAgentId, actorId))
+          .all();
+      } else {
+        agentZones = await db
+          .select({ id: zones.id, name: zones.name, serviceSchedule: zones.serviceSchedule })
+          .from(zones)
+          .where(eq(zones.orgId, orgId))
+          .all();
+      }
 
       if (agentZones.length === 0) {
         return new Response(JSON.stringify({
+          view: search ? "residents" : "zones",
           data: [],
           totalCount: 0,
           totalPages: 0,
@@ -47,6 +60,50 @@ export async function GET(req: Request) {
         });
       }
 
+      if (!search) {
+        // Default View: Show active zones and their resident counts
+        const todayStr = new Date().toLocaleDateString("en-US", { weekday: "long" });
+        const activeZones = agentZones.filter((z) => z.serviceSchedule && z.serviceSchedule.includes(todayStr));
+
+        if (activeZones.length === 0) {
+          return new Response(JSON.stringify({
+            view: "zones",
+            data: [],
+            totalCount: 0,
+            totalPages: 1,
+            page,
+            limit
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+
+        const activeZoneIds = activeZones.map((z) => z.id);
+        const counts = await db
+          .select({ zoneId: zoneResidents.zoneId, count: sql<number>`count(*)` })
+          .from(zoneResidents)
+          .where(inArray(zoneResidents.zoneId, activeZoneIds))
+          .groupBy(zoneResidents.zoneId)
+          .all();
+          
+        const countMap = new Map();
+        counts.forEach(c => countMap.set(c.zoneId, c.count));
+
+        const data = activeZones.map(z => ({
+          id: z.id,
+          name: z.name,
+          residentCount: countMap.get(z.id) || 0
+        }));
+
+        return new Response(JSON.stringify({
+          view: "zones",
+          data,
+          totalCount: data.length,
+          totalPages: 1,
+          page,
+          limit
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      // Search View: Search residents across all agent's zones
       const zoneIds = agentZones.map((r) => r.id);
 
       // 2. Get residents assigned to these zones
@@ -118,9 +175,10 @@ export async function GET(req: Request) {
       const paginated = formattedResults.slice(offset, offset + limit);
 
       return new Response(JSON.stringify({
+        view: "residents",
         data: paginated,
-        totalCount,
-        totalPages: Math.ceil(totalCount / limit),
+        totalCount: paginated.length,
+        totalPages: 1,
         page,
         limit
       }), {

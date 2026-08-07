@@ -11,6 +11,7 @@ import { generateId } from "@/lib/utils";
 import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { sendNotificationWithFallback } from "@/lib/notifications";
+import { smsTemplates } from "@/lib/sms-templates";
 
 
 export async function POST(req: Request) {
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
         } else if (residentUser.phone) {
           const termiiKey = env.TERMII_API_KEY;
           if (termiiKey) {
-            const msgText = `Hello ${firstName}, a cash payment of \${config.locality.symbol}\${amount} has been logged by agent ${agentName}. It is awaiting verification. Ref: ${cashRef}`;
+            const msgText = smsTemplates.paymentLogged(String(amount), cashRef);
             await sendNotificationWithFallback({
               dbBinding: env.DB as any,
               termiiApiKey: termiiKey,

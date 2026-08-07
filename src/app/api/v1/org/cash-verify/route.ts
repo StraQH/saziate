@@ -11,6 +11,7 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { z } from "zod";
 import { sendNotificationWithFallback } from "@/lib/notifications";
+import { smsTemplates } from "@/lib/sms-templates";
 
 
 const cashVerifySchema = z.object({
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
           } else if (residentUser.phone) {
             const termiiKey = env.TERMII_API_KEY;
             if (termiiKey) {
-              const msgText = `Hello ${firstName}, your cash payment of \${config.locality.symbol}\${tx.amount} has been verified and applied to your invoice. Thank you!`;
+              const msgText = smsTemplates.paymentVerified(String(tx.amount), invoice.id);
               await sendNotificationWithFallback({
                 dbBinding: env.DB as any,
                 termiiApiKey: termiiKey,

@@ -9,6 +9,7 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { smsTemplates } from "@/lib/sms-templates";
 import { z } from "zod";
 
 const requestSchema = z.object({
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
       });
     } else if (user.phone) {
       // SMS for residents/agents ONLY if no email is provided
-      const message = `Your Saziate password reset code is: ${token}. Valid for 10 minutes.`;
+      const message = smsTemplates.forgotPassword(token);
       await sendNotificationWithFallback({
         dbBinding: env.DB as any,
         termiiApiKey: (env.TERMII_API_KEY as any) as string,

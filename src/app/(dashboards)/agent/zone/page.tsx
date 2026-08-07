@@ -15,13 +15,17 @@ export default function AgentRoutePage() {
   const [unit1Label, setUnit1Label] = useState("Primary Unit");
   const [unit2Label, setUnit2Label] = useState("Secondary Unit");
   const { toast } = useToast();
-  const [services, setServices] = useState<ServiceRun[]>(config.isMockMode ? MOCK_SERVICES : []);
+  const [services, setServices] = useState<ServiceRun[]>([]);
+  const [activeZones, setActiveZones] = useState<{id: string, name: string, residentCount: number}[]>([]);
+  const [viewMode, setViewMode] = useState<"zones" | "residents">("zones");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedTask, setSelectedTask] = useState<ServiceRun | null>(null);
   const [status, setStatus] = useState<"completed" | "no_access" | "no_service">("completed");
   const [notes, setNotes] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [assignedZone, setAssignedZone] = useState(config.isMockMode ? "North Residential Zone" : "Active Zone");
+  const [assignedZone, setAssignedZone] = useState("Active Zone");
   const [serviceSchedule, setServiceSchedule] = useState("");
   const [unit1Count, setUnit1Count] = useState(0);
   const [unit2Count, setUnit2Count] = useState(0);
@@ -35,17 +39,31 @@ export default function AgentRoutePage() {
     setUnit2Count(0);
   }, [selectedTask]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchServices = async () => {
     if (!user) return;
     setLoading(true);
     const repo = new SaziateRepository(user.orgId!);
-    const res = await repo.getServices();
-    if (Array.isArray(res)) {
-      setServices(res);
-    } else {
-      setServices(res.data);
+    try {
+      const res = await repo.getServices(1, 100, debouncedSearch, "agent") as any;
+      if (res.view === "zones") {
+        setActiveZones(res.data);
+        setViewMode("zones");
+      } else {
+        setServices(res.data);
+        setViewMode("residents");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchAgentRoute = async () => {
@@ -78,6 +96,9 @@ export default function AgentRoutePage() {
 
   useEffect(() => {
     fetchServices();
+  }, [debouncedSearch, user]);
+
+  useEffect(() => {
     fetchAgentRoute();
     fetchOrgUnitLabels();
   }, [user]);
@@ -166,57 +187,101 @@ export default function AgentRoutePage() {
     <div>
       <div className="page-header">
         <div>
-          <h1>Active Zone</h1>
+          <h1>Log Services</h1>
           <p className="text-muted" style={{ marginTop: "0.25rem" }}>
-            {config.isMockMode
-              ? "North Residential Zone • assigned today"
-              : `${assignedZone}${serviceSchedule ? ` • Schedule: ${serviceSchedule}` : ""}`
-            }
+            Log service collections for residents.
           </p>
         </div>
       </div>
 
+      <div style={{ marginBottom: "2rem" }}>
+        <input 
+          type="text" 
+          placeholder="Search for a resident by name or address to log a service..." 
+          className="input" 
+          style={{ width: "100%", maxWidth: "600px", padding: "0.75rem 1rem", fontSize: "1rem" }}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <p className="text-xs text-muted" style={{ marginTop: "0.5rem" }}>
+          Use the search bar to log collections for any resident, even if they are not scheduled for today.
+        </p>
+      </div>
+
       <div className="grid" style={{ gridTemplateColumns: selectedTask ? "1fr 1fr" : "1fr", gap: "2rem", alignItems: "start" }}>
-        {/* Task list */}
+        {/* Task list or Zones list */}
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <h2 style={{ fontSize: "1.125rem", fontWeight: 600 }}>Service Queue</h2>
+          <h2 style={{ fontSize: "1.125rem", fontWeight: 600 }}>
+            {viewMode === "zones" ? "Zones Scheduled Today" : "Search Results"}
+          </h2>
           <div className="grid" style={{ gridTemplateColumns: "1fr", gap: "1rem" }}>
-            {loading && !config.isMockMode && <p className="text-muted text-sm">Loading services...</p>}
-            {services.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => setSelectedTask(item)}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "1rem",
-                  border: selectedTask?.id === item.id ? "2px solid var(--color-primary)" : "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)",
-                  cursor: "pointer",
-                  background: selectedTask?.id === item.id ? "var(--color-primary-light)" : "var(--color-surface)",
-                  transition: "all 0.15s",
-                }}
-              >
-                <div>
-                  <p className="font-semibold">{item.residentName}</p>
-                  <p className="text-xs text-muted flex items-center gap-1" style={{ marginTop: "0.25rem" }}>
-                    <MapPin size={12} /> {item.address}
-                  </p>
-                </div>
-                <Badge
-                  variant={
-                    item.status === "completed"
-                      ? "success"
-                      : item.status === "pending"
-                      ? "neutral"
-                      : "warning"
-                  }
-                >
-                  {item.status.toUpperCase()}
-                </Badge>
-              </div>
-            ))}
+            {loading && !config.isMockMode && <p className="text-muted text-sm">Loading...</p>}
+            
+            {viewMode === "zones" && !loading && (
+              activeZones.length === 0 ? (
+                <p className="text-muted text-sm">No zones scheduled for service today.</p>
+              ) : (
+                activeZones.map(zone => (
+                  <div key={zone.id} style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "1rem",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "var(--radius-md)",
+                    background: "var(--color-surface)",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <MapPin size={16} style={{ color: "var(--color-primary)" }} />
+                      <p className="font-semibold">{zone.name}</p>
+                    </div>
+                    <Badge variant="neutral">{zone.residentCount} residents</Badge>
+                  </div>
+                ))
+              )
+            )}
+
+            {viewMode === "residents" && !loading && (
+              services.length === 0 ? (
+                <p className="text-muted text-sm">No residents found.</p>
+              ) : (
+                services.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => setSelectedTask(item)}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "1rem",
+                      border: selectedTask?.id === item.id ? "2px solid var(--color-primary)" : "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-md)",
+                      cursor: "pointer",
+                      background: selectedTask?.id === item.id ? "var(--color-primary-light)" : "var(--color-surface)",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <div>
+                      <p className="font-semibold">{item.residentName}</p>
+                      <p className="text-xs text-muted flex items-center gap-1" style={{ marginTop: "0.25rem" }}>
+                        <MapPin size={12} /> {item.address}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        item.status === "completed"
+                          ? "success"
+                          : item.status === "pending"
+                          ? "neutral"
+                          : "warning"
+                      }
+                    >
+                      {item.status.toUpperCase()}
+                    </Badge>
+                  </div>
+                ))
+              )
+            )}
           </div>
         </div>
 

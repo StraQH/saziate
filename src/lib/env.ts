@@ -6,6 +6,7 @@ export type CloudflareEnv = {
   BETTER_AUTH_SECRET?: string;
   RESEND_API_KEY?: string;
   TERMII_API_KEY?: string;
+  TERMII_SENDER_ID?: string;
   PAYSTACK_SECRET_KEY?: string;
   PAYSTACK_PUBLIC_KEY?: string;
 };

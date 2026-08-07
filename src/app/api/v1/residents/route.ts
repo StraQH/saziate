@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, zoneResidents, zones, invoices } from "@/db/schema";
+import { users, residentProfiles, notificationLogs, accounts, zoneResidents, zones, invoices, zoneBillingRates } from "@/db/schema";
 import { eq, and, sql, like, inArray } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { hashPassword } from "@/lib/hash";
@@ -12,6 +12,7 @@ import { auditLogs } from "@/db/schema";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { smsTemplates } from "@/lib/sms-templates";
 
 
 
@@ -47,11 +48,19 @@ export async function GET(req: Request) {
         onDemandUnit1Rate: residentProfiles.onDemandUnit1Rate,
         onDemandUnit2Rate: residentProfiles.onDemandUnit2Rate,
         zone: zones.name,
+        zoneMonthlyRate: zoneBillingRates.monthlyRate,
       })
       .from(residentProfiles)
       .innerJoin(users, eq(residentProfiles.userId, users.id))
       .leftJoin(zoneResidents, eq(zoneResidents.residentId, users.id))
       .leftJoin(zones, eq(zones.id, zoneResidents.zoneId))
+      .leftJoin(
+        zoneBillingRates,
+        and(
+          eq(zoneBillingRates.zoneId, zones.id),
+          eq(zoneBillingRates.billingCategory, residentProfiles.billingCategory)
+        )
+      )
       .where(
         and(
           eq(users.orgId, orgId),
@@ -100,13 +109,13 @@ export async function GET(req: Request) {
       const pendingOrOverdue = pInvoices.filter((i) => ["pending", "overdue"].includes(i.status));
       const outstandingBalance = pendingOrOverdue.reduce((sum: number, i) => sum + i.totalAmount, 0);
       
-      let status = "paid";
+      let paymentStatus = "paid";
       let activeInvoiceId = null;
       
       const activeInvoice = pendingOrOverdue.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())[0];
       if (activeInvoice) {
         activeInvoiceId = activeInvoice.id;
-        status = activeInvoice.status === "overdue" ? "overdue" : "unpaid";
+        paymentStatus = activeInvoice.status === "overdue" ? "overdue" : "unpaid";
       }
 
       const paidInvoices = pInvoices
@@ -118,8 +127,11 @@ export async function GET(req: Request) {
 
       return {
         ...p,
+        baseRate: p.customMonthlyRate !== null ? p.customMonthlyRate : (p.zoneMonthlyRate || 0),
+        isOverride: p.customMonthlyRate !== null,
         outstandingBalance,
-        status,
+        status: "active",
+        paymentStatus,
         lastPaymentAmount,
         lastPaymentDate,
         activeInvoiceId,
@@ -266,7 +278,7 @@ export async function POST(req: Request) {
       } else if (phone) {
         const termiiKey = env.TERMII_API_KEY;
         if (termiiKey) {
-          const msgText = `Hello ${firstName || "Resident"}, welcome to Saziate! Your account has been created. Log in at saziate.com with your phone number and temporary password: ${tempPassword}. Please update your email on login.`;
+          const msgText = smsTemplates.welcomeResident(firstName || "Resident", tempPassword);
           await sendNotificationWithFallback({
             dbBinding: env.DB as any,
             termiiApiKey: termiiKey,

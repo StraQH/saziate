@@ -13,6 +13,7 @@ export interface Resident {
   isOverride: boolean;
   referenceCode: string;
   status: "active" | "suspended";
+  paymentStatus?: "paid" | "overdue" | "unpaid" | "pending";
 }
 
 export interface Zone {

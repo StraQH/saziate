@@ -9,6 +9,7 @@ import { getActiveorgId, requireRole } from "@/lib/session";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
+import { smsTemplates } from "@/lib/sms-templates";
 import { z } from "zod";
 import { config } from "@/lib/config";
 
@@ -154,7 +155,7 @@ export async function POST(req: Request) {
             orgId,
             residentId: userId,
             phone: normalizedPhone,
-            messageText: `Welcome to Saziate! Your temp password is: ${tempPassword}. Log in at https://saziate.com/login`,
+            messageText: smsTemplates.welcomeResident(res.firstName || "Resident", tempPassword),
             messageType: "onboarding",
             channel: "sms",
           })

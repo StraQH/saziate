@@ -163,7 +163,7 @@ export async function PATCH(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const { zoneId, agentId } = await req.json() as { zoneId: string, agentId: string | null };
+    const { zoneId, agentId, name, description, serviceSchedule, rates } = await req.json() as any;
     if (!zoneId) {
       return new Response("Missing zoneId.", { status: 400 });
     }
@@ -180,9 +180,27 @@ export async function PATCH(req: Request) {
       }
     }
 
-    await db.update(zones)
-      .set({ assignedAgentId: agentId || null })
-      .where(and(eq(zones.id, zoneId), eq(zones.orgId, orgId)));
+    const updates: any = {};
+    if (agentId !== undefined) updates.assignedAgentId = agentId || null;
+    if (name !== undefined) updates.name = name;
+    if (description !== undefined) updates.description = description;
+    if (serviceSchedule !== undefined) updates.serviceSchedule = serviceSchedule;
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(zones)
+        .set(updates)
+        .where(and(eq(zones.id, zoneId), eq(zones.orgId, orgId)));
+    }
+
+    if (rates && rates.length > 0) {
+      await db.delete(zoneBillingRates).where(eq(zoneBillingRates.zoneId, zoneId));
+      const batchRates = rates.map((rate: any) => ({
+        zoneId,
+        billingCategory: rate.category,
+        monthlyRate: Math.round(rate.monthlyRate * 100) / 100,
+      }));
+      await db.insert(zoneBillingRates).values(batchRates);
+    }
 
     return new Response(JSON.stringify({ status: "success" }), { status: 200 });
   } catch (error: any) {

@@ -173,7 +173,7 @@ export const emailTemplates = {
   welcomeOrg: (name: string, serviceType: string = "waste_management") => buildEmailWrapper("Welcome to Saziate", `
     <h2 style="color: #2563EB; font-size: 20px; font-weight: 700; margin: 0 0 16px 0;">Welcome to Saziate, ${name}!</h2>
     <p style="margin: 0 0 20px 0;">Thank you for partnering with Saziate. We are excited to support your ${formatService(serviceType)} operations.</p>
-    <p style="margin: 0 0 20px 0;">Your operator profile is active. To enable automatic billing and receive direct payments, please log in and register your external settlement bank account. Your Dedicated Virtual Account (DVA) will be provisioned instantly upon submission.</p>
+    <p style="margin: 0 0 20px 0;">Your operator profile is active. To enable automatic billing and receive direct payments, please log in and register your external settlement bank account.</p>
     <div align="center" style="margin: 24px 0;">
       <a href="https://app.saziate.com/login" style="background-color: #2563EB; color: #FFFFFF; font-weight: 600; padding: 12px 32px; text-decoration: none; border-radius: 6px; display: inline-block;">Link Bank Account</a>
     </div>

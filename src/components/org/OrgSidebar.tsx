@@ -24,7 +24,7 @@ const navItems = [
   { href: "/org/zones",      label: "Zones",      icon: MapPin },
   { href: "/org/billing",     label: "Revenue & Billing",     icon: FileText },
   { href: "/org/services", label: "Operations", icon: Briefcase },
-  { href: "/org/field-zone", label: "Log Zone",   icon: MapPin },
+  { href: "/org/field-zone", label: "Log Services",   icon: MapPin },
   { href: "/org/field-cash",  label: "Log Cash",    icon: FileText },
   { href: "/org/settings",    label: "Platform Settings",    icon: Settings },
 ];

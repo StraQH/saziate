@@ -206,7 +206,6 @@ export default function OrgBillingPage() {
             Log Advance Payment
           </button>
           <button className="btn btn-primary btn-sm" onClick={handleRequestPayout}>
-            <DollarSign size={16} />
             Accelerate Payout
           </button>
           <button className="btn btn-secondary btn-sm" onClick={fetchInvoices}>

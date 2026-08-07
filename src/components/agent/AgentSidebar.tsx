@@ -16,7 +16,7 @@ import { useSession } from "@/components/providers/SessionProvider";
 
 const navItems = [
   { href: "/agent",             label: "Dashboard",   icon: LayoutDashboard },
-  { href: "/agent/zone",       label: "My Zone",    icon: ZoneIcon },
+  { href: "/agent/zone",       label: "Log Services",    icon: ZoneIcon },
   { href: "/agent/payments",    label: "Payments",    icon: CreditCard },
 ];
 

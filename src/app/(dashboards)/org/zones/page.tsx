@@ -30,6 +30,7 @@ export default function OrgRoutesPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: "info" | "success" | "warning" | "danger" }>({ isOpen: false, title: "", message: "", type: "info" });
   const [error, setError] = useState("");
+  const [editZoneId, setEditZoneId] = useState<string | null>(null);
 
   // Form states
   const [name, setName] = useState("");
@@ -77,7 +78,7 @@ export default function OrgRoutesPage() {
       const res = await fetch("/api/v1/zones", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ routeId, agentId: agentId || null }),
+        body: JSON.stringify({ zoneId: routeId, agentId: agentId || null }),
       });
       if (!res.ok) {
         throw new Error("Failed to reassign agent");
@@ -87,6 +88,38 @@ export default function OrgRoutesPage() {
       console.error(err);
       setAlertModal({ isOpen: true, title: "Reassignment Failed", message: "Failed to reassign agent.", type: "danger" });
     }
+  };
+
+  const handleEdit = (zone: any) => {
+    setName(zone.name);
+    setDescription(zone.description || "");
+    if (zone.serviceSchedule && zone.serviceSchedule !== "No service scheduled") {
+      const parts = zone.serviceSchedule.replace(/s\b/g, '').split(/, | & /);
+      setSelectedDays(parts.filter((p: string) => WEEKDAYS.includes(p)));
+    } else {
+      setSelectedDays([]);
+    }
+    setAssignedAgent(zone.assignedAgentId || "");
+    setResidentialRate(zone.rates?.find((r: any) => r.category === "residential")?.monthlyRate?.toString() || config.locality.rates.general.residential.toString());
+    setCommercialRate(zone.rates?.find((r: any) => r.category === "commercial")?.monthlyRate?.toString() || config.locality.rates.general.commercial.toString());
+    setIndustrialRate(zone.rates?.find((r: any) => r.category === "industrial")?.monthlyRate?.toString() || config.locality.rates.general.industrial.toString());
+    setHealthRate(zone.rates?.find((r: any) => r.category === "health")?.monthlyRate?.toString() || config.locality.rates.general.health.toString());
+    
+    setEditZoneId(zone.id);
+    setShowAddForm(true);
+  };
+
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setSelectedDays(["Monday", "Thursday"]);
+    setAssignedAgent(agents.length > 0 ? agents[0].id : "");
+    setResidentialRate(config.locality.rates.general.residential.toString());
+    setCommercialRate(config.locality.rates.general.commercial.toString());
+    setIndustrialRate(config.locality.rates.general.industrial.toString());
+    setHealthRate(config.locality.rates.general.health.toString());
+    setEditZoneId(null);
+    setShowAddForm(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -125,22 +158,29 @@ export default function OrgRoutesPage() {
         return;
       }
 
-      // Live POST write to D1 database
+      // Live POST or PATCH to database
+      const method = editZoneId ? "PATCH" : "POST";
+      const payload: any = {
+        name,
+        description,
+        serviceSchedule: computedSchedule,
+        agentId: assignedAgent || undefined,
+        rates: [
+          { category: "residential", monthlyRate: resRate },
+          { category: "commercial", monthlyRate: commRate },
+          { category: "industrial", monthlyRate: indRate },
+          { category: "health", monthlyRate: hRate }
+        ],
+      };
+      
+      if (editZoneId) {
+        payload.zoneId = editZoneId;
+      }
+
       const response = await fetch("/api/v1/zones", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          description,
-          serviceSchedule: computedSchedule,
-          agentId: assignedAgent || undefined,
-          rates: [
-            { category: "residential", monthlyRate: resRate },
-            { category: "commercial", monthlyRate: commRate },
-            { category: "industrial", monthlyRate: indRate },
-            { category: "health", monthlyRate: hRate }
-          ],
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -164,11 +204,12 @@ export default function OrgRoutesPage() {
         ],
       };
 
-      setZones((prev) => [...prev, newZone]);
-      setName("");
-      setDescription("");
-      setSelectedDays(["Monday", "Thursday"]);
-      setShowAddForm(false);
+      if (editZoneId) {
+        setZones((prev) => prev.map((z) => (z.id === editZoneId ? newZone : z)));
+      } else {
+        setZones((prev) => [...prev, newZone]);
+      }
+      resetForm();
     } catch (err: any) {
       setError((err as Error).message || "An error occurred.");
     } finally {
@@ -196,7 +237,7 @@ export default function OrgRoutesPage() {
 
       {showAddForm && (
         <div className="card" style={{ marginBottom: "2rem" }}>
-          <h3 style={{ marginBottom: "1rem" }}>Create New Zone</h3>
+          <h3 style={{ marginBottom: "1rem" }}>{editZoneId ? "Edit Zone" : "Create New Zone"}</h3>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             <div className="form-group">
               <label className="label">Zone Name</label>
@@ -347,11 +388,11 @@ export default function OrgRoutesPage() {
             <div className="divider" style={{ margin: "0.5rem 0" }} />
 
             <div className="flex justify-end gap-3">
-              <button type="button" className="btn btn-ghost" onClick={() => setShowAddForm(false)} disabled={submitLoading}>
+              <button type="button" className="btn btn-ghost" onClick={resetForm} disabled={submitLoading}>
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary" disabled={submitLoading}>
-                {submitLoading ? "Saving Zone..." : "Save Zone"}
+                {submitLoading ? "Saving Zone..." : (editZoneId ? "Update Zone" : "Save Zone")}
               </button>
             </div>
           </form>
@@ -373,6 +414,7 @@ export default function OrgRoutesPage() {
                 <th>Service Schedule</th>
                 <th>Assigned Agent</th>
                 <th>Default Billing Rates (NGN)</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -415,6 +457,11 @@ export default function OrgRoutesPage() {
                       <Badge variant="neutral">Ind: {formatCurrency(zone.rates?.find((r: any) => r.category === "industrial")?.monthlyRate || 0)}</Badge>
                       <Badge variant="neutral">Hlt: {formatCurrency(zone.rates?.find((r: any) => r.category === "health")?.monthlyRate || 0)}</Badge>
                     </div>
+                  </td>
+                  <td>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleEdit(zone)}>
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}
