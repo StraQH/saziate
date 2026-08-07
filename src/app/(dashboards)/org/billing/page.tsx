@@ -94,7 +94,7 @@ export default function OrgBillingPage() {
           if (metricsData.raw) {
             const raw = metricsData.raw;
             setTotalCollected(raw.totalPaidSum || 0);
-            setTotalCommission(Math.round(raw.totalPaidSum * 0.05 * 100) / 100);
+            setTotalCommission(Math.round(raw.totalPaidSum * config.PLATFORM_FEE_RATE * 100) / 100);
             setTotalOutstanding(raw.totalUnpaidSum || 0);
             setTotalInvoiced((raw.totalPaidSum || 0) + (raw.totalUnpaidSum || 0));
           }
@@ -237,7 +237,7 @@ export default function OrgBillingPage() {
           <p className="metric-value" style={{ color: "var(--color-success)" }}>{formatCurrency(totalCollected)}</p>
         </div>
         <div className="metric-card">
-          <p className="metric-label">Saziate Commission (5%)</p>
+          <p className="metric-label">Saziate Earnings</p>
           <p className="metric-value" style={{ color: "var(--color-primary)" }}>{formatCurrency(totalCommission)}</p>
         </div>
         <div className="metric-card">
@@ -348,7 +348,7 @@ export default function OrgBillingPage() {
                 <th>Resident</th>
                 <th>Period</th>
                 <th>Org Base Rate</th>
-                <th>Platform Fee (5%)</th>
+                <th>Saziate Earnings</th>
                 <th>Total Resident Bill</th>
                 <th>Due Date</th>
                 <th>Status</th>

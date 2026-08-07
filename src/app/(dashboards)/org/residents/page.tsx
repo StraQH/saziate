@@ -194,7 +194,7 @@ export default function OrgResidentsPage() {
                 <th>Zone</th>
                 <th>Category</th>
                 <th>Org Rate</th>
-                <th>Resident Bill (incl. 5%)</th>
+                <th>Total Resident Bill</th>
                 <th>Status</th>
                 <th>Payment Status</th>
                 <th></th>

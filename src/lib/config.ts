@@ -54,8 +54,8 @@ export const config = {
     return (!env.DB && process.env.NODE_ENV === "development") || process.env.NEXT_PUBLIC_MOCK_MODE === "true" || env.NEXT_PUBLIC_MOCK_MODE === "true";
   },
 
-  PLATFORM_FEE_RATE: 0.05,
-  PLATFORM_FEE_DIVISOR: 1.05,
+  PLATFORM_FEE_RATE: 0.10,
+  PLATFORM_FEE_DIVISOR: 1.10,
   INVOICE_DUE_DAYS: 7,
   ONDEMAND_DUE_DAYS: 3,
   defaultGateway: "paystack",

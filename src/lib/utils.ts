@@ -17,7 +17,7 @@ export function formatCurrency(amount: number): string {
 }
 
 
-/** Calculate resident-facing bill from Org base rate (adds Saziate 5% fee) */
+/** Calculate resident-facing bill from Org base rate (adds Saziate 10% fee) */
 export function calculateResidentBill(baseRate: number): {
   baseAmount: number;
   platformFee: number;

@@ -75,7 +75,7 @@ export async function GET(req: Request) {
       
     const totalPaidOut = payoutsMade?.total || 0;
     // Approximation: what's owed is roughly what came in minus Saziate's fee minus what was paid out
-    // Since platform fee is taken on top of invoices, and PSP gets collections / 1.05.
+    // Since platform fee is taken on top of invoices, and PSP gets collections / 1.10.
     const totalPlatformVolume = totalDigitalVolume;
     const saziateRevenue = saziateRev;
     const totalAdvanceHeld = advanceHeld?.total || 0;

@@ -171,7 +171,7 @@ export const invoices = sqliteTable("invoices", {
   orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   paymentReference: text("payment_reference").unique(), // Unique reference for bank transfer narration
   baseAmount: real("base_amount").notNull(),     // Rate in NGN
-  platformFee: real("platform_fee").notNull(),   // Saziate 5%
+  platformFee: real("platform_fee").notNull(),   // Saziate 10%
   totalAmount: real("total_amount").notNull(),   // baseAmount + platformFee
   dueDate: integer("due_date", { mode: "timestamp_ms" }).notNull(),
   status: text("status", { enum: ["pending", "paid", "overdue", "cancelled"] }).notNull().default("pending"),

@@ -245,7 +245,7 @@ export default function AdminDashboardPage() {
           <div className="metrics-grid" style={{ marginBottom: "2rem" }}>
             <MetricCard label="Active Operators" value={organizations.filter((p) => p.status === "verified").length.toString()} />
             <MetricCard label="Total Platform Volume" value={`${config.locality.symbol}${totalVolume.toLocaleString()}`} />
-            <MetricCard label="Saziate Revenue (5%)" value={`${config.locality.symbol}${saziateRevenue.toLocaleString()}`} />
+            <MetricCard label="Saziate Earnings" value={`${config.locality.symbol}${saziateRevenue.toLocaleString()}`} />
             <MetricCard label="Escrow Liability (Resident Wallets)" value={`${config.locality.symbol}${totalAdvanceHeld.toLocaleString()}`} />
           </div>
 

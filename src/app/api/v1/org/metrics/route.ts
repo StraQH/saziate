@@ -77,7 +77,7 @@ export async function GET(req: Request) {
       invoicePaidDates = rawInvoices.map((x) => ({ createdAt: x.createdAt.getTime() }));
     }
 
-    // PSP entitlement: Saziate keeps 5% on every collection
+    // PSP entitlement: Saziate keeps 10% on every collection
     const pspDigitalEntitlement = totalDigitalCollections / config.PLATFORM_FEE_DIVISOR;
     const saziateCashFee = totalCashCollections - (totalCashCollections / config.PLATFORM_FEE_DIVISOR);
     const totalPaidSum = Math.round((pspDigitalEntitlement + (totalCashCollections - saziateCashFee)) * 100) / 100;
@@ -199,7 +199,7 @@ export async function GET(req: Request) {
     const metrics = [
       { label: "Collections This Month", value: `₦${totalPaidSum.toLocaleString("en-NG")}` },
       { label: "Settled Today",          value: `₦${settledToday.toLocaleString("en-NG")}` },
-      { label: "Available Settlement",   value: `₦${availableSettlement.toLocaleString("en-NG")}` }, // Less Saziate 5% commission and payouts/SMS costs
+      { label: "Available Settlement",   value: `₦${availableSettlement.toLocaleString("en-NG")}` }, // Less Saziate 10% commission and payouts/SMS costs
       { label: "Next Settlement Date",   value: new Date(Date.now() + 86400000).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }, // T+1
       { label: "Total Active Residents", value: residentUsers.length.toLocaleString() },
       { label: "Paid Invoices",          value: paidInvoices.length.toLocaleString() },

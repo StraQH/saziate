@@ -217,16 +217,7 @@ export default function ResidentInvoicesPage() {
 
                 <div className="divider" style={{ margin: "1rem 0" }} />
 
-                <div className="flex justify-between">
-                  <span className="text-muted">Org Base Rate</span>
-                  <span>{formatCurrency(selectedInvoice.baseAmount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted">Platform Fee (5%)</span>
-                  <span>{formatCurrency(selectedInvoice.platformFee)}</span>
-                </div>
-                
-                <div className="divider" style={{ margin: "0.5rem 0" }} />
+
 
                 <div className="flex justify-between" style={{ fontSize: "1.125rem", fontWeight: 700 }}>
                   <span>Total Amount</span>
