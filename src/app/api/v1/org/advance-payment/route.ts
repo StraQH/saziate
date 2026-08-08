@@ -9,10 +9,10 @@ import { sendEmail } from "@/lib/email";
 import { emailTemplates } from "@/lib/email-templates";
 import { getActiveorgId, requireRole } from "@/lib/session";
 
-
 const advancePaymentSchema = z.object({
   residentId: z.string().min(1),
   amount: z.number().positive().transform(val => Math.round(val * 100) / 100),
+  idemKey: z.string().min(1),
 });
 
 export async function POST(req: Request) {
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
 
-    const { residentId, amount } = parsed.data;
+    const { residentId, amount, idemKey } = parsed.data;
 
     // Use environment DB
     const db = getDb(env.DB as any);
@@ -63,7 +63,8 @@ export async function POST(req: Request) {
       await tx.insert(transactions).values({
         id: txId,
         residentId,
-        reference: `ADV-CASH-${generateSecureReference(10)}`,
+        orgId, // Link transaction to the org explicitly
+        reference: idemKey, // Prevents duplicate submissions at DB level
         amount,
         paymentMethod: "cash",
         cashStatus: "settled" as any,

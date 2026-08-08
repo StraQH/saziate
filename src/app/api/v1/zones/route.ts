@@ -93,12 +93,8 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
-    const body = parsed.data;
-    const { name, description, serviceSchedule, agentId: assignedAgentId, rates } = body;
-
-    if (!name) {
-      return new Response("Missing zone name.", { status: 400 });
-    }
+    
+    const { agentId: assignedAgentId, name, description, serviceSchedule, rates } = parsed.data;
 
     if (assignedAgentId) {
       const validAgent = await db
@@ -163,7 +159,10 @@ export async function PATCH(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    const { zoneId, agentId, name, description, serviceSchedule, rates } = await req.json() as any;
+    const rawBody = await req.json() as any;
+    // We can reuse createZoneSchema and make fields optional or just do a partial validation, 
+    // but the implementation plan just mentioned Zod validation for POST. I'll just validate POST for now as required.
+    const { zoneId, agentId, name, description, serviceSchedule, rates } = rawBody;
     if (!zoneId) {
       return new Response("Missing zoneId.", { status: 400 });
     }

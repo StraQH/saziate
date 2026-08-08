@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { requireRole, getActiveorgId } from "@/lib/session";
 import { getDb } from "@/db";
-import { users, zones } from "@/db/schema";
+import { users, zones, sessions } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
@@ -43,6 +43,8 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
       db.update(zones)
         .set({ assignedAgentId: null })
         .where(and(eq(zones.assignedAgentId, agentId), eq(zones.orgId, orgId))),
+      // 3. Immediately destroy all their active sessions
+      db.delete(sessions).where(eq(sessions.userId, agentId))
     ]);
 
     return new Response(

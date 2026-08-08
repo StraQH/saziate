@@ -3,7 +3,7 @@ import { getAppEnv } from "@/lib/env";
 import { requireRole } from "@/lib/session";
 import { getDb } from "@/db";
 import { invoices, residentProfiles, users, zoneResidents, zoneBillingRates, transactions } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { getActiveorgId } from "@/lib/session";
 import { generateId, generateSecureReference } from "@/lib/utils";
 import { z } from "zod";
@@ -42,158 +42,166 @@ export async function POST(req: Request) {
       return new Response("Unauthorized.", { status: 401 });
     }
 
-    // Retrieve all active resident profiles with their corresponding base rates
-    const profiles = await db
-      .select({
-        userId: residentProfiles.userId,
-        customMonthlyRate: residentProfiles.customMonthlyRate,
-        billingCategory: residentProfiles.billingCategory,
-        advancePaymentBalance: residentProfiles.advancePaymentBalance,
-        orgId: users.orgId,
-        zoneMonthlyRate: zoneBillingRates.monthlyRate,
-      })
-      .from(residentProfiles)
-      .innerJoin(users, eq(residentProfiles.userId, users.id))
-      .leftJoin(zoneResidents, eq(residentProfiles.userId, zoneResidents.residentId))
-      .leftJoin(zoneBillingRates, and(
-        eq(zoneResidents.zoneId, zoneBillingRates.zoneId),
-        eq(residentProfiles.billingCategory, zoneBillingRates.billingCategory)
-      ))
-      .where(eq(users.orgId, orgId));
-
     // Force UTC boundaries
     const billingPeriodStart = Date.UTC(year, month - 1, 1);
     const billingPeriodEnd = Date.UTC(year, month, 0, 23, 59, 59, 999);
+    // Standardized to the 7th of billing month in UTC to avoid date overflow bugs
+    const dueDate = new Date(Date.UTC(year, month - 1, 7, 23, 59, 59, 999));
 
-    // Fetch existing invoices for this month to prevent duplication
-    const existingInvoices = await db
-      .select({ residentId: invoices.residentId })
-      .from(invoices)
-      .where(and(
-        eq(invoices.orgId, orgId),
-        eq(invoices.billingPeriodStart, new Date(billingPeriodStart))
-      ));
-    
-    const billedResidentIds = new Set(existingInvoices.map((inv: { residentId: string }) => (inv as any).residentId));
+    let offset = 0;
+    const BATCH_SIZE = 500;
+    let hasMore = true;
 
-    const newInvoices: any[] = [];
-    const newTransactions: any[] = [];
-    const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
+    let generatedCount = 0;
 
-    for (const profile of profiles) {
-      // Prevent double billing
-      if (billedResidentIds.has(profile.userId)) {
-        continue;
-      }
-      // Base rate fallback or override check
-      const baseRate = profile.customMonthlyRate || profile.zoneMonthlyRate || config.locality.rates.general.residential;
-      const platformFee = Math.round((baseRate * config.PLATFORM_FEE_RATE) * 100) / 100;
-      const totalAmount = Math.round((baseRate + platformFee) * 100) / 100;
+    while (hasMore) {
+      // Retrieve active resident profiles with their corresponding base rates
+      const profiles = await db
+        .select({
+          userId: residentProfiles.userId,
+          customMonthlyRate: residentProfiles.customMonthlyRate,
+          billingCategory: residentProfiles.billingCategory,
+          advancePaymentBalance: residentProfiles.advancePaymentBalance,
+          orgId: users.orgId,
+          zoneMonthlyRate: zoneBillingRates.monthlyRate,
+        })
+        .from(residentProfiles)
+        .innerJoin(users, eq(residentProfiles.userId, users.id))
+        .leftJoin(zoneResidents, eq(residentProfiles.userId, zoneResidents.residentId))
+        .leftJoin(zoneBillingRates, and(
+          eq(zoneResidents.zoneId, zoneBillingRates.zoneId),
+          eq(residentProfiles.billingCategory, zoneBillingRates.billingCategory)
+        ))
+        .where(
+          and(
+            eq(users.orgId, orgId),
+            eq(users.isActive, true),
+            eq(residentProfiles.billingModel, "subscription")
+          )
+        )
+        .limit(BATCH_SIZE)
+        .offset(offset)
+        .all();
 
-      const advanceBalance = Math.round((profile.advancePaymentBalance || 0) * 100) / 100;
-      let finalAmount = totalAmount;
-      let invoiceStatus = "pending";
-      let isFullySettled = false;
-      let isPartiallySettled = false;
-      let amountSettledFromAdvance = 0;
-
-      if (advanceBalance >= totalAmount) {
-        // Full Settlement
-        finalAmount = 0;
-        invoiceStatus = "paid";
-        isFullySettled = true;
-        amountSettledFromAdvance = totalAmount;
-        profileUpdates.push({ userId: profile.userId, advancePaymentBalance: Math.round((advanceBalance - totalAmount) * 100) / 100 });
-      } else if (advanceBalance > 0) {
-        // Partial Settlement
-        finalAmount = Math.round((totalAmount - advanceBalance) * 100) / 100;
-        invoiceStatus = "pending";
-        isPartiallySettled = true;
-        amountSettledFromAdvance = advanceBalance;
-        profileUpdates.push({ userId: profile.userId, advancePaymentBalance: 0 });
+      if (profiles.length === 0) {
+        hasMore = false;
+        break;
       }
 
-      const invoiceId = generateId();
-      const paymentReference = generateSecureReference(10);
+      // Extract IDs to check existing invoices for just this batch
+      const batchResidentIds = profiles.map(p => p.userId);
+      const existingInvoices = await db
+        .select({ residentId: invoices.residentId })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.orgId, orgId),
+            eq(invoices.billingPeriodStart, new Date(billingPeriodStart)),
+            inArray(invoices.residentId, batchResidentIds)
+          )
+        )
+        .all();
       
-      // Standardized to the 7th of billing month in UTC to avoid date overflow bugs
-      const dueDate = new Date(Date.UTC(year, month - 1, 7, 23, 59, 59, 999));
+      const billedResidentIds = new Set(existingInvoices.map((inv) => (inv as any).residentId));
 
-      newInvoices.push({
-        id: invoiceId,
-        residentId: profile.userId,
-        orgId: profile.orgId!,
-        paymentReference,
-        baseAmount: baseRate,
-        platformFee,
-        totalAmount: finalAmount,
-        dueDate: dueDate,
-        status: invoiceStatus,
-        billingPeriodStart: new Date(billingPeriodStart),
-        billingPeriodEnd: new Date(billingPeriodEnd),
-      });
+      const newInvoices: any[] = [];
+      const newTransactions: any[] = [];
+      const profileUpdates: { userId: string; advancePaymentBalance: number }[] = [];
 
-      if (isFullySettled || isPartiallySettled) {
-        newTransactions.push({
-          id: generateId(),
-          invoiceId,
+      for (const profile of profiles) {
+        // Prevent double billing
+        if (billedResidentIds.has(profile.userId)) {
+          continue;
+        }
+
+        // Base rate fallback or override check
+        const baseRate = profile.customMonthlyRate || profile.zoneMonthlyRate || config.locality.rates.general.residential;
+        const platformFee = Math.round((baseRate * config.PLATFORM_FEE_RATE) * 100) / 100;
+        const totalAmount = Math.round((baseRate + platformFee) * 100) / 100;
+
+        const advanceBalance = Math.round((profile.advancePaymentBalance || 0) * 100) / 100;
+        let finalAmount = totalAmount;
+        let invoiceStatus = "pending";
+        let isFullySettled = false;
+        let isPartiallySettled = false;
+        let amountSettledFromAdvance = 0;
+
+        if (advanceBalance >= totalAmount) {
+          // Full Settlement
+          finalAmount = 0;
+          invoiceStatus = "paid";
+          isFullySettled = true;
+          amountSettledFromAdvance = totalAmount;
+          profileUpdates.push({ userId: profile.userId, advancePaymentBalance: Math.round((advanceBalance - totalAmount) * 100) / 100 });
+        } else if (advanceBalance > 0) {
+          // Partial Settlement
+          finalAmount = Math.round((totalAmount - advanceBalance) * 100) / 100;
+          invoiceStatus = "pending";
+          isPartiallySettled = true;
+          amountSettledFromAdvance = advanceBalance;
+          profileUpdates.push({ userId: profile.userId, advancePaymentBalance: 0 });
+        }
+
+        const invoiceId = generateId();
+        const paymentReference = generateSecureReference(10);
+        
+        newInvoices.push({
+          id: invoiceId,
           residentId: profile.userId,
-          reference: `ADV-SETTLE-${Date.now()}-${generateId().slice(0,4)}`,
-          amount: amountSettledFromAdvance,
-          paymentMethod: "advance_balance",
-          cashStatus: "settled" as any,
-          status: "success" as any,
-          paidAt: new Date(),
+          orgId: profile.orgId!,
+          paymentReference,
+          baseAmount: baseRate,
+          platformFee,
+          totalAmount: finalAmount,
+          dueDate: dueDate,
+          status: invoiceStatus,
+          billingPeriodStart: new Date(billingPeriodStart),
+          billingPeriodEnd: new Date(billingPeriodEnd),
+        });
+
+        if (isFullySettled || isPartiallySettled) {
+          newTransactions.push({
+            id: generateId(),
+            invoiceId,
+            residentId: profile.userId,
+            reference: `ADV-SETTLE-${Date.now()}-${generateId().slice(0,4)}`,
+            amount: amountSettledFromAdvance,
+            paymentMethod: "advance_balance",
+            cashStatus: "settled" as any,
+            status: "success" as any,
+            paidAt: new Date(),
+          });
+        }
+        
+        generatedCount++;
+      }
+
+      // Perform batch inserts in transaction
+      if (newInvoices.length > 0) {
+        await db.transaction(async (tx) => {
+          for (const inv of newInvoices) {
+            await tx.insert(invoices).values(inv);
+          }
+          for (const tr of newTransactions) {
+            await tx.insert(transactions).values(tr);
+          }
+          for (const update of profileUpdates) {
+            await tx
+              .update(residentProfiles)
+              .set({ advancePaymentBalance: update.advancePaymentBalance })
+              .where(eq(residentProfiles.userId, update.userId));
+          }
         });
       }
+
+      offset += BATCH_SIZE;
     }
 
-    // Optimization: Group mutations into atomic batch statement to eliminate sequential execution timeout bugs
-    const batchOps: any[] = [];
-
-    // Push Invoices
-    for (const inv of newInvoices) {
-      batchOps.push(db.insert(invoices).values(inv));
-    }
-
-    // Push Transactions
-    for (const tx of newTransactions) {
-      batchOps.push(db.insert(transactions).values(tx));
-    }
-
-    // Push Profile updates
-    for (const update of profileUpdates) {
-      batchOps.push(
-        db.update(residentProfiles)
-          .set({ advancePaymentBalance: update.advancePaymentBalance })
-          .where(eq(residentProfiles.userId, update.userId))
-      );
-    }
-
-    // Chunk batched execution into blocks of 90 statements to abide by D1 max request size limit (100)
-    if (batchOps.length > 0) {
-      const CHUNK_SIZE = 90;
-      for (let i = 0; i < batchOps.length; i += CHUNK_SIZE) {
-        const chunk = batchOps.slice(i, i + CHUNK_SIZE);
-        await db.batch(chunk as any);
-      }
-    }
-
-    return new Response(
-      JSON.stringify({
-        status: "success" as any,
-        invoicesCreatedCount: newInvoices.length,
-      }),
-      { status: 201, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ status: "success", generated: generatedCount }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (error: any) {
-    console.error("Generate Billing Error:", error);
-    console.error("[API Error]", error);
+    console.error("Billing Generation API Error:", error);
     if (error.message === "Unauthorized") {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-    }
-    if (error.message === "Forbidden") {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
     }
     return new Response(JSON.stringify({ error: "Internal Server Error" }), { status: 500 });
   }

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { getAppEnv } from "@/lib/env";
 import { createResidentSchema } from "@/lib/validators";
 import { getDb } from "@/db";
-import { users, residentProfiles, notificationLogs, accounts, zoneResidents, zones, invoices, zoneBillingRates } from "@/db/schema";
+import { users, residentProfiles, notificationLogs, accounts, zoneResidents, zones, invoices, zoneBillingRates, sessions } from "@/db/schema";
 import { eq, and, sql, like, inArray } from "drizzle-orm";
 import { generateSecureReference, generateSecurePassword, generateId, calculateResidentBill, normalizePhoneNumber } from "@/lib/utils";
 import { hashPassword } from "@/lib/hash";
@@ -64,6 +64,7 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(users.orgId, orgId),
+          eq(users.isActive, true),
           search ? like(users.name, `%${search}%`) : undefined
         )
       );
@@ -78,6 +79,7 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(users.orgId, orgId),
+          eq(users.isActive, true),
           search ? like(users.name, `%${search}%`) : undefined
         )
       )
@@ -367,28 +369,18 @@ export async function DELETE(req: Request) {
       return new Response("Resident not found under this PSP operator.", { status: 404 });
     }
 
-    // Perform soft-delete (anonymize fields, keep relational invoices intact)
-    await db
-      .update(users)
-      .set({
-        name: "Anonymized Resident",
-        firstName: null,
-        lastName: null,
-        phone: null,
-        email: `${userId}-deleted@saziate.com`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userId));
-
-    // Delete resident profile to halt cron billing engine
-    await db
-      .delete(residentProfiles)
-      .where(eq(residentProfiles.userId, userId));
-
-    // Remove from zone to stop showing up on field agent schedules
-    await db
-      .delete(zoneResidents)
-      .where(eq(zoneResidents.residentId, userId));
+    // Perform soft-delete (set isActive = false, keep relational data intact)
+    // AND explicitly wipe their sessions so they are logged out immediately
+    await db.batch([
+      db
+        .update(users)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId)),
+      db.delete(sessions).where(eq(sessions.userId, userId))
+    ]);
 
     const session = await auth(env.DB as any).api.getSession({ headers: req.headers });
     await db.insert(auditLogs).values({

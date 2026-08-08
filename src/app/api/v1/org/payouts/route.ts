@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       // 1. Check balance and reserve inside Drizzle transaction
       await db.transaction(async (tx) => {
         const digitalTxs = await tx
-          .select({ amount: transactions.amount })
+          .select({ total: sql<number>`SUM(${transactions.amount})` })
           .from(transactions)
           .innerJoin(users, eq(transactions.residentId, users.id))
           .where(and(
@@ -84,12 +84,12 @@ export async function POST(req: Request) {
             eq(transactions.paymentMethod, "bank_transfer"),
             eq(transactions.status, "success")
           ))
-          .all();
-        const totalDigitalRevenue = digitalTxs.reduce((sum: number, t) => sum + (t.amount || 0), 0);
+          .get();
+        const totalDigitalRevenue = digitalTxs?.total || 0;
         const orgDigitalEntitlement = totalDigitalRevenue / config.PLATFORM_FEE_DIVISOR;
 
         const cashTxs = await tx
-          .select({ amount: transactions.amount })
+          .select({ total: sql<number>`SUM(${transactions.amount})` })
           .from(transactions)
           .innerJoin(users, eq(transactions.residentId, users.id))
           .where(and(
@@ -97,27 +97,27 @@ export async function POST(req: Request) {
             eq(transactions.paymentMethod, "cash"),
             inArray(transactions.cashStatus, ["verified", "settled"])
           ))
-          .all();
-        const totalCashRevenue = cashTxs.reduce((sum: number, t) => sum + (t.amount || 0), 0);
+          .get();
+        const totalCashRevenue = cashTxs?.total || 0;
         const saziateCashFee = totalCashRevenue - (totalCashRevenue / config.PLATFORM_FEE_DIVISOR);
 
         const pastPayouts = await tx
-          .select({ amount: transactions.amount })
+          .select({ total: sql<number>`SUM(${transactions.amount})` })
           .from(transactions)
           .where(and(
             eq(transactions.orgId, org.id),
             like(transactions.reference, "PAYOUT-%"),
             inArray(transactions.status, ["initiated", "success"])
           ))
-          .all();
-        const totalPaidOut = pastPayouts.reduce((sum: number, t) => sum + (t.amount || 0), 0);
+          .get();
+        const totalPaidOut = pastPayouts?.total || 0;
 
         const notificationCosts = await tx
-          .select({ costNgn: notificationLogs.costNgn })
+          .select({ total: sql<number>`SUM(${notificationLogs.costNgn})` })
           .from(notificationLogs)
           .where(eq(notificationLogs.orgId, org.id))
-          .all();
-        const totalNotificationCosts = notificationCosts.reduce((sum: number, log) => sum + (log.costNgn || 0), 0);
+          .get();
+        const totalNotificationCosts = notificationCosts?.total || 0;
 
         // Standardize calculations with 2 decimal precision
         const roundedDigital = Math.round(orgDigitalEntitlement * 100) / 100;

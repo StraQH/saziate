@@ -59,6 +59,12 @@ export async function POST(req: Request) {
     const match = narration.match(/\b(SZ)?[A-Z0-9]{8,10}\b/i);
     const paymentRef = match ? match[0] : null;
 
+    // Idempotency check: if transaction already exists and is success, skip
+    const existingTx = await db.select().from(transactions).where(eq(transactions.reference, reference)).get();
+    if (existingTx && existingTx.status === "success") {
+      return new Response(JSON.stringify({ status: "success", message: "Transaction already processed." }), { status: 200 });
+    }
+
     // Find matching invoice
     const invoice = paymentRef
       ? await db.select().from(invoices).where(like(invoices.paymentReference, `%${paymentRef}%`)).get()

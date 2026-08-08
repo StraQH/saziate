@@ -107,7 +107,7 @@ export async function GET(req: Request) {
       const zoneIds = agentZones.map((r) => r.id);
 
       // 2. Get residents assigned to these zones
-      const zoneResList = await db
+      const baseQuery = db
         .select({
           residentId: zoneResidents.residentId,
           zoneId: zoneResidents.zoneId,
@@ -115,7 +115,6 @@ export async function GET(req: Request) {
           address: residentProfiles.address,
           zoneName: zones.name,
           billingModel: residentProfiles.billingModel,
-          
           onDemandUnit1Rate: residentProfiles.onDemandUnit1Rate,
           onDemandUnit2Rate: residentProfiles.onDemandUnit2Rate,
         })
@@ -128,28 +127,48 @@ export async function GET(req: Request) {
             inArray(zoneResidents.zoneId, zoneIds),
             search ? like(users.name, `%${search}%`) : undefined
           )
-        )
-        .all();
+        );
 
-      // 3. Get services logged today on these zones
+      const zoneResList = await baseQuery.limit(limit).offset(offset).all();
+
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(zoneResidents)
+        .innerJoin(users, eq(zoneResidents.residentId, users.id))
+        .where(
+          and(
+            inArray(zoneResidents.zoneId, zoneIds),
+            search ? like(users.name, `%${search}%`) : undefined
+          )
+        )
+        .get();
+
+      const totalCount = countResult?.count || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      // 3. Get services logged today on these zones for just these residents
+      const residentIds = zoneResList.map(r => r.residentId);
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
 
-      const logsToday = await db
-        .select({
-          id: fieldLogs.id,
-          residentId: fieldLogs.residentId,
-          status: fieldLogs.status,
-          loggedAt: fieldLogs.loggedAt
-        })
-        .from(fieldLogs)
-        .where(
-          and(
-            inArray(fieldLogs.zoneId, zoneIds),
-            sql`${fieldLogs.loggedAt} >= ${startOfToday.getTime()}`
+      let logsToday: any[] = [];
+      if (residentIds.length > 0) {
+        logsToday = await db
+          .select({
+            id: fieldLogs.id,
+            residentId: fieldLogs.residentId,
+            status: fieldLogs.status,
+            loggedAt: fieldLogs.loggedAt
+          })
+          .from(fieldLogs)
+          .where(
+            and(
+              inArray(fieldLogs.residentId, residentIds),
+              sql`${fieldLogs.loggedAt} >= ${startOfToday.getTime()}`
+            )
           )
-        )
-        .all();
+          .all();
+      }
 
       const logsMap = new Map<string, any>(logsToday.map((l) => [l.residentId, l]));
 
@@ -171,14 +190,11 @@ export async function GET(req: Request) {
         };
       });
 
-      const totalCount = formattedResults.length;
-      const paginated = formattedResults.slice(offset, offset + limit);
-
       return new Response(JSON.stringify({
         view: "residents",
-        data: paginated,
-        totalCount: paginated.length,
-        totalPages: 1,
+        data: formattedResults,
+        totalCount: totalCount,
+        totalPages: totalPages,
         page,
         limit
       }), {

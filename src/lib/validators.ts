@@ -80,6 +80,7 @@ export const logCashSchema = z.object({
   invoiceId: z.string().min(1),
   residentId: z.string().min(1),
   amount: z.number().positive().or(z.string()),
+  idemKey: z.string().min(1),
 });
 
 // Billing

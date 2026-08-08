@@ -99,7 +99,8 @@ export async function GET(req: Request) {
       const minPayoutThreshold = config.locality.autoPayoutMinimum || 1000;
 
       if (availablePayout >= minPayoutThreshold) {
-        const payoutReference = `PAYOUT-${org.id.slice(0, 8)}-${generateSecureReference(8)}`;
+        const dateStr = new Date().toISOString().split('T')[0];
+        const payoutReference = `PAYOUT-${org.id.slice(0, 8)}-${dateStr}`;
 
         if (config.isMockMode || !paystack) {
           // Log mock payout transaction

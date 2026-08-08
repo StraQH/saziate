@@ -12,7 +12,7 @@ import { config } from "@/lib/config";
 import { sendEmail } from "@/lib/email";
 import { sendNotificationWithFallback } from "@/lib/notifications";
 import { smsTemplates } from "@/lib/sms-templates";
-
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const env = getAppEnv() as Record<string, string | undefined>;
@@ -41,10 +41,17 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: parsed.error.flatten() }), { status: 400 });
     }
     const body = parsed.data;
-    const { invoiceId, residentId, amount: rawAmount } = body;
+    const { invoiceId, residentId, amount: rawAmount, idemKey } = body;
 
-    if (!invoiceId || !residentId || !rawAmount) {
+    if (!invoiceId || !residentId || !rawAmount || !idemKey) {
       return new Response("Missing required fields.", { status: 400 });
+    }
+
+    // Rate Limiting: 30 log-cash requests per window
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    const rateLimit = await checkRateLimit(ip, env.DB as any, "log-cash", { max: 30 });
+    if (!rateLimit.success) {
+      return new Response("Too many requests", { status: 429 });
     }
 
     const amount = Math.round((typeof rawAmount === "number" ? rawAmount : parseFloat(rawAmount)) * 100) / 100;
@@ -76,7 +83,8 @@ export async function POST(req: Request) {
     }
 
     const txId = generateId();
-    const cashRef = `CASH-REC-${Date.now()}`;
+    // Use the idemKey as the unique reference to prevent double insertions
+    const cashRef = idemKey;
 
     // Insert cash transaction
     await db.insert(transactions).values({

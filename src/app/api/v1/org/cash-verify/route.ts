@@ -61,8 +61,8 @@ export async function POST(req: Request) {
       return new Response("Unauthorized to verify this transaction.", { status: 403 });
     }
 
-    if (txData.cashStatus === "verified" || txData.cashStatus === "settled") {
-      return new Response("Cash is already verified or settled.", { status: 400 });
+    if (txData.cashStatus !== "pending_cash_verification") {
+      return new Response("Cash transaction is not pending verification.", { status: 400 });
     }
 
     const tx = txData;

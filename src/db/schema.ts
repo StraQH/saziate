@@ -13,11 +13,15 @@ export const users = sqliteTable("users", {
   phone: text("phone").unique(),
   image: text("image"),
   role: text("role", { enum: ["admin", "org_admin", "field_agent", "resident"] }).notNull().default("resident"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   orgId: text("org_id").references(() => organizations.id, { onDelete: "set null" }),
   mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-});
+}, (table) => [
+  index("users_org_id_idx").on(table.orgId),
+  index("users_is_active_idx").on(table.isActive)
+]);
 
 export const agentInvitations = sqliteTable("agent_invitations", {
   token: text("token").primaryKey(),
@@ -109,7 +113,10 @@ export const zones = sqliteTable("zones", {
   serviceSchedule: text("service_schedule").notNull().default(""),
   assignedAgentId: text("assigned_agent_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-}, (t) => [index("zones_org_idx").on(t.orgId)]);
+}, (t) => [
+  index("zones_org_idx").on(t.orgId),
+  index("zones_agent_idx").on(t.assignedAgentId)
+]);
 
 export const zoneBillingRates = sqliteTable("zone_billing_rates", {
   zoneId: text("zone_id").notNull().references(() => zones.id, { onDelete: "cascade" }),
@@ -138,7 +145,9 @@ export const residentProfiles = sqliteTable("resident_profiles", {
   billingModel: text("billing_model", { enum: ["subscription", "on_demand", "metered"] }).notNull().default("subscription"),
   onDemandUnit1Rate: real("on_demand_unit1_rate").notNull().default(0),
   onDemandUnit2Rate: real("on_demand_unit2_rate").notNull().default(0),
-});
+}, (t) => [
+  index("resident_profiles_user_idx").on(t.userId)
+]);
 
 export const zoneResidents = sqliteTable("zone_residents", {
   zoneId: text("zone_id").notNull().references(() => zones.id, { onDelete: "cascade" }),
@@ -151,8 +160,8 @@ export const zoneResidents = sqliteTable("zone_residents", {
 export const fieldLogs = sqliteTable("field_logs", {
   id: text("id").primaryKey(),
   zoneId: text("zone_id").notNull().references(() => zones.id, { onDelete: "cascade" }),
-  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  loggedById: text("logged_by_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").notNull().references(() => users.id),
+  loggedById: text("logged_by_id").notNull().references(() => users.id),
   status: text("status", {
     enum: ["completed", "no_access", "no_service", "failed_other"],
   }).notNull(),
@@ -161,13 +170,16 @@ export const fieldLogs = sqliteTable("field_logs", {
   metrics: text("metrics", { mode: "json" }), // e.g. { unit1: 2 } or { reading: 4500 }
   loggedAt: integer("logged_at", { mode: "timestamp_ms" }).notNull(),
   syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-}, (t) => [index("field_logs_resident_idx").on(t.residentId)]);
+}, (t) => [
+  index("field_logs_resident_idx").on(t.residentId),
+  index("field_logs_zone_idx").on(t.zoneId)
+]);
 
 // ─── Billing & Invoices ────────────────────────────────────────────────────
 
 export const invoices = sqliteTable("invoices", {
   id: text("id").primaryKey(),
-  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").notNull().references(() => users.id),
   orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   paymentReference: text("payment_reference").unique(), // Unique reference for bank transfer narration
   baseAmount: real("base_amount").notNull(),     // Rate in NGN
@@ -180,6 +192,8 @@ export const invoices = sqliteTable("invoices", {
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
 }, (t) => [
   index("invoices_resident_idx").on(t.residentId),
+  index("invoices_org_idx").on(t.orgId),
+  index("invoices_status_idx").on(t.status),
   unique("invoices_resident_billing_period_start_unique").on(t.residentId, t.billingPeriodStart)
 ]);
 
@@ -188,7 +202,7 @@ export const invoices = sqliteTable("invoices", {
 export const transactions = sqliteTable("transactions", {
   id: text("id").primaryKey(),
   invoiceId: text("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
-  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").notNull().references(() => users.id),
   orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }), // used for payouts
   reference: text("reference").notNull().unique(), // Monnify ref or "CASH-xxx"
   amount: real("amount").notNull(),
@@ -201,7 +215,11 @@ export const transactions = sqliteTable("transactions", {
   loggedById: text("logged_by_id").references(() => users.id, { onDelete: "set null" }), // field agent for cash
   paidAt: integer("paid_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-});
+}, (t) => [
+  index("transactions_org_idx").on(t.orgId),
+  index("transactions_resident_idx").on(t.residentId),
+  index("transactions_status_idx").on(t.status)
+]);
 
 // ─── Audit Log ─────────────────────────────────────────────────────────────
 
@@ -227,12 +245,14 @@ export const notificationLogs = sqliteTable("notification_logs", {
   termiiMessageId: text("termii_message_id"),
   status: text("status", { enum: ["sent", "failed"] }).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().default(sql`(unixepoch() * 1000)`),
-});
+}, (t) => [
+  index("notification_logs_org_idx").on(t.orgId)
+]);
 
 export const pendingNotifications = sqliteTable("pending_notifications", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-  residentId: text("resident_id").references(() => users.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").references(() => users.id),
   channel: text("channel", { enum: ["sms", "whatsapp", "email"] }).notNull(),
   messageType: text("message_type").notNull(),
   recipientPhone: text("recipient_phone").notNull(),
@@ -247,7 +267,7 @@ export const pendingNotifications = sqliteTable("pending_notifications", {
 
 export const complaints = sqliteTable("complaints", {
   id: text("id").primaryKey(),
-  residentId: text("resident_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  residentId: text("resident_id").notNull().references(() => users.id),
   orgId: text("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   status: text("status", { enum: ["submitted", "investigating", "resolved", "rejected"] }).notNull().default("submitted"),

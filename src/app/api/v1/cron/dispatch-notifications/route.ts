@@ -22,12 +22,12 @@ export async function GET(req: Request) {
   const db = getDb(env.DB as any);
   
   try {
-    // 1. Fetch up to 100 pending notifications that haven't failed more than 3 times
+    // 1. Fetch up to 50 pending notifications that haven't failed more than 3 times
     const queue = await db
       .select()
       .from(pendingNotifications)
       .where(lt(pendingNotifications.attempts, 3))
-      .limit(100);
+      .limit(50);
 
     if (queue.length === 0) {
       return new Response(JSON.stringify({ status: "success" as any, message: "Queue is empty." }), { status: 200 });

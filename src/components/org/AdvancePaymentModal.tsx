@@ -35,6 +35,7 @@ export function AdvancePaymentModal({ onClose, onSuccess }: AdvancePaymentModalP
         body: JSON.stringify({
           residentId,
           amount: parseFloat(amount),
+          idemKey: crypto.randomUUID(),
         }),
       });
 

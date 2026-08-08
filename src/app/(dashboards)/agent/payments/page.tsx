@@ -134,6 +134,7 @@ export default function AgentPaymentsPage() {
           invoiceId: config.isMockMode ? "inv-001" : (selectedResident as any).activeInvoiceId,
           residentId: selectedResident.residentId,
           amount: cashAmount,
+          idemKey: crypto.randomUUID(),
         }),
       });
 
